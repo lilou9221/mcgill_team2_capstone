@@ -1,0 +1,125 @@
+<html>
+<head>
+<title>test_step6_clipping.py</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #5f826b; font-style: italic;}
+.s1 { color: #bcbec4;}
+.s2 { color: #cf8e6d;}
+.s3 { color: #bcbec4;}
+.s4 { color: #7a7e85;}
+.s5 { color: #2aacb8;}
+.s6 { color: #6aab73;}
+</style>
+</head>
+<body bgcolor="#1e1f22">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+test_step6_clipping.py</font>
+</center></td></tr></table>
+<pre><span class="s0">&quot;&quot;&quot;Test Step 6: Radius Clipping functionality with existing GeoTIFF files.&quot;&quot;&quot;</span>
+
+<span class="s2">from </span><span class="s1">pathlib </span><span class="s2">import </span><span class="s1">Path</span>
+<span class="s2">from </span><span class="s1">src</span><span class="s3">.</span><span class="s1">utils</span><span class="s3">.</span><span class="s1">geospatial </span><span class="s2">import </span><span class="s1">create_circle_buffer</span>
+<span class="s2">from </span><span class="s1">src</span><span class="s3">.</span><span class="s1">data</span><span class="s3">.</span><span class="s1">raster_clip </span><span class="s2">import </span><span class="s1">clip_all_rasters_to_circle</span><span class="s3">, </span><span class="s1">verify_clipping_success</span>
+
+<span class="s4"># Center of Mato Grosso (from bounds: min_lat=-18.0, max_lat=-7.0, min_lon=-65.0, max_lon=-50.0)</span>
+<span class="s1">center_lat </span><span class="s3">= -</span><span class="s5">12.5</span>
+<span class="s1">center_lon </span><span class="s3">= -</span><span class="s5">57.5</span>
+<span class="s1">radius_km </span><span class="s3">= </span><span class="s5">100.0</span>
+
+<span class="s4"># Get project root</span>
+<span class="s1">project_root </span><span class="s3">= </span><span class="s1">Path</span><span class="s3">(</span><span class="s1">__file__</span><span class="s3">).</span><span class="s1">parent</span>
+<span class="s1">raw_dir </span><span class="s3">= </span><span class="s1">project_root </span><span class="s3">/ </span><span class="s6">&quot;data&quot; </span><span class="s3">/ </span><span class="s6">&quot;raw&quot;</span>
+<span class="s1">processed_dir </span><span class="s3">= </span><span class="s1">project_root </span><span class="s3">/ </span><span class="s6">&quot;data&quot; </span><span class="s3">/ </span><span class="s6">&quot;processed&quot;</span>
+
+<span class="s4"># Ensure directories exist</span>
+<span class="s1">raw_dir</span><span class="s3">.</span><span class="s1">mkdir</span><span class="s3">(</span><span class="s1">parents</span><span class="s3">=</span><span class="s2">True</span><span class="s3">, </span><span class="s1">exist_ok</span><span class="s3">=</span><span class="s2">True</span><span class="s3">)</span>
+<span class="s1">processed_dir</span><span class="s3">.</span><span class="s1">mkdir</span><span class="s3">(</span><span class="s1">parents</span><span class="s3">=</span><span class="s2">True</span><span class="s3">, </span><span class="s1">exist_ok</span><span class="s3">=</span><span class="s2">True</span><span class="s3">)</span>
+
+<span class="s1">print</span><span class="s3">(</span><span class="s6">&quot;&quot;&quot;============================================================ 
+Testing Step 6: Radius Clipping 
+============================================================ 
+ 
+Test Configuration: 
+  Center: ({}, {}) 
+  Radius: {} km 
+  Input directory: {} 
+  Output directory: {} 
+&quot;&quot;&quot;</span><span class="s3">.</span><span class="s1">format</span><span class="s3">(</span><span class="s1">center_lat</span><span class="s3">, </span><span class="s1">center_lon</span><span class="s3">, </span><span class="s1">radius_km</span><span class="s3">, </span><span class="s1">raw_dir</span><span class="s3">, </span><span class="s1">processed_dir</span><span class="s3">))</span>
+
+<span class="s4"># Check if input files exist</span>
+<span class="s1">tif_files </span><span class="s3">= </span><span class="s1">list</span><span class="s3">(</span><span class="s1">raw_dir</span><span class="s3">.</span><span class="s1">glob</span><span class="s3">(</span><span class="s6">&quot;*.tif&quot;</span><span class="s3">))</span>
+<span class="s2">if not </span><span class="s1">tif_files</span><span class="s3">:</span>
+    <span class="s1">print</span><span class="s3">(</span><span class="s6">&quot;ERROR: No GeoTIFF files found in {}&quot;</span><span class="s3">.</span><span class="s1">format</span><span class="s3">(</span><span class="s1">raw_dir</span><span class="s3">))</span>
+    <span class="s1">exit</span><span class="s3">(</span><span class="s5">1</span><span class="s3">)</span>
+
+<span class="s1">print</span><span class="s3">(</span><span class="s6">&quot;Found {} GeoTIFF file(s) in {}&quot;</span><span class="s3">.</span><span class="s1">format</span><span class="s3">(</span><span class="s1">len</span><span class="s3">(</span><span class="s1">tif_files</span><span class="s3">), </span><span class="s1">raw_dir</span><span class="s3">))</span>
+<span class="s2">for </span><span class="s1">tif_file </span><span class="s2">in </span><span class="s1">tif_files</span><span class="s3">:</span>
+    <span class="s1">print</span><span class="s3">(</span><span class="s6">&quot;  - {}&quot;</span><span class="s3">.</span><span class="s1">format</span><span class="s3">(</span><span class="s1">tif_file</span><span class="s3">.</span><span class="s1">name</span><span class="s3">))</span>
+
+<span class="s4"># Create circle buffer</span>
+<span class="s1">print</span><span class="s3">(</span><span class="s6">&quot;&quot;&quot; 
+------------------------------------------------------------ 
+Creating circle buffer... 
+------------------------------------------------------------&quot;&quot;&quot;</span><span class="s3">)</span>
+<span class="s2">try</span><span class="s3">:</span>
+    <span class="s1">circle </span><span class="s3">= </span><span class="s1">create_circle_buffer</span><span class="s3">(</span><span class="s1">lat</span><span class="s3">=</span><span class="s1">center_lat</span><span class="s3">, </span><span class="s1">lon</span><span class="s3">=</span><span class="s1">center_lon</span><span class="s3">, </span><span class="s1">radius_km</span><span class="s3">=</span><span class="s1">radius_km</span><span class="s3">)</span>
+    <span class="s1">print</span><span class="s3">(</span><span class="s6">&quot;Circle buffer created successfully&quot;</span><span class="s3">)</span>
+    <span class="s1">print</span><span class="s3">(</span><span class="s6">&quot;  Bounds: {}&quot;</span><span class="s3">.</span><span class="s1">format</span><span class="s3">(</span><span class="s1">circle</span><span class="s3">.</span><span class="s1">bounds</span><span class="s3">))</span>
+<span class="s2">except </span><span class="s1">Exception </span><span class="s2">as </span><span class="s1">e</span><span class="s3">:</span>
+    <span class="s1">print</span><span class="s3">(</span><span class="s6">&quot;ERROR: Failed to create circle buffer: {}&quot;</span><span class="s3">.</span><span class="s1">format</span><span class="s3">(</span><span class="s1">e</span><span class="s3">))</span>
+    <span class="s1">exit</span><span class="s3">(</span><span class="s5">1</span><span class="s3">)</span>
+
+<span class="s4"># Clip all rasters</span>
+<span class="s1">print</span><span class="s3">(</span><span class="s6">&quot;&quot;&quot; 
+------------------------------------------------------------ 
+Clipping GeoTIFF files... 
+------------------------------------------------------------&quot;&quot;&quot;</span><span class="s3">)</span>
+<span class="s2">try</span><span class="s3">:</span>
+    <span class="s1">clipped_files </span><span class="s3">= </span><span class="s1">clip_all_rasters_to_circle</span><span class="s3">(</span>
+        <span class="s1">input_dir</span><span class="s3">=</span><span class="s1">raw_dir</span><span class="s3">,</span>
+        <span class="s1">output_dir</span><span class="s3">=</span><span class="s1">processed_dir</span><span class="s3">,</span>
+        <span class="s1">circle_geometry</span><span class="s3">=</span><span class="s1">circle</span>
+    <span class="s3">)</span>
+    
+    <span class="s2">if not </span><span class="s1">clipped_files</span><span class="s3">:</span>
+        <span class="s1">print</span><span class="s3">(</span><span class="s6">&quot;ERROR: No files were clipped&quot;</span><span class="s3">)</span>
+        <span class="s1">exit</span><span class="s3">(</span><span class="s5">1</span><span class="s3">)</span>
+    
+    <span class="s4"># Verify clipping success</span>
+    <span class="s1">print</span><span class="s3">(</span><span class="s6">&quot;&quot;&quot; 
+------------------------------------------------------------ 
+Verifying clipped files... 
+------------------------------------------------------------&quot;&quot;&quot;</span><span class="s3">)</span>
+    <span class="s2">if </span><span class="s1">verify_clipping_success</span><span class="s3">(</span><span class="s1">clipped_files</span><span class="s3">):</span>
+        <span class="s1">print</span><span class="s3">(</span><span class="s6">&quot;SUCCESS: All clipped files are valid&quot;</span><span class="s3">)</span>
+        <span class="s1">print</span><span class="s3">(</span><span class="s6">&quot;&quot;&quot; 
+Clipped files:&quot;&quot;&quot;</span><span class="s3">)</span>
+        <span class="s2">for </span><span class="s1">clipped_file </span><span class="s2">in </span><span class="s1">clipped_files</span><span class="s3">:</span>
+            <span class="s1">file_size </span><span class="s3">= </span><span class="s1">clipped_file</span><span class="s3">.</span><span class="s1">stat</span><span class="s3">().</span><span class="s1">st_size </span><span class="s3">/ (</span><span class="s5">1024 </span><span class="s3">* </span><span class="s5">1024</span><span class="s3">)  </span><span class="s4"># MB</span>
+            <span class="s1">print</span><span class="s3">(</span><span class="s6">&quot;  - {} ({:.2f} MB)&quot;</span><span class="s3">.</span><span class="s1">format</span><span class="s3">(</span><span class="s1">clipped_file</span><span class="s3">.</span><span class="s1">name</span><span class="s3">, </span><span class="s1">file_size</span><span class="s3">))</span>
+    <span class="s2">else</span><span class="s3">:</span>
+        <span class="s1">print</span><span class="s3">(</span><span class="s6">&quot;WARNING: Some clipped files may be invalid&quot;</span><span class="s3">)</span>
+        <span class="s1">exit</span><span class="s3">(</span><span class="s5">1</span><span class="s3">)</span>
+    
+<span class="s2">except </span><span class="s1">Exception </span><span class="s2">as </span><span class="s1">e</span><span class="s3">:</span>
+    <span class="s1">print</span><span class="s3">(</span><span class="s6">&quot;ERROR: Failed to clip rasters: {}&quot;</span><span class="s3">.</span><span class="s1">format</span><span class="s3">(</span><span class="s1">e</span><span class="s3">))</span>
+    <span class="s2">import </span><span class="s1">traceback</span>
+    <span class="s1">traceback</span><span class="s3">.</span><span class="s1">print_exc</span><span class="s3">()</span>
+    <span class="s1">exit</span><span class="s3">(</span><span class="s5">1</span><span class="s3">)</span>
+
+<span class="s1">print</span><span class="s3">(</span><span class="s6">&quot;&quot;&quot; 
+============================================================ 
+Step 6 Test: PASSED 
+============================================================ 
+Successfully clipped {} file(s) to {}km radius circle 
+centered at ({}, {}) 
+Files saved to: {} 
+============================================================ 
+&quot;&quot;&quot;</span><span class="s3">.</span><span class="s1">format</span><span class="s3">(</span><span class="s1">len</span><span class="s3">(</span><span class="s1">clipped_files</span><span class="s3">), </span><span class="s1">radius_km</span><span class="s3">, </span><span class="s1">center_lat</span><span class="s3">, </span><span class="s1">center_lon</span><span class="s3">, </span><span class="s1">processed_dir</span><span class="s3">))</span>
+
+</pre>
+</body>
+</html>

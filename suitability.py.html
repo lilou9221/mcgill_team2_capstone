@@ -1,0 +1,667 @@
+<html>
+<head>
+<title>suitability.py</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #5f826b; font-style: italic;}
+.s1 { color: #bcbec4;}
+.s2 { color: #cf8e6d;}
+.s3 { color: #bcbec4;}
+.s4 { color: #7a7e85;}
+.s5 { color: #2aacb8;}
+.s6 { color: #6aab73;}
+</style>
+</head>
+<body bgcolor="#1e1f22">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+suitability.py</font>
+</center></td></tr></table>
+<pre><span class="s0">&quot;&quot;&quot; 
+Suitability Score Calculator 
+ 
+Calculates suitability scores based on soil property thresholds. 
+Merges CSV files and calculates individual property scores and final suitability score. 
+&quot;&quot;&quot;</span>
+
+<span class="s2">import </span><span class="s1">sys</span>
+<span class="s2">from </span><span class="s1">pathlib </span><span class="s2">import </span><span class="s1">Path</span>
+<span class="s2">from </span><span class="s1">typing </span><span class="s2">import </span><span class="s1">List</span><span class="s3">, </span><span class="s1">Dict</span><span class="s3">, </span><span class="s1">Any</span><span class="s3">, </span><span class="s1">Optional</span>
+<span class="s2">import </span><span class="s1">pandas </span><span class="s2">as </span><span class="s1">pd</span>
+<span class="s2">import </span><span class="s1">numpy </span><span class="s2">as </span><span class="s1">np</span>
+
+<span class="s4"># Add project root to path for imports</span>
+<span class="s1">project_root </span><span class="s3">= </span><span class="s1">Path</span><span class="s3">(</span><span class="s1">__file__</span><span class="s3">).</span><span class="s1">parent</span><span class="s3">.</span><span class="s1">parent</span><span class="s3">.</span><span class="s1">parent</span>
+<span class="s2">if </span><span class="s1">str</span><span class="s3">(</span><span class="s1">project_root</span><span class="s3">) </span><span class="s2">not in </span><span class="s1">sys</span><span class="s3">.</span><span class="s1">path</span><span class="s3">:</span>
+    <span class="s1">sys</span><span class="s3">.</span><span class="s1">path</span><span class="s3">.</span><span class="s1">insert</span><span class="s3">(</span><span class="s5">0</span><span class="s3">, </span><span class="s1">str</span><span class="s3">(</span><span class="s1">project_root</span><span class="s3">))</span>
+
+<span class="s2">from </span><span class="s1">src</span><span class="s3">.</span><span class="s1">analysis</span><span class="s3">.</span><span class="s1">thresholds </span><span class="s2">import </span><span class="s1">load_thresholds</span><span class="s3">, </span><span class="s1">get_property_thresholds</span>
+
+
+<span class="s2">def </span><span class="s1">calculate_property_score</span><span class="s3">(</span><span class="s1">value</span><span class="s3">: </span><span class="s1">float</span><span class="s3">, </span><span class="s1">thresholds</span><span class="s3">: </span><span class="s1">Dict</span><span class="s3">[</span><span class="s1">str</span><span class="s3">, </span><span class="s1">Any</span><span class="s3">]) </span><span class="s1">-&gt; float</span><span class="s3">:</span>
+    <span class="s0">&quot;&quot;&quot; 
+    Calculate score (0-10) for a single property value based on thresholds. 
+     
+    Scoring Logic: 
+    - Values within optimal range: score 6-10 
+      * Middle value of optimal range = 10 (best value) 
+      * Edges of optimal range = 6 
+      * Linear interpolation between center and edges 
+     
+    - Values outside optimal range (above or below): score 0-6 
+      * At optimal boundary = 6 
+      * Further from optimal range = lower score (closer to 0) 
+      * Normalized distance from optimal boundary to acceptable boundary 
+     
+    Note: We assume the middle value of the optimal range is the best value. 
+     
+    Parameters 
+    ---------- 
+    value : float 
+        Property value 
+    thresholds : Dict[str, Any] 
+        Threshold dictionary for the property 
+     
+    Returns 
+    ------- 
+    float 
+        Score between 0 and 10 (higher = better soil health, less biochar needed) 
+    &quot;&quot;&quot;</span>
+    <span class="s2">if </span><span class="s1">pd</span><span class="s3">.</span><span class="s1">isna</span><span class="s3">(</span><span class="s1">value</span><span class="s3">):</span>
+        <span class="s2">return </span><span class="s1">np</span><span class="s3">.</span><span class="s1">nan</span>
+    
+    <span class="s4"># Get optimal range (high range = optimal)</span>
+    <span class="s1">scoring </span><span class="s3">= </span><span class="s1">thresholds</span><span class="s3">.</span><span class="s1">get</span><span class="s3">(</span><span class="s6">'scoring'</span><span class="s3">, {})</span>
+    
+    <span class="s2">if </span><span class="s6">'high' </span><span class="s2">not in </span><span class="s1">scoring</span><span class="s3">:</span>
+        <span class="s4"># No optimal range defined, return 0</span>
+        <span class="s2">return </span><span class="s5">0.0</span>
+    
+    <span class="s1">high_range </span><span class="s3">= </span><span class="s1">scoring</span><span class="s3">[</span><span class="s6">'high'</span><span class="s3">]</span>
+    <span class="s2">if not </span><span class="s1">isinstance</span><span class="s3">(</span><span class="s1">high_range</span><span class="s3">, (</span><span class="s1">list</span><span class="s3">, </span><span class="s1">tuple</span><span class="s3">)) </span><span class="s2">or </span><span class="s1">len</span><span class="s3">(</span><span class="s1">high_range</span><span class="s3">) != </span><span class="s5">2</span><span class="s3">:</span>
+        <span class="s4"># Invalid high range format, return 0</span>
+        <span class="s2">return </span><span class="s5">0.0</span>
+    
+    <span class="s1">optimal_min </span><span class="s3">= </span><span class="s1">float</span><span class="s3">(</span><span class="s1">high_range</span><span class="s3">[</span><span class="s5">0</span><span class="s3">])</span>
+    <span class="s1">optimal_max </span><span class="s3">= </span><span class="s1">float</span><span class="s3">(</span><span class="s1">high_range</span><span class="s3">[</span><span class="s5">1</span><span class="s3">])</span>
+    
+    <span class="s4"># Validate range</span>
+    <span class="s2">if </span><span class="s1">optimal_min </span><span class="s3">&gt;= </span><span class="s1">optimal_max</span><span class="s3">:</span>
+        <span class="s4"># Invalid range (min &gt;= max), return 0</span>
+        <span class="s2">return </span><span class="s5">0.0</span>
+    
+    <span class="s4"># Get acceptable range bounds for distance calculation</span>
+    <span class="s1">acceptable_min </span><span class="s3">= </span><span class="s1">thresholds</span><span class="s3">.</span><span class="s1">get</span><span class="s3">(</span><span class="s6">'acceptable_min'</span><span class="s3">, </span><span class="s1">optimal_min</span><span class="s3">)</span>
+    <span class="s1">acceptable_max </span><span class="s3">= </span><span class="s1">thresholds</span><span class="s3">.</span><span class="s1">get</span><span class="s3">(</span><span class="s6">'acceptable_max'</span><span class="s3">, </span><span class="s1">optimal_max</span><span class="s3">)</span>
+    
+    <span class="s4"># Calculate center of optimal range (assumed to be the best value)</span>
+    <span class="s1">center </span><span class="s3">= (</span><span class="s1">optimal_min </span><span class="s3">+ </span><span class="s1">optimal_max</span><span class="s3">) / </span><span class="s5">2.0</span>
+    
+    <span class="s4"># Calculate distance from optimal range</span>
+    <span class="s2">if </span><span class="s1">optimal_min </span><span class="s3">&lt;= </span><span class="s1">value </span><span class="s3">&lt;= </span><span class="s1">optimal_max</span><span class="s3">:</span>
+        <span class="s4"># Value is within optimal range - score 6-10</span>
+        <span class="s4"># Middle value (center) = 10, edges = 6</span>
+        <span class="s2">if </span><span class="s1">optimal_min </span><span class="s3">== </span><span class="s1">optimal_max</span><span class="s3">:</span>
+            <span class="s2">return </span><span class="s5">10.0  </span><span class="s4"># Single optimal value (center)</span>
+        
+        <span class="s4"># Calculate distance from center</span>
+        <span class="s1">distance_from_center </span><span class="s3">= </span><span class="s1">abs</span><span class="s3">(</span><span class="s1">value </span><span class="s3">- </span><span class="s1">center</span><span class="s3">)</span>
+        <span class="s1">max_distance_from_center </span><span class="s3">= (</span><span class="s1">optimal_max </span><span class="s3">- </span><span class="s1">optimal_min</span><span class="s3">) / </span><span class="s5">2.0</span>
+        
+        <span class="s2">if </span><span class="s1">max_distance_from_center </span><span class="s3">== </span><span class="s5">0</span><span class="s3">:</span>
+            <span class="s2">return </span><span class="s5">10.0</span>
+        
+        <span class="s4"># Score decreases from 10 (center) to 6 (edges) as distance from center increases</span>
+        <span class="s4"># Linear interpolation: at center (distance=0) -&gt; score=10, at edges (distance=max) -&gt; score=6</span>
+        <span class="s1">ratio </span><span class="s3">= </span><span class="s5">1.0 </span><span class="s3">- (</span><span class="s1">distance_from_center </span><span class="s3">/ </span><span class="s1">max_distance_from_center</span><span class="s3">)</span>
+        <span class="s1">score </span><span class="s3">= </span><span class="s5">6.0 </span><span class="s3">+ (</span><span class="s1">ratio </span><span class="s3">* </span><span class="s5">4.0</span><span class="s3">)  </span><span class="s4"># 6 to 10</span>
+        <span class="s2">return </span><span class="s1">max</span><span class="s3">(</span><span class="s5">6.0</span><span class="s3">, </span><span class="s1">min</span><span class="s3">(</span><span class="s5">10.0</span><span class="s3">, </span><span class="s1">score</span><span class="s3">))</span>
+    
+    <span class="s2">elif </span><span class="s1">value </span><span class="s3">&lt; </span><span class="s1">optimal_min</span><span class="s3">:</span>
+        <span class="s4"># Value is below optimal range - score 0-6</span>
+        <span class="s4"># At optimal_min (boundary) = 6, further away = lower</span>
+        
+        <span class="s4"># Check if value is below acceptable range (very poor)</span>
+        <span class="s2">if </span><span class="s1">value </span><span class="s3">&lt; </span><span class="s1">acceptable_min</span><span class="s3">:</span>
+            <span class="s4"># Value is beyond acceptable range - score 0</span>
+            <span class="s2">return </span><span class="s5">0.0</span>
+        
+        <span class="s4"># Calculate distance from optimal boundary</span>
+        <span class="s1">distance </span><span class="s3">= </span><span class="s1">optimal_min </span><span class="s3">- </span><span class="s1">value</span>
+        
+        <span class="s4"># Calculate maximum possible distance (from acceptable_min to optimal_min)</span>
+        <span class="s1">max_distance </span><span class="s3">= </span><span class="s1">optimal_min </span><span class="s3">- </span><span class="s1">acceptable_min</span>
+        
+        <span class="s2">if </span><span class="s1">max_distance </span><span class="s3">&lt;= </span><span class="s5">0</span><span class="s3">:</span>
+            <span class="s4"># No range below optimal, use a default penalty</span>
+            <span class="s4"># Score decreases from 6 to 0 as distance increases</span>
+            <span class="s2">return </span><span class="s1">max</span><span class="s3">(</span><span class="s5">0.0</span><span class="s3">, </span><span class="s5">6.0 </span><span class="s3">- (</span><span class="s1">distance </span><span class="s3">* </span><span class="s5">6.0 </span><span class="s3">/ </span><span class="s1">abs</span><span class="s3">(</span><span class="s1">optimal_min</span><span class="s3">) </span><span class="s2">if </span><span class="s1">optimal_min </span><span class="s3">!= </span><span class="s5">0 </span><span class="s2">else </span><span class="s1">distance </span><span class="s3">* </span><span class="s5">6.0</span><span class="s3">))</span>
+        
+        <span class="s4"># Score decreases from 6 to 0 as distance increases</span>
+        <span class="s4"># Linear interpolation: at optimal_min (distance=0) -&gt; score=6, at acceptable_min (distance=max_distance) -&gt; score=0</span>
+        <span class="s1">ratio </span><span class="s3">= </span><span class="s5">1.0 </span><span class="s3">- (</span><span class="s1">distance </span><span class="s3">/ </span><span class="s1">max_distance</span><span class="s3">)</span>
+        <span class="s1">score </span><span class="s3">= </span><span class="s1">ratio </span><span class="s3">* </span><span class="s5">6.0  </span><span class="s4"># 0 to 6</span>
+        <span class="s2">return </span><span class="s1">max</span><span class="s3">(</span><span class="s5">0.0</span><span class="s3">, </span><span class="s1">min</span><span class="s3">(</span><span class="s5">6.0</span><span class="s3">, </span><span class="s1">score</span><span class="s3">))</span>
+    
+    <span class="s2">else</span><span class="s3">:  </span><span class="s4"># value &gt; optimal_max</span>
+        <span class="s4"># Value is above optimal range - score 0-6</span>
+        <span class="s4"># At optimal_max (boundary) = 6, further away = lower</span>
+        
+        <span class="s4"># Check if value is above acceptable range (very poor)</span>
+        <span class="s2">if </span><span class="s1">value </span><span class="s3">&gt; </span><span class="s1">acceptable_max</span><span class="s3">:</span>
+            <span class="s4"># Value is beyond acceptable range - score 0</span>
+            <span class="s2">return </span><span class="s5">0.0</span>
+        
+        <span class="s4"># Calculate distance from optimal boundary</span>
+        <span class="s1">distance </span><span class="s3">= </span><span class="s1">value </span><span class="s3">- </span><span class="s1">optimal_max</span>
+        
+        <span class="s4"># Calculate maximum possible distance (from optimal_max to acceptable_max)</span>
+        <span class="s1">max_distance </span><span class="s3">= </span><span class="s1">acceptable_max </span><span class="s3">- </span><span class="s1">optimal_max</span>
+        
+        <span class="s2">if </span><span class="s1">max_distance </span><span class="s3">&lt;= </span><span class="s5">0</span><span class="s3">:</span>
+            <span class="s4"># No range above optimal, use a default penalty</span>
+            <span class="s4"># Score decreases from 6 to 0 as distance increases</span>
+            <span class="s2">return </span><span class="s1">max</span><span class="s3">(</span><span class="s5">0.0</span><span class="s3">, </span><span class="s5">6.0 </span><span class="s3">- (</span><span class="s1">distance </span><span class="s3">* </span><span class="s5">6.0 </span><span class="s3">/ </span><span class="s1">abs</span><span class="s3">(</span><span class="s1">optimal_max</span><span class="s3">) </span><span class="s2">if </span><span class="s1">optimal_max </span><span class="s3">!= </span><span class="s5">0 </span><span class="s2">else </span><span class="s1">distance </span><span class="s3">* </span><span class="s5">6.0</span><span class="s3">))</span>
+        
+        <span class="s4"># Score decreases from 6 to 0 as distance increases</span>
+        <span class="s4"># Linear interpolation: at optimal_max (distance=0) -&gt; score=6, at acceptable_max (distance=max_distance) -&gt; score=0</span>
+        <span class="s1">ratio </span><span class="s3">= </span><span class="s5">1.0 </span><span class="s3">- (</span><span class="s1">distance </span><span class="s3">/ </span><span class="s1">max_distance</span><span class="s3">)</span>
+        <span class="s1">score </span><span class="s3">= </span><span class="s1">ratio </span><span class="s3">* </span><span class="s5">6.0  </span><span class="s4"># 0 to 6</span>
+        <span class="s2">return </span><span class="s1">max</span><span class="s3">(</span><span class="s5">0.0</span><span class="s3">, </span><span class="s1">min</span><span class="s3">(</span><span class="s5">6.0</span><span class="s3">, </span><span class="s1">score</span><span class="s3">))</span>
+
+
+<span class="s2">def </span><span class="s1">calculate_suitability_scores</span><span class="s3">(</span>
+    <span class="s1">df</span><span class="s3">: </span><span class="s1">pd</span><span class="s3">.</span><span class="s1">DataFrame</span><span class="s3">,</span>
+    <span class="s1">thresholds</span><span class="s3">: </span><span class="s1">Dict</span><span class="s3">[</span><span class="s1">str</span><span class="s3">, </span><span class="s1">Any</span><span class="s3">],</span>
+    <span class="s1">property_weights</span><span class="s3">: </span><span class="s1">Optional</span><span class="s3">[</span><span class="s1">Dict</span><span class="s3">[</span><span class="s1">str</span><span class="s3">, </span><span class="s1">float</span><span class="s3">]] = </span><span class="s2">None</span>
+<span class="s3">) </span><span class="s1">-&gt; pd</span><span class="s3">.</span><span class="s1">DataFrame</span><span class="s3">:</span>
+    <span class="s0">&quot;&quot;&quot; 
+    Calculate suitability scores for all properties and final combined score. 
+     
+    Parameters 
+    ---------- 
+    df : pd.DataFrame 
+        DataFrame with soil property columns (lon, lat, h3_index, soil_moisture, etc.) 
+    thresholds : Dict[str, Any] 
+        Full thresholds dictionary 
+    property_weights : Dict[str, float], optional 
+        Weights for each property. If None, uses equal weights (default: None) 
+     
+    Returns 
+    ------- 
+    pd.DataFrame 
+        DataFrame with added score columns and final suitability_score 
+    &quot;&quot;&quot;</span>
+    <span class="s1">df </span><span class="s3">= </span><span class="s1">df</span><span class="s3">.</span><span class="s1">copy</span><span class="s3">()</span>
+    
+    <span class="s4"># Property names to score (only the 4 with thresholds)</span>
+    <span class="s1">properties_to_score </span><span class="s3">= [</span><span class="s6">'soil_moisture'</span><span class="s3">, </span><span class="s6">'soil_temperature'</span><span class="s3">, </span><span class="s6">'soil_organic_carbon'</span><span class="s3">, </span><span class="s6">'soil_pH'</span><span class="s3">]</span>
+    
+    <span class="s4"># Map property names to column name patterns (handle different naming conventions)</span>
+    <span class="s1">property_column_patterns </span><span class="s3">= {</span>
+        <span class="s6">'soil_moisture'</span><span class="s3">: [</span><span class="s6">'soil_moisture'</span><span class="s3">, </span><span class="s6">'sm_surface'</span><span class="s3">],</span>
+        <span class="s6">'soil_temperature'</span><span class="s3">: [</span><span class="s6">'soil_temp'</span><span class="s3">, </span><span class="s6">'soil_temperature'</span><span class="s3">, </span><span class="s6">'soil_temp_layer1'</span><span class="s3">],</span>
+        <span class="s6">'soil_organic_carbon'</span><span class="s3">: [</span><span class="s6">'soc'</span><span class="s3">, </span><span class="s6">'soil_organic_carbon'</span><span class="s3">],</span>
+        <span class="s6">'soil_pH'</span><span class="s3">: [</span><span class="s6">'soil_ph'</span><span class="s3">, </span><span class="s6">'soil_pH'</span><span class="s3">]</span>
+    <span class="s3">}</span>
+    
+    <span class="s4"># Find columns that match property names (handle resolution suffixes)</span>
+    <span class="s2">def </span><span class="s1">find_property_column</span><span class="s3">(</span><span class="s1">prop_name</span><span class="s3">: </span><span class="s1">str</span><span class="s3">) </span><span class="s1">-&gt; Optional</span><span class="s3">[</span><span class="s1">str</span><span class="s3">]:</span>
+        <span class="s0">&quot;&quot;&quot;Find column name that matches property name.&quot;&quot;&quot;</span>
+        <span class="s1">patterns </span><span class="s3">= </span><span class="s1">property_column_patterns</span><span class="s3">.</span><span class="s1">get</span><span class="s3">(</span><span class="s1">prop_name</span><span class="s3">, [</span><span class="s1">prop_name</span><span class="s3">])</span>
+        
+        <span class="s4"># First try exact matches</span>
+        <span class="s2">for </span><span class="s1">pattern </span><span class="s2">in </span><span class="s1">patterns</span><span class="s3">:</span>
+            <span class="s2">if </span><span class="s1">pattern </span><span class="s2">in </span><span class="s1">df</span><span class="s3">.</span><span class="s1">columns</span><span class="s3">:</span>
+                <span class="s2">return </span><span class="s1">pattern</span>
+        
+        <span class="s4"># Then try columns that start with or contain the pattern (handles resolution suffixes)</span>
+        <span class="s2">for </span><span class="s1">col </span><span class="s2">in </span><span class="s1">df</span><span class="s3">.</span><span class="s1">columns</span><span class="s3">:</span>
+            <span class="s1">col_lower </span><span class="s3">= </span><span class="s1">col</span><span class="s3">.</span><span class="s1">lower</span><span class="s3">()</span>
+            <span class="s4"># Exclude score columns and coordinate columns</span>
+            <span class="s2">if </span><span class="s6">'score' </span><span class="s2">in </span><span class="s1">col_lower </span><span class="s2">or </span><span class="s1">col_lower </span><span class="s2">in </span><span class="s3">[</span><span class="s6">'lon'</span><span class="s3">, </span><span class="s6">'lat'</span><span class="s3">, </span><span class="s6">'h3_index'</span><span class="s3">]:</span>
+                <span class="s2">continue</span>
+            
+            <span class="s4"># Check if column matches any pattern</span>
+            <span class="s2">for </span><span class="s1">pattern </span><span class="s2">in </span><span class="s1">patterns</span><span class="s3">:</span>
+                <span class="s1">pattern_lower </span><span class="s3">= </span><span class="s1">pattern</span><span class="s3">.</span><span class="s1">lower</span><span class="s3">()</span>
+                <span class="s4"># Check if column starts with pattern or contains it</span>
+                <span class="s2">if </span><span class="s1">col_lower</span><span class="s3">.</span><span class="s1">startswith</span><span class="s3">(</span><span class="s1">pattern_lower</span><span class="s3">) </span><span class="s2">or </span><span class="s1">pattern_lower </span><span class="s2">in </span><span class="s1">col_lower</span><span class="s3">:</span>
+                    <span class="s2">return </span><span class="s1">col</span>
+        
+        <span class="s2">return None</span>
+    
+    <span class="s4"># Calculate individual property scores</span>
+    <span class="s1">score_columns </span><span class="s3">= []</span>
+    <span class="s2">for </span><span class="s1">prop_name </span><span class="s2">in </span><span class="s1">properties_to_score</span><span class="s3">:</span>
+        <span class="s4"># Find the actual column name in the DataFrame</span>
+        <span class="s1">column_name </span><span class="s3">= </span><span class="s1">find_property_column</span><span class="s3">(</span><span class="s1">prop_name</span><span class="s3">)</span>
+        
+        <span class="s2">if </span><span class="s1">column_name </span><span class="s2">is None</span><span class="s3">:</span>
+            <span class="s4"># Property not found in DataFrame, skip</span>
+            <span class="s1">print</span><span class="s3">(</span><span class="s6">f&quot;  Warning: Column for </span><span class="s2">{</span><span class="s1">prop_name</span><span class="s2">} </span><span class="s6">not found in DataFrame&quot;</span><span class="s3">)</span>
+            <span class="s2">continue</span>
+        
+        <span class="s4"># Get thresholds for this property</span>
+        <span class="s2">try</span><span class="s3">:</span>
+            <span class="s1">prop_thresholds </span><span class="s3">= </span><span class="s1">get_property_thresholds</span><span class="s3">(</span><span class="s1">thresholds</span><span class="s3">, </span><span class="s1">prop_name</span><span class="s3">)</span>
+        <span class="s2">except </span><span class="s1">KeyError</span><span class="s3">:</span>
+            <span class="s4"># Property not in thresholds, skip</span>
+            <span class="s2">continue</span>
+        
+        <span class="s4"># Calculate scores</span>
+        <span class="s1">score_col_name </span><span class="s3">= </span><span class="s6">f&quot;</span><span class="s2">{</span><span class="s1">prop_name</span><span class="s2">}</span><span class="s6">_score&quot;</span>
+        <span class="s1">df</span><span class="s3">[</span><span class="s1">score_col_name</span><span class="s3">] = </span><span class="s1">df</span><span class="s3">[</span><span class="s1">column_name</span><span class="s3">].</span><span class="s1">apply</span><span class="s3">(</span>
+            <span class="s2">lambda </span><span class="s1">x</span><span class="s3">: </span><span class="s1">calculate_property_score</span><span class="s3">(</span><span class="s1">x</span><span class="s3">, </span><span class="s1">prop_thresholds</span><span class="s3">)</span>
+        <span class="s3">)</span>
+        <span class="s1">score_columns</span><span class="s3">.</span><span class="s1">append</span><span class="s3">(</span><span class="s1">score_col_name</span><span class="s3">)</span>
+    
+    <span class="s4"># Calculate final suitability score (weighted average)</span>
+    <span class="s2">if not </span><span class="s1">score_columns</span><span class="s3">:</span>
+        <span class="s4"># No scores calculated, return original DataFrame</span>
+        <span class="s2">return </span><span class="s1">df</span>
+    
+    <span class="s4"># Set default weights (equal weights)</span>
+    <span class="s2">if </span><span class="s1">property_weights </span><span class="s2">is None</span><span class="s3">:</span>
+        <span class="s1">property_weights </span><span class="s3">= {</span><span class="s1">col</span><span class="s3">: </span><span class="s5">1.0 </span><span class="s2">for </span><span class="s1">col </span><span class="s2">in </span><span class="s1">score_columns</span><span class="s3">}</span>
+    
+    <span class="s4"># Normalize weights</span>
+    <span class="s1">total_weight </span><span class="s3">= </span><span class="s1">sum</span><span class="s3">(</span><span class="s1">property_weights</span><span class="s3">.</span><span class="s1">get</span><span class="s3">(</span><span class="s1">col</span><span class="s3">, </span><span class="s5">1.0</span><span class="s3">) </span><span class="s2">for </span><span class="s1">col </span><span class="s2">in </span><span class="s1">score_columns</span><span class="s3">)</span>
+    <span class="s2">if </span><span class="s1">total_weight </span><span class="s3">&gt; </span><span class="s5">0</span><span class="s3">:</span>
+        <span class="s1">normalized_weights </span><span class="s3">= {</span><span class="s1">col</span><span class="s3">: </span><span class="s1">property_weights</span><span class="s3">.</span><span class="s1">get</span><span class="s3">(</span><span class="s1">col</span><span class="s3">, </span><span class="s5">1.0</span><span class="s3">) / </span><span class="s1">total_weight </span><span class="s2">for </span><span class="s1">col </span><span class="s2">in </span><span class="s1">score_columns</span><span class="s3">}</span>
+    <span class="s2">else</span><span class="s3">:</span>
+        <span class="s1">normalized_weights </span><span class="s3">= {</span><span class="s1">col</span><span class="s3">: </span><span class="s5">1.0 </span><span class="s3">/ </span><span class="s1">len</span><span class="s3">(</span><span class="s1">score_columns</span><span class="s3">) </span><span class="s2">for </span><span class="s1">col </span><span class="s2">in </span><span class="s1">score_columns</span><span class="s3">}</span>
+    
+    <span class="s4"># Calculate weighted average (only for rows with at least one valid score)</span>
+    <span class="s2">def </span><span class="s1">calculate_final_score</span><span class="s3">(</span><span class="s1">row</span><span class="s3">):</span>
+        <span class="s1">scores </span><span class="s3">= [</span><span class="s1">row</span><span class="s3">[</span><span class="s1">col</span><span class="s3">] </span><span class="s2">for </span><span class="s1">col </span><span class="s2">in </span><span class="s1">score_columns </span><span class="s2">if </span><span class="s1">pd</span><span class="s3">.</span><span class="s1">notna</span><span class="s3">(</span><span class="s1">row</span><span class="s3">[</span><span class="s1">col</span><span class="s3">])]</span>
+        <span class="s1">weights </span><span class="s3">= [</span><span class="s1">normalized_weights</span><span class="s3">[</span><span class="s1">col</span><span class="s3">] </span><span class="s2">for </span><span class="s1">col </span><span class="s2">in </span><span class="s1">score_columns </span><span class="s2">if </span><span class="s1">pd</span><span class="s3">.</span><span class="s1">notna</span><span class="s3">(</span><span class="s1">row</span><span class="s3">[</span><span class="s1">col</span><span class="s3">])]</span>
+        
+        <span class="s2">if not </span><span class="s1">scores</span><span class="s3">:</span>
+            <span class="s2">return </span><span class="s1">np</span><span class="s3">.</span><span class="s1">nan</span>
+        
+        <span class="s4"># Normalize weights for available scores</span>
+        <span class="s1">total_available_weight </span><span class="s3">= </span><span class="s1">sum</span><span class="s3">(</span><span class="s1">weights</span><span class="s3">)</span>
+        <span class="s2">if </span><span class="s1">total_available_weight </span><span class="s3">&gt; </span><span class="s5">0</span><span class="s3">:</span>
+            <span class="s1">weights </span><span class="s3">= [</span><span class="s1">w </span><span class="s3">/ </span><span class="s1">total_available_weight </span><span class="s2">for </span><span class="s1">w </span><span class="s2">in </span><span class="s1">weights</span><span class="s3">]</span>
+        
+        <span class="s4"># Weighted average</span>
+        <span class="s1">final_score </span><span class="s3">= </span><span class="s1">sum</span><span class="s3">(</span><span class="s1">s </span><span class="s3">* </span><span class="s1">w </span><span class="s2">for </span><span class="s1">s</span><span class="s3">, </span><span class="s1">w </span><span class="s2">in </span><span class="s1">zip</span><span class="s3">(</span><span class="s1">scores</span><span class="s3">, </span><span class="s1">weights</span><span class="s3">))</span>
+        <span class="s2">return </span><span class="s1">min</span><span class="s3">(</span><span class="s5">10.0</span><span class="s3">, </span><span class="s1">max</span><span class="s3">(</span><span class="s5">0.0</span><span class="s3">, </span><span class="s1">final_score</span><span class="s3">))  </span><span class="s4"># Clamp to 0-10</span>
+    
+    <span class="s1">df</span><span class="s3">[</span><span class="s6">'suitability_score'</span><span class="s3">] = </span><span class="s1">df</span><span class="s3">.</span><span class="s1">apply</span><span class="s3">(</span><span class="s1">calculate_final_score</span><span class="s3">, </span><span class="s1">axis</span><span class="s3">=</span><span class="s5">1</span><span class="s3">)</span>
+    
+    <span class="s2">return </span><span class="s1">df</span>
+
+
+<span class="s2">def </span><span class="s1">merge_csv_files_by_coordinates</span><span class="s3">(</span>
+    <span class="s1">csv_files</span><span class="s3">: </span><span class="s1">List</span><span class="s3">[</span><span class="s1">Path</span><span class="s3">],</span>
+    <span class="s1">lon_column</span><span class="s3">: </span><span class="s1">str </span><span class="s3">= </span><span class="s6">&quot;lon&quot;</span><span class="s3">,</span>
+    <span class="s1">lat_column</span><span class="s3">: </span><span class="s1">str </span><span class="s3">= </span><span class="s6">&quot;lat&quot;</span><span class="s3">,</span>
+    <span class="s1">precision</span><span class="s3">: </span><span class="s1">int </span><span class="s3">= </span><span class="s5">6</span>
+<span class="s3">) </span><span class="s1">-&gt; pd</span><span class="s3">.</span><span class="s1">DataFrame</span><span class="s3">:</span>
+    <span class="s0">&quot;&quot;&quot; 
+    Merge multiple CSV files by coordinates (lon, lat). 
+     
+    Parameters 
+    ---------- 
+    csv_files : List[Path] 
+        List of CSV file paths to merge 
+    lon_column : str, optional 
+        Name of longitude column (default: &quot;lon&quot;) 
+    lat_column : str, optional 
+        Name of latitude column (default: &quot;lat&quot;) 
+    precision : int, optional 
+        Decimal precision for coordinate matching (default: 6) 
+     
+    Returns 
+    ------- 
+    pd.DataFrame 
+        Merged DataFrame with all columns from all CSV files 
+    &quot;&quot;&quot;</span>
+    <span class="s2">if not </span><span class="s1">csv_files</span><span class="s3">:</span>
+        <span class="s2">raise </span><span class="s1">ValueError</span><span class="s3">(</span><span class="s6">&quot;No CSV files provided for merging&quot;</span><span class="s3">)</span>
+    
+    <span class="s1">dataframes </span><span class="s3">= []</span>
+    <span class="s2">for </span><span class="s1">csv_file </span><span class="s2">in </span><span class="s1">csv_files</span><span class="s3">:</span>
+        <span class="s2">if not </span><span class="s1">csv_file</span><span class="s3">.</span><span class="s1">exists</span><span class="s3">():</span>
+            <span class="s1">print</span><span class="s3">(</span><span class="s6">f&quot;Warning: CSV file not found: </span><span class="s2">{</span><span class="s1">csv_file</span><span class="s2">}</span><span class="s6">&quot;</span><span class="s3">)</span>
+            <span class="s2">continue</span>
+        
+        <span class="s2">try</span><span class="s3">:</span>
+            <span class="s1">df </span><span class="s3">= </span><span class="s1">pd</span><span class="s3">.</span><span class="s1">read_csv</span><span class="s3">(</span><span class="s1">csv_file</span><span class="s3">)</span>
+            
+            <span class="s4"># Round coordinates for matching</span>
+            <span class="s2">if </span><span class="s1">lon_column </span><span class="s2">in </span><span class="s1">df</span><span class="s3">.</span><span class="s1">columns </span><span class="s2">and </span><span class="s1">lat_column </span><span class="s2">in </span><span class="s1">df</span><span class="s3">.</span><span class="s1">columns</span><span class="s3">:</span>
+                <span class="s1">df</span><span class="s3">[</span><span class="s1">lon_column</span><span class="s3">] = </span><span class="s1">df</span><span class="s3">[</span><span class="s1">lon_column</span><span class="s3">].</span><span class="s1">round</span><span class="s3">(</span><span class="s1">precision</span><span class="s3">)</span>
+                <span class="s1">df</span><span class="s3">[</span><span class="s1">lat_column</span><span class="s3">] = </span><span class="s1">df</span><span class="s3">[</span><span class="s1">lat_column</span><span class="s3">].</span><span class="s1">round</span><span class="s3">(</span><span class="s1">precision</span><span class="s3">)</span>
+            
+            <span class="s1">dataframes</span><span class="s3">.</span><span class="s1">append</span><span class="s3">(</span><span class="s1">df</span><span class="s3">)</span>
+            <span class="s1">print</span><span class="s3">(</span><span class="s6">f&quot;Loaded </span><span class="s2">{</span><span class="s1">csv_file</span><span class="s3">.</span><span class="s1">name</span><span class="s2">}</span><span class="s6">: </span><span class="s2">{</span><span class="s1">len</span><span class="s3">(</span><span class="s1">df</span><span class="s3">)</span><span class="s2">:</span><span class="s6">,</span><span class="s2">} </span><span class="s6">rows, </span><span class="s2">{</span><span class="s1">len</span><span class="s3">(</span><span class="s1">df</span><span class="s3">.</span><span class="s1">columns</span><span class="s3">)</span><span class="s2">} </span><span class="s6">columns&quot;</span><span class="s3">)</span>
+            
+        <span class="s2">except </span><span class="s1">Exception </span><span class="s2">as </span><span class="s1">e</span><span class="s3">:</span>
+            <span class="s1">print</span><span class="s3">(</span><span class="s6">f&quot;Error reading </span><span class="s2">{</span><span class="s1">csv_file</span><span class="s3">.</span><span class="s1">name</span><span class="s2">}</span><span class="s6">: </span><span class="s2">{</span><span class="s1">type</span><span class="s3">(</span><span class="s1">e</span><span class="s3">).</span><span class="s1">__name__</span><span class="s2">}</span><span class="s6">: </span><span class="s2">{</span><span class="s1">e</span><span class="s2">}</span><span class="s6">&quot;</span><span class="s3">)</span>
+            <span class="s2">continue</span>
+    
+    <span class="s2">if not </span><span class="s1">dataframes</span><span class="s3">:</span>
+        <span class="s2">raise </span><span class="s1">ValueError</span><span class="s3">(</span><span class="s6">&quot;No valid CSV files could be read&quot;</span><span class="s3">)</span>
+    
+    <span class="s4"># Merge all dataframes by coordinates</span>
+    <span class="s1">merged_df </span><span class="s3">= </span><span class="s1">dataframes</span><span class="s3">[</span><span class="s5">0</span><span class="s3">]</span>
+    <span class="s2">for </span><span class="s1">df </span><span class="s2">in </span><span class="s1">dataframes</span><span class="s3">[</span><span class="s5">1</span><span class="s3">:]:</span>
+        <span class="s4"># Merge on coordinates</span>
+        <span class="s2">if </span><span class="s1">lon_column </span><span class="s2">in </span><span class="s1">merged_df</span><span class="s3">.</span><span class="s1">columns </span><span class="s2">and </span><span class="s1">lat_column </span><span class="s2">in </span><span class="s1">merged_df</span><span class="s3">.</span><span class="s1">columns</span><span class="s3">:</span>
+            <span class="s1">merged_df </span><span class="s3">= </span><span class="s1">pd</span><span class="s3">.</span><span class="s1">merge</span><span class="s3">(</span>
+                <span class="s1">merged_df</span><span class="s3">,</span>
+                <span class="s1">df</span><span class="s3">,</span>
+                <span class="s1">on</span><span class="s3">=[</span><span class="s1">lon_column</span><span class="s3">, </span><span class="s1">lat_column</span><span class="s3">],</span>
+                <span class="s1">how</span><span class="s3">=</span><span class="s6">'outer'</span><span class="s3">,</span>
+                <span class="s1">suffixes</span><span class="s3">=(</span><span class="s6">''</span><span class="s3">, </span><span class="s6">'_dup'</span><span class="s3">)</span>
+            <span class="s3">)</span>
+        <span class="s2">else</span><span class="s3">:</span>
+            <span class="s4"># If no coordinates, just concatenate (shouldn't happen)</span>
+            <span class="s1">merged_df </span><span class="s3">= </span><span class="s1">pd</span><span class="s3">.</span><span class="s1">concat</span><span class="s3">([</span><span class="s1">merged_df</span><span class="s3">, </span><span class="s1">df</span><span class="s3">], </span><span class="s1">axis</span><span class="s3">=</span><span class="s5">1</span><span class="s3">)</span>
+    
+    <span class="s4"># Remove duplicate columns (keep first occurrence)</span>
+    <span class="s1">merged_df </span><span class="s3">= </span><span class="s1">merged_df</span><span class="s3">.</span><span class="s1">loc</span><span class="s3">[:, ~</span><span class="s1">merged_df</span><span class="s3">.</span><span class="s1">columns</span><span class="s3">.</span><span class="s1">str</span><span class="s3">.</span><span class="s1">endswith</span><span class="s3">(</span><span class="s6">'_dup'</span><span class="s3">)]</span>
+    
+    <span class="s4"># Remove any duplicate columns</span>
+    <span class="s1">merged_df </span><span class="s3">= </span><span class="s1">merged_df</span><span class="s3">.</span><span class="s1">loc</span><span class="s3">[:, ~</span><span class="s1">merged_df</span><span class="s3">.</span><span class="s1">columns</span><span class="s3">.</span><span class="s1">duplicated</span><span class="s3">()]</span>
+    
+    <span class="s4"># Sort by coordinates</span>
+    <span class="s2">if </span><span class="s1">lon_column </span><span class="s2">in </span><span class="s1">merged_df</span><span class="s3">.</span><span class="s1">columns </span><span class="s2">and </span><span class="s1">lat_column </span><span class="s2">in </span><span class="s1">merged_df</span><span class="s3">.</span><span class="s1">columns</span><span class="s3">:</span>
+        <span class="s1">merged_df </span><span class="s3">= </span><span class="s1">merged_df</span><span class="s3">.</span><span class="s1">sort_values</span><span class="s3">([</span><span class="s1">lat_column</span><span class="s3">, </span><span class="s1">lon_column</span><span class="s3">])</span>
+    
+    <span class="s2">return </span><span class="s1">merged_df</span>
+
+
+<span class="s2">def </span><span class="s1">process_csv_files_with_suitability_scores</span><span class="s3">(</span>
+    <span class="s1">csv_dir</span><span class="s3">: </span><span class="s1">Path</span><span class="s3">,</span>
+    <span class="s1">thresholds_path</span><span class="s3">: </span><span class="s1">Optional</span><span class="s3">[</span><span class="s1">str</span><span class="s3">] = </span><span class="s2">None</span><span class="s3">,</span>
+    <span class="s1">output_csv</span><span class="s3">: </span><span class="s1">Optional</span><span class="s3">[</span><span class="s1">Path</span><span class="s3">] = </span><span class="s2">None</span><span class="s3">,</span>
+    <span class="s1">property_weights</span><span class="s3">: </span><span class="s1">Optional</span><span class="s3">[</span><span class="s1">Dict</span><span class="s3">[</span><span class="s1">str</span><span class="s3">, </span><span class="s1">float</span><span class="s3">]] = </span><span class="s2">None</span><span class="s3">,</span>
+    <span class="s1">pattern</span><span class="s3">: </span><span class="s1">str </span><span class="s3">= </span><span class="s6">&quot;*.csv&quot;</span><span class="s3">,</span>
+    <span class="s1">lon_column</span><span class="s3">: </span><span class="s1">str </span><span class="s3">= </span><span class="s6">&quot;lon&quot;</span><span class="s3">,</span>
+    <span class="s1">lat_column</span><span class="s3">: </span><span class="s1">str </span><span class="s3">= </span><span class="s6">&quot;lat&quot;</span>
+<span class="s3">) </span><span class="s1">-&gt; pd</span><span class="s3">.</span><span class="s1">DataFrame</span><span class="s3">:</span>
+    <span class="s0">&quot;&quot;&quot; 
+    Process CSV files by merging them and calculating suitability scores. 
+     
+    If H3 indexes are available, aggregates data by hexagon regions (averages values per hexagon) 
+    before calculating scores. This creates one score per hexagon region instead of per point. 
+     
+    Parameters 
+    ---------- 
+    csv_dir : Path 
+        Directory containing CSV files (with optional H3 indexes) 
+    thresholds_path : str, optional 
+        Path to thresholds file (default: configs/thresholds.yaml) 
+    output_csv : Path, optional 
+        Path to save merged CSV with scores. If None, saves to csv_dir/suitability_scores.csv (default: None) 
+    property_weights : Dict[str, float], optional 
+        Weights for each property. If None, uses equal weights (default: None) 
+    pattern : str, optional 
+        File pattern to match (default: &quot;*.csv&quot;) 
+    lon_column : str, optional 
+        Name of longitude column (default: &quot;lon&quot;) 
+    lat_column : str, optional 
+        Name of latitude column (default: &quot;lat&quot;) 
+     
+    Returns 
+    ------- 
+    pd.DataFrame 
+        DataFrame with suitability scores (one row per hexagon if H3 indexes available, otherwise one row per point) 
+    &quot;&quot;&quot;</span>
+    <span class="s2">if not </span><span class="s1">csv_dir</span><span class="s3">.</span><span class="s1">exists</span><span class="s3">():</span>
+        <span class="s2">raise </span><span class="s1">FileNotFoundError</span><span class="s3">(</span><span class="s6">f&quot;Directory not found: </span><span class="s2">{</span><span class="s1">csv_dir</span><span class="s2">}</span><span class="s6">&quot;</span><span class="s3">)</span>
+    
+    <span class="s4"># Find all CSV files (exclude suitability_scores.csv output file)</span>
+    <span class="s1">csv_files </span><span class="s3">= [</span><span class="s1">f </span><span class="s2">for </span><span class="s1">f </span><span class="s2">in </span><span class="s1">csv_dir</span><span class="s3">.</span><span class="s1">glob</span><span class="s3">(</span><span class="s1">pattern</span><span class="s3">) </span><span class="s2">if </span><span class="s6">'suitability' </span><span class="s2">not in </span><span class="s1">f</span><span class="s3">.</span><span class="s1">name</span><span class="s3">.</span><span class="s1">lower</span><span class="s3">()]</span>
+    
+    <span class="s2">if not </span><span class="s1">csv_files</span><span class="s3">:</span>
+        <span class="s1">print</span><span class="s3">(</span><span class="s6">f&quot;No CSV files found in </span><span class="s2">{</span><span class="s1">csv_dir</span><span class="s2">} </span><span class="s6">matching pattern </span><span class="s2">{</span><span class="s1">pattern</span><span class="s2">}</span><span class="s6">&quot;</span><span class="s3">)</span>
+        <span class="s2">return </span><span class="s1">pd</span><span class="s3">.</span><span class="s1">DataFrame</span><span class="s3">()</span>
+    
+    <span class="s1">print</span><span class="s3">(</span><span class="s6">f&quot;</span><span class="s2">\n</span><span class="s6">Found </span><span class="s2">{</span><span class="s1">len</span><span class="s3">(</span><span class="s1">csv_files</span><span class="s3">)</span><span class="s2">} </span><span class="s6">CSV file(s) to process&quot;</span><span class="s3">)</span>
+    
+    <span class="s4"># Load all CSV files into a list</span>
+    <span class="s1">print</span><span class="s3">(</span><span class="s6">&quot;</span><span class="s2">\n</span><span class="s6">Loading CSV files...&quot;</span><span class="s3">)</span>
+    <span class="s1">dataframes </span><span class="s3">= []</span>
+    <span class="s2">for </span><span class="s1">csv_file </span><span class="s2">in </span><span class="s1">csv_files</span><span class="s3">:</span>
+        <span class="s2">try</span><span class="s3">:</span>
+            <span class="s1">df </span><span class="s3">= </span><span class="s1">pd</span><span class="s3">.</span><span class="s1">read_csv</span><span class="s3">(</span><span class="s1">csv_file</span><span class="s3">)</span>
+            <span class="s2">if </span><span class="s1">df</span><span class="s3">.</span><span class="s1">empty</span><span class="s3">:</span>
+                <span class="s1">print</span><span class="s3">(</span><span class="s6">f&quot;  Warning: </span><span class="s2">{</span><span class="s1">csv_file</span><span class="s3">.</span><span class="s1">name</span><span class="s2">} </span><span class="s6">is empty, skipping&quot;</span><span class="s3">)</span>
+                <span class="s2">continue</span>
+            
+            <span class="s4"># Check for required columns</span>
+            <span class="s2">if </span><span class="s1">lon_column </span><span class="s2">not in </span><span class="s1">df</span><span class="s3">.</span><span class="s1">columns </span><span class="s2">or </span><span class="s1">lat_column </span><span class="s2">not in </span><span class="s1">df</span><span class="s3">.</span><span class="s1">columns</span><span class="s3">:</span>
+                <span class="s1">print</span><span class="s3">(</span><span class="s6">f&quot;  Warning: </span><span class="s2">{</span><span class="s1">csv_file</span><span class="s3">.</span><span class="s1">name</span><span class="s2">} </span><span class="s6">missing coordinates, skipping&quot;</span><span class="s3">)</span>
+                <span class="s2">continue</span>
+            
+            <span class="s4"># Round coordinates for matching</span>
+            <span class="s1">df</span><span class="s3">[</span><span class="s1">lon_column</span><span class="s3">] = </span><span class="s1">df</span><span class="s3">[</span><span class="s1">lon_column</span><span class="s3">].</span><span class="s1">round</span><span class="s3">(</span><span class="s5">6</span><span class="s3">)</span>
+            <span class="s1">df</span><span class="s3">[</span><span class="s1">lat_column</span><span class="s3">] = </span><span class="s1">df</span><span class="s3">[</span><span class="s1">lat_column</span><span class="s3">].</span><span class="s1">round</span><span class="s3">(</span><span class="s5">6</span><span class="s3">)</span>
+            
+            <span class="s1">dataframes</span><span class="s3">.</span><span class="s1">append</span><span class="s3">(</span><span class="s1">df</span><span class="s3">)</span>
+            <span class="s1">print</span><span class="s3">(</span><span class="s6">f&quot;  Loaded </span><span class="s2">{</span><span class="s1">csv_file</span><span class="s3">.</span><span class="s1">name</span><span class="s2">}</span><span class="s6">: </span><span class="s2">{</span><span class="s1">len</span><span class="s3">(</span><span class="s1">df</span><span class="s3">)</span><span class="s2">:</span><span class="s6">,</span><span class="s2">} </span><span class="s6">rows, </span><span class="s2">{</span><span class="s1">len</span><span class="s3">(</span><span class="s1">df</span><span class="s3">.</span><span class="s1">columns</span><span class="s3">)</span><span class="s2">} </span><span class="s6">columns&quot;</span><span class="s3">)</span>
+            
+        <span class="s2">except </span><span class="s1">Exception </span><span class="s2">as </span><span class="s1">e</span><span class="s3">:</span>
+            <span class="s1">print</span><span class="s3">(</span><span class="s6">f&quot;  Error reading </span><span class="s2">{</span><span class="s1">csv_file</span><span class="s3">.</span><span class="s1">name</span><span class="s2">}</span><span class="s6">: </span><span class="s2">{</span><span class="s1">type</span><span class="s3">(</span><span class="s1">e</span><span class="s3">).</span><span class="s1">__name__</span><span class="s2">}</span><span class="s6">: </span><span class="s2">{</span><span class="s1">e</span><span class="s2">}</span><span class="s6">&quot;</span><span class="s3">)</span>
+            <span class="s2">continue</span>
+    
+    <span class="s2">if not </span><span class="s1">dataframes</span><span class="s3">:</span>
+        <span class="s1">print</span><span class="s3">(</span><span class="s6">&quot;No valid CSV files could be loaded&quot;</span><span class="s3">)</span>
+        <span class="s2">return </span><span class="s1">pd</span><span class="s3">.</span><span class="s1">DataFrame</span><span class="s3">()</span>
+    
+    <span class="s4"># Merge all dataframes by coordinates using for loop</span>
+    <span class="s1">print</span><span class="s3">(</span><span class="s6">&quot;</span><span class="s2">\n</span><span class="s6">Merging CSV files by coordinates...&quot;</span><span class="s3">)</span>
+    <span class="s1">merged_df </span><span class="s3">= </span><span class="s1">dataframes</span><span class="s3">[</span><span class="s5">0</span><span class="s3">].</span><span class="s1">copy</span><span class="s3">()</span>
+    
+    <span class="s2">for </span><span class="s1">i</span><span class="s3">, </span><span class="s1">df </span><span class="s2">in </span><span class="s1">enumerate</span><span class="s3">(</span><span class="s1">dataframes</span><span class="s3">[</span><span class="s5">1</span><span class="s3">:], </span><span class="s1">start</span><span class="s3">=</span><span class="s5">2</span><span class="s3">):</span>
+        <span class="s4"># Merge on coordinates</span>
+        <span class="s1">merged_df </span><span class="s3">= </span><span class="s1">pd</span><span class="s3">.</span><span class="s1">merge</span><span class="s3">(</span>
+            <span class="s1">merged_df</span><span class="s3">,</span>
+            <span class="s1">df</span><span class="s3">,</span>
+            <span class="s1">on</span><span class="s3">=[</span><span class="s1">lon_column</span><span class="s3">, </span><span class="s1">lat_column</span><span class="s3">],</span>
+            <span class="s1">how</span><span class="s3">=</span><span class="s6">'outer'</span><span class="s3">,</span>
+            <span class="s1">suffixes</span><span class="s3">=(</span><span class="s6">''</span><span class="s3">, </span><span class="s6">f'_file</span><span class="s2">{</span><span class="s1">i</span><span class="s2">}</span><span class="s6">'</span><span class="s3">)</span>
+        <span class="s3">)</span>
+        <span class="s1">print</span><span class="s3">(</span><span class="s6">f&quot;  Merged file </span><span class="s2">{</span><span class="s1">i</span><span class="s2">}</span><span class="s6">/</span><span class="s2">{</span><span class="s1">len</span><span class="s3">(</span><span class="s1">dataframes</span><span class="s3">)</span><span class="s2">}</span><span class="s6">: </span><span class="s2">{</span><span class="s1">len</span><span class="s3">(</span><span class="s1">merged_df</span><span class="s3">)</span><span class="s2">:</span><span class="s6">,</span><span class="s2">} </span><span class="s6">rows&quot;</span><span class="s3">)</span>
+    
+    <span class="s4"># Remove duplicate columns (keep first occurrence)</span>
+    <span class="s4"># Remove columns that end with '_file' suffix (from merging)</span>
+    <span class="s1">cols_to_remove </span><span class="s3">= [</span><span class="s1">col </span><span class="s2">for </span><span class="s1">col </span><span class="s2">in </span><span class="s1">merged_df</span><span class="s3">.</span><span class="s1">columns </span><span class="s2">if </span><span class="s1">col</span><span class="s3">.</span><span class="s1">endswith</span><span class="s3">(</span><span class="s6">'_file'</span><span class="s3">)]</span>
+    <span class="s1">merged_df </span><span class="s3">= </span><span class="s1">merged_df</span><span class="s3">.</span><span class="s1">drop</span><span class="s3">(</span><span class="s1">columns</span><span class="s3">=</span><span class="s1">cols_to_remove</span><span class="s3">)</span>
+    
+    <span class="s4"># Remove any remaining duplicate columns</span>
+    <span class="s1">merged_df </span><span class="s3">= </span><span class="s1">merged_df</span><span class="s3">.</span><span class="s1">loc</span><span class="s3">[:, ~</span><span class="s1">merged_df</span><span class="s3">.</span><span class="s1">columns</span><span class="s3">.</span><span class="s1">duplicated</span><span class="s3">()]</span>
+    
+    <span class="s4"># Sort by coordinates</span>
+    <span class="s1">merged_df </span><span class="s3">= </span><span class="s1">merged_df</span><span class="s3">.</span><span class="s1">sort_values</span><span class="s3">([</span><span class="s1">lat_column</span><span class="s3">, </span><span class="s1">lon_column</span><span class="s3">])</span>
+    
+    <span class="s1">print</span><span class="s3">(</span><span class="s6">f&quot;Merged DataFrame: </span><span class="s2">{</span><span class="s1">len</span><span class="s3">(</span><span class="s1">merged_df</span><span class="s3">)</span><span class="s2">:</span><span class="s6">,</span><span class="s2">} </span><span class="s6">rows, </span><span class="s2">{</span><span class="s1">len</span><span class="s3">(</span><span class="s1">merged_df</span><span class="s3">.</span><span class="s1">columns</span><span class="s3">)</span><span class="s2">} </span><span class="s6">columns&quot;</span><span class="s3">)</span>
+    
+    <span class="s4"># Check if H3 indexes are available and aggregate by hexagon</span>
+    <span class="s2">if </span><span class="s6">'h3_index' </span><span class="s2">in </span><span class="s1">merged_df</span><span class="s3">.</span><span class="s1">columns</span><span class="s3">:</span>
+        <span class="s1">print</span><span class="s3">(</span><span class="s6">&quot;</span><span class="s2">\n</span><span class="s6">H3 indexes found - aggregating by hexagon regions...&quot;</span><span class="s3">)</span>
+        
+        <span class="s4"># Identify property columns (exclude coordinates, H3 index, and score columns)</span>
+        <span class="s1">exclude_cols </span><span class="s3">= {</span><span class="s1">lon_column</span><span class="s3">, </span><span class="s1">lat_column</span><span class="s3">, </span><span class="s6">'h3_index'</span><span class="s3">}</span>
+        <span class="s1">property_cols </span><span class="s3">= [</span><span class="s1">col </span><span class="s2">for </span><span class="s1">col </span><span class="s2">in </span><span class="s1">merged_df</span><span class="s3">.</span><span class="s1">columns </span>
+                        <span class="s2">if </span><span class="s1">col </span><span class="s2">not in </span><span class="s1">exclude_cols </span>
+                        <span class="s2">and not </span><span class="s1">col</span><span class="s3">.</span><span class="s1">endswith</span><span class="s3">(</span><span class="s6">'_score'</span><span class="s3">)]</span>
+        
+        <span class="s4"># Filter to only numeric columns for aggregation</span>
+        <span class="s4"># Check which columns are numeric</span>
+        <span class="s1">numeric_cols </span><span class="s3">= []</span>
+        <span class="s2">for </span><span class="s1">col </span><span class="s2">in </span><span class="s1">property_cols</span><span class="s3">:</span>
+            <span class="s2">try</span><span class="s3">:</span>
+                <span class="s4"># Try to convert to numeric</span>
+                <span class="s1">pd</span><span class="s3">.</span><span class="s1">to_numeric</span><span class="s3">(</span><span class="s1">merged_df</span><span class="s3">[</span><span class="s1">col</span><span class="s3">], </span><span class="s1">errors</span><span class="s3">=</span><span class="s6">'raise'</span><span class="s3">)</span>
+                <span class="s1">numeric_cols</span><span class="s3">.</span><span class="s1">append</span><span class="s3">(</span><span class="s1">col</span><span class="s3">)</span>
+            <span class="s2">except </span><span class="s3">(</span><span class="s1">ValueError</span><span class="s3">, </span><span class="s1">TypeError</span><span class="s3">):</span>
+                <span class="s4"># Skip non-numeric columns (like color codes, strings, etc.)</span>
+                <span class="s1">print</span><span class="s3">(</span><span class="s6">f&quot;  Skipping non-numeric column: </span><span class="s2">{</span><span class="s1">col</span><span class="s2">}</span><span class="s6">&quot;</span><span class="s3">)</span>
+                <span class="s2">continue</span>
+        
+        <span class="s4"># Build aggregation dictionary</span>
+        <span class="s4"># Use mean for numeric property columns (continuous values)</span>
+        <span class="s1">agg_dict </span><span class="s3">= {}</span>
+        <span class="s2">for </span><span class="s1">col </span><span class="s2">in </span><span class="s1">numeric_cols</span><span class="s3">:</span>
+            <span class="s1">agg_dict</span><span class="s3">[</span><span class="s1">col</span><span class="s3">] = </span><span class="s6">'mean'</span>
+        
+        <span class="s4"># Aggregate coordinates (use mean)</span>
+        <span class="s1">agg_dict</span><span class="s3">[</span><span class="s1">lon_column</span><span class="s3">] = </span><span class="s6">'mean'</span>
+        <span class="s1">agg_dict</span><span class="s3">[</span><span class="s1">lat_column</span><span class="s3">] = </span><span class="s6">'mean'</span>
+        
+        <span class="s2">if not </span><span class="s1">agg_dict</span><span class="s3">:</span>
+            <span class="s1">print</span><span class="s3">(</span><span class="s6">&quot;  Warning: No numeric columns to aggregate&quot;</span><span class="s3">)</span>
+            <span class="s1">data_for_scoring </span><span class="s3">= </span><span class="s1">merged_df</span>
+        <span class="s2">else</span><span class="s3">:</span>
+            <span class="s4"># Group by H3 index and aggregate</span>
+            <span class="s1">hexagon_df </span><span class="s3">= </span><span class="s1">merged_df</span><span class="s3">.</span><span class="s1">groupby</span><span class="s3">(</span><span class="s6">'h3_index'</span><span class="s3">).</span><span class="s1">agg</span><span class="s3">(</span><span class="s1">agg_dict</span><span class="s3">).</span><span class="s1">reset_index</span><span class="s3">()</span>
+            
+            <span class="s4"># Calculate point count per hexagon</span>
+            <span class="s1">point_counts </span><span class="s3">= </span><span class="s1">merged_df</span><span class="s3">.</span><span class="s1">groupby</span><span class="s3">(</span><span class="s6">'h3_index'</span><span class="s3">).</span><span class="s1">size</span><span class="s3">().</span><span class="s1">reset_index</span><span class="s3">(</span><span class="s1">name</span><span class="s3">=</span><span class="s6">'point_count'</span><span class="s3">)</span>
+            <span class="s1">hexagon_df </span><span class="s3">= </span><span class="s1">hexagon_df</span><span class="s3">.</span><span class="s1">merge</span><span class="s3">(</span><span class="s1">point_counts</span><span class="s3">, </span><span class="s1">on</span><span class="s3">=</span><span class="s6">'h3_index'</span><span class="s3">)</span>
+            
+            <span class="s1">print</span><span class="s3">(</span><span class="s6">f&quot;Aggregated to </span><span class="s2">{</span><span class="s1">len</span><span class="s3">(</span><span class="s1">hexagon_df</span><span class="s3">)</span><span class="s2">:</span><span class="s6">,</span><span class="s2">} </span><span class="s6">hexagon regions&quot;</span><span class="s3">)</span>
+            <span class="s1">print</span><span class="s3">(</span><span class="s6">f&quot;  Average points per hexagon: </span><span class="s2">{</span><span class="s1">len</span><span class="s3">(</span><span class="s1">merged_df</span><span class="s3">) / </span><span class="s1">len</span><span class="s3">(</span><span class="s1">hexagon_df</span><span class="s3">)</span><span class="s2">:</span><span class="s6">.1f</span><span class="s2">}</span><span class="s6">&quot;</span><span class="s3">)</span>
+            <span class="s1">print</span><span class="s3">(</span><span class="s6">f&quot;  Total points: </span><span class="s2">{</span><span class="s1">len</span><span class="s3">(</span><span class="s1">merged_df</span><span class="s3">)</span><span class="s2">:</span><span class="s6">,</span><span class="s2">}</span><span class="s6">&quot;</span><span class="s3">)</span>
+            <span class="s1">print</span><span class="s3">(</span><span class="s6">f&quot;  Aggregated </span><span class="s2">{</span><span class="s1">len</span><span class="s3">(</span><span class="s1">numeric_cols</span><span class="s3">)</span><span class="s2">} </span><span class="s6">numeric columns&quot;</span><span class="s3">)</span>
+            
+            <span class="s4"># Use hexagon-aggregated data for scoring</span>
+            <span class="s1">data_for_scoring </span><span class="s3">= </span><span class="s1">hexagon_df</span>
+    <span class="s2">else</span><span class="s3">:</span>
+        <span class="s1">print</span><span class="s3">(</span><span class="s6">&quot;</span><span class="s2">\n</span><span class="s6">No H3 indexes found - scoring individual points...&quot;</span><span class="s3">)</span>
+        <span class="s1">data_for_scoring </span><span class="s3">= </span><span class="s1">merged_df</span>
+    
+    <span class="s4"># Load thresholds</span>
+    <span class="s1">print</span><span class="s3">(</span><span class="s6">&quot;</span><span class="s2">\n</span><span class="s6">Loading thresholds...&quot;</span><span class="s3">)</span>
+    <span class="s1">thresholds </span><span class="s3">= </span><span class="s1">load_thresholds</span><span class="s3">(</span><span class="s1">thresholds_path</span><span class="s3">)</span>
+    
+    <span class="s4"># Calculate suitability scores</span>
+    <span class="s1">print</span><span class="s3">(</span><span class="s6">&quot;</span><span class="s2">\n</span><span class="s6">Calculating suitability scores...&quot;</span><span class="s3">)</span>
+    <span class="s1">scored_df </span><span class="s3">= </span><span class="s1">calculate_suitability_scores</span><span class="s3">(</span>
+        <span class="s1">df</span><span class="s3">=</span><span class="s1">data_for_scoring</span><span class="s3">,</span>
+        <span class="s1">thresholds</span><span class="s3">=</span><span class="s1">thresholds</span><span class="s3">,</span>
+        <span class="s1">property_weights</span><span class="s3">=</span><span class="s1">property_weights</span>
+    <span class="s3">)</span>
+    
+    <span class="s4"># Save to output CSV</span>
+    <span class="s2">if </span><span class="s1">output_csv </span><span class="s2">is None</span><span class="s3">:</span>
+        <span class="s1">output_csv </span><span class="s3">= </span><span class="s1">csv_dir </span><span class="s3">/ </span><span class="s6">&quot;suitability_scores.csv&quot;</span>
+    
+    <span class="s1">output_csv</span><span class="s3">.</span><span class="s1">parent</span><span class="s3">.</span><span class="s1">mkdir</span><span class="s3">(</span><span class="s1">parents</span><span class="s3">=</span><span class="s2">True</span><span class="s3">, </span><span class="s1">exist_ok</span><span class="s3">=</span><span class="s2">True</span><span class="s3">)</span>
+    <span class="s1">scored_df</span><span class="s3">.</span><span class="s1">to_csv</span><span class="s3">(</span><span class="s1">output_csv</span><span class="s3">, </span><span class="s1">index</span><span class="s3">=</span><span class="s2">False</span><span class="s3">)</span>
+    
+    <span class="s4"># Get score columns that were actually created</span>
+    <span class="s1">actual_score_columns </span><span class="s3">= [</span><span class="s1">col </span><span class="s2">for </span><span class="s1">col </span><span class="s2">in </span><span class="s1">scored_df</span><span class="s3">.</span><span class="s1">columns </span><span class="s2">if </span><span class="s6">'score' </span><span class="s2">in </span><span class="s1">col</span><span class="s3">.</span><span class="s1">lower</span><span class="s3">()]</span>
+    
+    <span class="s2">if </span><span class="s6">'suitability_score' </span><span class="s2">in </span><span class="s1">scored_df</span><span class="s3">.</span><span class="s1">columns</span><span class="s3">:</span>
+        <span class="s1">score_range </span><span class="s3">= </span><span class="s6">f&quot;</span><span class="s2">{</span><span class="s1">scored_df</span><span class="s3">[</span><span class="s6">'suitability_score'</span><span class="s3">].</span><span class="s1">min</span><span class="s3">()</span><span class="s2">:</span><span class="s6">.2f</span><span class="s2">} </span><span class="s6">- </span><span class="s2">{</span><span class="s1">scored_df</span><span class="s3">[</span><span class="s6">'suitability_score'</span><span class="s3">].</span><span class="s1">max</span><span class="s3">()</span><span class="s2">:</span><span class="s6">.2f</span><span class="s2">}</span><span class="s6">&quot;</span>
+    <span class="s2">else</span><span class="s3">:</span>
+        <span class="s1">score_range </span><span class="s3">= </span><span class="s6">&quot;N/A (no scores calculated)&quot;</span>
+    
+    <span class="s1">print</span><span class="s3">(</span><span class="s6">f&quot;&quot;&quot;</span>
+<span class="s6">Suitability scores calculated successfully</span>
+<span class="s6">Output saved to: </span><span class="s2">{</span><span class="s1">output_csv</span><span class="s2">}</span>
+<span class="s6">Total rows: </span><span class="s2">{</span><span class="s1">len</span><span class="s3">(</span><span class="s1">scored_df</span><span class="s3">)</span><span class="s2">:</span><span class="s6">,</span><span class="s2">}</span>
+<span class="s6">Score columns: </span><span class="s2">{</span><span class="s1">actual_score_columns</span><span class="s2">}</span>
+<span class="s6">Suitability score range: </span><span class="s2">{</span><span class="s1">score_range</span><span class="s2">}</span><span class="s6">&quot;&quot;&quot;</span><span class="s3">)</span>
+    
+    <span class="s2">return </span><span class="s1">scored_df</span>
+
+
+<span class="s2">if </span><span class="s1">__name__ </span><span class="s3">== </span><span class="s6">&quot;__main__&quot;</span><span class="s3">:</span>
+    <span class="s6">&quot;&quot;&quot;Debug and test suitability scoring.&quot;&quot;&quot;</span>
+    <span class="s2">import </span><span class="s1">sys</span>
+    
+    <span class="s1">print</span><span class="s3">(</span><span class="s6">&quot;&quot;&quot;============================================================ 
+Suitability Score Calculator - Debug Mode 
+============================================================ 
+     
+------------------------------------------------------------ 
+1. Testing calculate_property_score(): 
+------------------------------------------------------------&quot;&quot;&quot;</span><span class="s3">)</span>
+    
+    <span class="s4"># Load thresholds</span>
+    <span class="s2">try</span><span class="s3">:</span>
+        <span class="s1">thresholds </span><span class="s3">= </span><span class="s1">load_thresholds</span><span class="s3">()</span>
+        <span class="s1">print</span><span class="s3">(</span><span class="s6">&quot;PASS: Thresholds loaded successfully&quot;</span><span class="s3">)</span>
+    <span class="s2">except </span><span class="s1">Exception </span><span class="s2">as </span><span class="s1">e</span><span class="s3">:</span>
+        <span class="s1">print</span><span class="s3">(</span><span class="s6">f&quot;FAIL: Error loading thresholds: </span><span class="s2">{</span><span class="s1">type</span><span class="s3">(</span><span class="s1">e</span><span class="s3">).</span><span class="s1">__name__</span><span class="s2">}</span><span class="s6">: </span><span class="s2">{</span><span class="s1">e</span><span class="s2">}</span><span class="s6">&quot;</span><span class="s3">)</span>
+        <span class="s1">sys</span><span class="s3">.</span><span class="s1">exit</span><span class="s3">(</span><span class="s5">1</span><span class="s3">)</span>
+    
+    <span class="s4"># Test scoring for each property</span>
+    <span class="s1">test_cases </span><span class="s3">= [</span>
+        <span class="s3">(</span><span class="s6">'soil_moisture'</span><span class="s3">, </span><span class="s5">0.2</span><span class="s3">, </span><span class="s6">&quot;Optimal range&quot;</span><span class="s3">),</span>
+        <span class="s3">(</span><span class="s6">'soil_moisture'</span><span class="s3">, </span><span class="s5">0.05</span><span class="s3">, </span><span class="s6">&quot;Below optimal (dry)&quot;</span><span class="s3">),</span>
+        <span class="s3">(</span><span class="s6">'soil_moisture'</span><span class="s3">, </span><span class="s5">0.5</span><span class="s3">, </span><span class="s6">&quot;Above optimal (saturated)&quot;</span><span class="s3">),</span>
+        <span class="s3">(</span><span class="s6">'soil_temperature'</span><span class="s3">, </span><span class="s5">290.0</span><span class="s3">, </span><span class="s6">&quot;Optimal range (17°C)&quot;</span><span class="s3">),</span>
+        <span class="s3">(</span><span class="s6">'soil_temperature'</span><span class="s3">, </span><span class="s5">275.0</span><span class="s3">, </span><span class="s6">&quot;Below optimal (2°C)&quot;</span><span class="s3">),</span>
+        <span class="s3">(</span><span class="s6">'soil_organic_carbon'</span><span class="s3">, </span><span class="s5">100.0</span><span class="s3">, </span><span class="s6">&quot;High organic matter&quot;</span><span class="s3">),</span>
+        <span class="s3">(</span><span class="s6">'soil_organic_carbon'</span><span class="s3">, </span><span class="s5">50.0</span><span class="s3">, </span><span class="s6">&quot;Medium organic matter&quot;</span><span class="s3">),</span>
+        <span class="s3">(</span><span class="s6">'soil_pH'</span><span class="s3">, </span><span class="s5">6.5</span><span class="s3">, </span><span class="s6">&quot;Optimal pH&quot;</span><span class="s3">),</span>
+        <span class="s3">(</span><span class="s6">'soil_pH'</span><span class="s3">, </span><span class="s5">4.5</span><span class="s3">, </span><span class="s6">&quot;Below optimal pH&quot;</span><span class="s3">),</span>
+    <span class="s3">]</span>
+    
+    <span class="s2">for </span><span class="s1">prop_name</span><span class="s3">, </span><span class="s1">value</span><span class="s3">, </span><span class="s1">description </span><span class="s2">in </span><span class="s1">test_cases</span><span class="s3">:</span>
+        <span class="s2">try</span><span class="s3">:</span>
+            <span class="s1">prop_thresholds </span><span class="s3">= </span><span class="s1">get_property_thresholds</span><span class="s3">(</span><span class="s1">thresholds</span><span class="s3">, </span><span class="s1">prop_name</span><span class="s3">)</span>
+            <span class="s1">score </span><span class="s3">= </span><span class="s1">calculate_property_score</span><span class="s3">(</span><span class="s1">value</span><span class="s3">, </span><span class="s1">prop_thresholds</span><span class="s3">)</span>
+            <span class="s1">print</span><span class="s3">(</span><span class="s6">f&quot;&quot;&quot;  PASS: </span><span class="s2">{</span><span class="s1">prop_name</span><span class="s2">} </span><span class="s6">= </span><span class="s2">{</span><span class="s1">value</span><span class="s2">} </span><span class="s6">(</span><span class="s2">{</span><span class="s1">description</span><span class="s2">}</span><span class="s6">)</span>
+    <span class="s6">Score: </span><span class="s2">{</span><span class="s1">score</span><span class="s2">:</span><span class="s6">.2f</span><span class="s2">}</span><span class="s6">&quot;&quot;&quot;</span><span class="s3">)</span>
+        <span class="s2">except </span><span class="s1">Exception </span><span class="s2">as </span><span class="s1">e</span><span class="s3">:</span>
+            <span class="s1">print</span><span class="s3">(</span><span class="s6">f&quot;  FAIL: </span><span class="s2">{</span><span class="s1">prop_name</span><span class="s2">} </span><span class="s6">= </span><span class="s2">{</span><span class="s1">value</span><span class="s2">}</span><span class="s6">: </span><span class="s2">{</span><span class="s1">type</span><span class="s3">(</span><span class="s1">e</span><span class="s3">).</span><span class="s1">__name__</span><span class="s2">}</span><span class="s6">: </span><span class="s2">{</span><span class="s1">e</span><span class="s2">}</span><span class="s6">&quot;</span><span class="s3">)</span>
+    
+    <span class="s4"># Test with actual CSV files if available</span>
+    <span class="s1">print</span><span class="s3">(</span><span class="s6">&quot;&quot;&quot; 
+------------------------------------------------------------ 
+2. Testing with actual CSV files: 
+------------------------------------------------------------&quot;&quot;&quot;</span><span class="s3">)</span>
+    
+    <span class="s1">project_root </span><span class="s3">= </span><span class="s1">Path</span><span class="s3">(</span><span class="s1">__file__</span><span class="s3">).</span><span class="s1">parent</span><span class="s3">.</span><span class="s1">parent</span><span class="s3">.</span><span class="s1">parent</span>
+    <span class="s1">csv_dir </span><span class="s3">= </span><span class="s1">project_root </span><span class="s3">/ </span><span class="s6">&quot;data&quot; </span><span class="s3">/ </span><span class="s6">&quot;processed&quot;</span>
+    
+    <span class="s2">if </span><span class="s1">csv_dir</span><span class="s3">.</span><span class="s1">exists</span><span class="s3">():</span>
+        <span class="s1">csv_files </span><span class="s3">= </span><span class="s1">list</span><span class="s3">(</span><span class="s1">csv_dir</span><span class="s3">.</span><span class="s1">glob</span><span class="s3">(</span><span class="s6">&quot;*.csv&quot;</span><span class="s3">))</span>
+        <span class="s2">if </span><span class="s1">csv_files</span><span class="s3">:</span>
+            <span class="s1">print</span><span class="s3">(</span><span class="s6">f&quot;  Found </span><span class="s2">{</span><span class="s1">len</span><span class="s3">(</span><span class="s1">csv_files</span><span class="s3">)</span><span class="s2">} </span><span class="s6">CSV file(s) in </span><span class="s2">{</span><span class="s1">csv_dir</span><span class="s2">}</span><span class="s6">&quot;</span><span class="s3">)</span>
+            <span class="s1">print</span><span class="s3">(</span><span class="s6">&quot;  Testing suitability score calculation...&quot;</span><span class="s3">)</span>
+            
+            <span class="s2">try</span><span class="s3">:</span>
+                <span class="s1">scored_df </span><span class="s3">= </span><span class="s1">process_csv_files_with_suitability_scores</span><span class="s3">(</span>
+                    <span class="s1">csv_dir</span><span class="s3">=</span><span class="s1">csv_dir</span><span class="s3">,</span>
+                    <span class="s1">output_csv</span><span class="s3">=</span><span class="s1">csv_dir </span><span class="s3">/ </span><span class="s6">&quot;suitability_scores_test.csv&quot;</span>
+                <span class="s3">)</span>
+                <span class="s1">print</span><span class="s3">(</span><span class="s6">f&quot;&quot;&quot;  PASS: Successfully calculated suitability scores</span>
+    <span class="s6">Output rows: </span><span class="s2">{</span><span class="s1">len</span><span class="s3">(</span><span class="s1">scored_df</span><span class="s3">)</span><span class="s2">:</span><span class="s6">,</span><span class="s2">}</span>
+    <span class="s6">Score columns: </span><span class="s2">{</span><span class="s3">[</span><span class="s1">col </span><span class="s2">for </span><span class="s1">col </span><span class="s2">in </span><span class="s1">scored_df</span><span class="s3">.</span><span class="s1">columns </span><span class="s2">if </span><span class="s6">'score' </span><span class="s2">in </span><span class="s1">col</span><span class="s3">]</span><span class="s2">}</span>
+    <span class="s6">Sample scores:</span>
+<span class="s2">{</span><span class="s1">scored_df</span><span class="s3">[[</span><span class="s6">'lon'</span><span class="s3">, </span><span class="s6">'lat'</span><span class="s3">, </span><span class="s6">'suitability_score'</span><span class="s3">]].</span><span class="s1">head</span><span class="s3">() </span><span class="s2">if </span><span class="s6">'suitability_score' </span><span class="s2">in </span><span class="s1">scored_df</span><span class="s3">.</span><span class="s1">columns </span><span class="s2">else </span><span class="s6">'No scores calculated'</span><span class="s2">}</span><span class="s6">&quot;&quot;&quot;</span><span class="s3">)</span>
+            <span class="s2">except </span><span class="s1">Exception </span><span class="s2">as </span><span class="s1">e</span><span class="s3">:</span>
+                <span class="s1">print</span><span class="s3">(</span><span class="s6">f&quot;  FAIL: Error calculating scores: </span><span class="s2">{</span><span class="s1">type</span><span class="s3">(</span><span class="s1">e</span><span class="s3">).</span><span class="s1">__name__</span><span class="s2">}</span><span class="s6">: </span><span class="s2">{</span><span class="s1">e</span><span class="s2">}</span><span class="s6">&quot;</span><span class="s3">)</span>
+                <span class="s2">import </span><span class="s1">traceback</span>
+                <span class="s1">traceback</span><span class="s3">.</span><span class="s1">print_exc</span><span class="s3">()</span>
+        <span class="s2">else</span><span class="s3">:</span>
+            <span class="s1">print</span><span class="s3">(</span><span class="s6">f&quot;  No CSV files found in </span><span class="s2">{</span><span class="s1">csv_dir</span><span class="s2">}</span><span class="s6">&quot;</span><span class="s3">)</span>
+    <span class="s2">else</span><span class="s3">:</span>
+        <span class="s1">print</span><span class="s3">(</span><span class="s6">f&quot;  Directory not found: </span><span class="s2">{</span><span class="s1">csv_dir</span><span class="s2">}</span><span class="s6">&quot;</span><span class="s3">)</span>
+    
+    <span class="s1">print</span><span class="s3">(</span><span class="s6">&quot;&quot;&quot; 
+------------------------------------------------------------ 
+Usage Example: 
+------------------------------------------------------------ 
+  from src.analysis.suitability import process_csv_files_with_suitability_scores 
+  from pathlib import Path 
+   
+  csv_dir = Path('data/processed') 
+  scored_df = process_csv_files_with_suitability_scores(csv_dir=csv_dir) 
+------------------------------------------------------------&quot;&quot;&quot;</span><span class="s3">)</span>
+
+</pre>
+</body>
+</html>

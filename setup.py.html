@@ -1,0 +1,71 @@
+<html>
+<head>
+<title>setup.py</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #5f826b; font-style: italic;}
+.s1 { color: #bcbec4;}
+.s2 { color: #cf8e6d;}
+.s3 { color: #bcbec4;}
+.s4 { color: #7a7e85;}
+.s5 { color: #6aab73;}
+</style>
+</head>
+<body bgcolor="#1e1f22">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+setup.py</font>
+</center></td></tr></table>
+<pre><span class="s0">&quot;&quot;&quot; 
+Setup script for Residual_Carbon package. 
+Allows for editable installation: pip install -e . 
+&quot;&quot;&quot;</span>
+
+<span class="s2">from </span><span class="s1">setuptools </span><span class="s2">import </span><span class="s1">setup</span><span class="s3">, </span><span class="s1">find_packages</span>
+<span class="s2">from </span><span class="s1">pathlib </span><span class="s2">import </span><span class="s1">Path</span>
+
+<span class="s4"># Read the README file</span>
+<span class="s1">readme_file </span><span class="s3">= </span><span class="s1">Path</span><span class="s3">(</span><span class="s1">__file__</span><span class="s3">).</span><span class="s1">parent </span><span class="s3">/ </span><span class="s5">&quot;README.md&quot;</span>
+<span class="s1">long_description </span><span class="s3">= </span><span class="s1">readme_file</span><span class="s3">.</span><span class="s1">read_text</span><span class="s3">(</span><span class="s1">encoding</span><span class="s3">=</span><span class="s5">&quot;utf-8&quot;</span><span class="s3">) </span><span class="s2">if </span><span class="s1">readme_file</span><span class="s3">.</span><span class="s1">exists</span><span class="s3">() </span><span class="s2">else </span><span class="s5">&quot;&quot;</span>
+
+<span class="s4"># Read requirements</span>
+<span class="s1">requirements_file </span><span class="s3">= </span><span class="s1">Path</span><span class="s3">(</span><span class="s1">__file__</span><span class="s3">).</span><span class="s1">parent </span><span class="s3">/ </span><span class="s5">&quot;requirements.txt&quot;</span>
+<span class="s2">if </span><span class="s1">requirements_file</span><span class="s3">.</span><span class="s1">exists</span><span class="s3">():</span>
+    <span class="s2">with </span><span class="s1">open</span><span class="s3">(</span><span class="s1">requirements_file</span><span class="s3">, </span><span class="s5">'r'</span><span class="s3">, </span><span class="s1">encoding</span><span class="s3">=</span><span class="s5">'utf-8'</span><span class="s3">) </span><span class="s2">as </span><span class="s1">f</span><span class="s3">:</span>
+        <span class="s1">requirements </span><span class="s3">= [</span><span class="s1">line</span><span class="s3">.</span><span class="s1">strip</span><span class="s3">() </span><span class="s2">for </span><span class="s1">line </span><span class="s2">in </span><span class="s1">f </span><span class="s2">if </span><span class="s1">line</span><span class="s3">.</span><span class="s1">strip</span><span class="s3">() </span><span class="s2">and not </span><span class="s1">line</span><span class="s3">.</span><span class="s1">startswith</span><span class="s3">(</span><span class="s5">'#'</span><span class="s3">)]</span>
+        <span class="s4"># Remove built-in modules</span>
+        <span class="s1">requirements </span><span class="s3">= [</span><span class="s1">req </span><span class="s2">for </span><span class="s1">req </span><span class="s2">in </span><span class="s1">requirements </span><span class="s2">if </span><span class="s1">req </span><span class="s3">!= </span><span class="s5">'webbrowser'</span><span class="s3">]</span>
+<span class="s2">else</span><span class="s3">:</span>
+    <span class="s1">requirements </span><span class="s3">= []</span>
+
+<span class="s1">setup</span><span class="s3">(</span>
+    <span class="s1">name</span><span class="s3">=</span><span class="s5">&quot;residual_carbon&quot;</span><span class="s3">,</span>
+    <span class="s1">version</span><span class="s3">=</span><span class="s5">&quot;0.1.0&quot;</span><span class="s3">,</span>
+    <span class="s1">description</span><span class="s3">=</span><span class="s5">&quot;Biochar Suitability Mapping Tool for Mato Grosso, Brazil&quot;</span><span class="s3">,</span>
+    <span class="s1">long_description</span><span class="s3">=</span><span class="s1">long_description</span><span class="s3">,</span>
+    <span class="s1">long_description_content_type</span><span class="s3">=</span><span class="s5">&quot;text/markdown&quot;</span><span class="s3">,</span>
+    <span class="s1">author</span><span class="s3">=</span><span class="s5">&quot;Your Name&quot;</span><span class="s3">,</span>
+    <span class="s1">author_email</span><span class="s3">=</span><span class="s5">&quot;your.email@example.com&quot;</span><span class="s3">,</span>
+    <span class="s1">url</span><span class="s3">=</span><span class="s5">&quot;https://github.com/yourusername/Residual_Carbon&quot;</span><span class="s3">,</span>
+    <span class="s1">packages</span><span class="s3">=</span><span class="s1">find_packages</span><span class="s3">(),</span>
+    <span class="s1">python_requires</span><span class="s3">=</span><span class="s5">&quot;&gt;=3.9&quot;</span><span class="s3">,</span>
+    <span class="s1">install_requires</span><span class="s3">=</span><span class="s1">requirements</span><span class="s3">,</span>
+    <span class="s1">classifiers</span><span class="s3">=[</span>
+        <span class="s5">&quot;Development Status :: 3 - Alpha&quot;</span><span class="s3">,</span>
+        <span class="s5">&quot;Intended Audience :: Science/Research&quot;</span><span class="s3">,</span>
+        <span class="s5">&quot;Programming Language :: Python :: 3&quot;</span><span class="s3">,</span>
+        <span class="s5">&quot;Programming Language :: Python :: 3.9&quot;</span><span class="s3">,</span>
+        <span class="s5">&quot;Programming Language :: Python :: 3.10&quot;</span><span class="s3">,</span>
+        <span class="s5">&quot;Programming Language :: Python :: 3.11&quot;</span><span class="s3">,</span>
+    <span class="s3">],</span>
+    <span class="s1">entry_points</span><span class="s3">={</span>
+        <span class="s5">&quot;console_scripts&quot;</span><span class="s3">: [</span>
+            <span class="s5">&quot;residual-carbon=src.main:main&quot;</span><span class="s3">,</span>
+        <span class="s3">],</span>
+    <span class="s3">},</span>
+<span class="s3">)</span>
+
+</pre>
+</body>
+</html>

@@ -1,0 +1,128 @@
+<html>
+<head>
+<title>color_scheme.py</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #5f826b; font-style: italic;}
+.s1 { color: #bcbec4;}
+.s2 { color: #cf8e6d;}
+.s3 { color: #bcbec4;}
+.s4 { color: #6aab73;}
+.s5 { color: #7a7e85;}
+.s6 { color: #2aacb8;}
+</style>
+</head>
+<body bgcolor="#1e1f22">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+color_scheme.py</font>
+</center></td></tr></table>
+<pre><span class="s0">&quot;&quot;&quot; 
+Color Scheme Module 
+ 
+Defines color mapping for suitability scores. 
+&quot;&quot;&quot;</span>
+
+<span class="s2">from </span><span class="s1">typing </span><span class="s2">import </span><span class="s1">Tuple</span><span class="s3">, </span><span class="s1">Optional</span>
+<span class="s2">import </span><span class="s1">numpy </span><span class="s2">as </span><span class="s1">np</span>
+
+
+<span class="s2">def </span><span class="s1">get_color_for_score</span><span class="s3">(</span><span class="s1">score</span><span class="s3">: </span><span class="s1">float</span><span class="s3">, </span><span class="s1">color_scheme</span><span class="s3">: </span><span class="s1">str </span><span class="s3">= </span><span class="s4">&quot;default&quot;</span><span class="s3">) </span><span class="s1">-&gt; str</span><span class="s3">:</span>
+    <span class="s0">&quot;&quot;&quot; 
+    Get color for a suitability score. 
+     
+    Color scheme: 
+    - Green (8-10): Most suitable 
+    - Yellow (5-7): Moderately suitable 
+    - Red (0-4): Least suitable 
+     
+    Parameters 
+    ---------- 
+    score : float 
+        Suitability score (0-10) 
+    color_scheme : str, optional 
+        Color scheme name (default: &quot;default&quot;) 
+     
+    Returns 
+    ------- 
+    str 
+        Hex color code (e.g., &quot;#00FF00&quot;) 
+    &quot;&quot;&quot;</span>
+    <span class="s2">if </span><span class="s1">np</span><span class="s3">.</span><span class="s1">isnan</span><span class="s3">(</span><span class="s1">score</span><span class="s3">):</span>
+        <span class="s2">return </span><span class="s4">&quot;#808080&quot;  </span><span class="s5"># Gray for NaN</span>
+    
+    <span class="s1">score </span><span class="s3">= </span><span class="s1">float</span><span class="s3">(</span><span class="s1">score</span><span class="s3">)</span>
+    
+    <span class="s2">if </span><span class="s1">score </span><span class="s3">&gt;= </span><span class="s6">8.0</span><span class="s3">:</span>
+        <span class="s5"># Green: Most suitable (8-10)</span>
+        <span class="s5"># Interpolate from light green (8) to dark green (10)</span>
+        <span class="s1">ratio </span><span class="s3">= (</span><span class="s1">score </span><span class="s3">- </span><span class="s6">8.0</span><span class="s3">) / </span><span class="s6">2.0  </span><span class="s5"># 0 to 1</span>
+        <span class="s5"># Light green (#90EE90) to dark green (#006400)</span>
+        <span class="s1">r </span><span class="s3">= </span><span class="s1">int</span><span class="s3">(</span><span class="s6">144 </span><span class="s3">- (</span><span class="s6">144 </span><span class="s3">- </span><span class="s6">0</span><span class="s3">) * </span><span class="s1">ratio</span><span class="s3">)</span>
+        <span class="s1">g </span><span class="s3">= </span><span class="s1">int</span><span class="s3">(</span><span class="s6">238 </span><span class="s3">- (</span><span class="s6">238 </span><span class="s3">- </span><span class="s6">100</span><span class="s3">) * </span><span class="s1">ratio</span><span class="s3">)</span>
+        <span class="s1">b </span><span class="s3">= </span><span class="s1">int</span><span class="s3">(</span><span class="s6">144 </span><span class="s3">- (</span><span class="s6">144 </span><span class="s3">- </span><span class="s6">0</span><span class="s3">) * </span><span class="s1">ratio</span><span class="s3">)</span>
+        <span class="s2">return </span><span class="s4">f&quot;#</span><span class="s2">{</span><span class="s1">r</span><span class="s2">:</span><span class="s4">02X</span><span class="s2">}{</span><span class="s1">g</span><span class="s2">:</span><span class="s4">02X</span><span class="s2">}{</span><span class="s1">b</span><span class="s2">:</span><span class="s4">02X</span><span class="s2">}</span><span class="s4">&quot;</span>
+    
+    <span class="s2">elif </span><span class="s1">score </span><span class="s3">&gt;= </span><span class="s6">5.0</span><span class="s3">:</span>
+        <span class="s5"># Yellow: Moderately suitable (5-7)</span>
+        <span class="s5"># Interpolate from red-yellow (5) to yellow-green (7)</span>
+        <span class="s1">ratio </span><span class="s3">= (</span><span class="s1">score </span><span class="s3">- </span><span class="s6">5.0</span><span class="s3">) / </span><span class="s6">2.0  </span><span class="s5"># 0 to 1</span>
+        <span class="s5"># Red-yellow (#FFD700) to yellow-green (#ADFF2F)</span>
+        <span class="s1">r </span><span class="s3">= </span><span class="s1">int</span><span class="s3">(</span><span class="s6">255 </span><span class="s3">- (</span><span class="s6">255 </span><span class="s3">- </span><span class="s6">173</span><span class="s3">) * </span><span class="s1">ratio</span><span class="s3">)</span>
+        <span class="s1">g </span><span class="s3">= </span><span class="s1">int</span><span class="s3">(</span><span class="s6">215 </span><span class="s3">+ (</span><span class="s6">255 </span><span class="s3">- </span><span class="s6">215</span><span class="s3">) * </span><span class="s1">ratio</span><span class="s3">)</span>
+        <span class="s1">b </span><span class="s3">= </span><span class="s1">int</span><span class="s3">(</span><span class="s6">0 </span><span class="s3">+ (</span><span class="s6">47 </span><span class="s3">- </span><span class="s6">0</span><span class="s3">) * </span><span class="s1">ratio</span><span class="s3">)</span>
+        <span class="s2">return </span><span class="s4">f&quot;#</span><span class="s2">{</span><span class="s1">r</span><span class="s2">:</span><span class="s4">02X</span><span class="s2">}{</span><span class="s1">g</span><span class="s2">:</span><span class="s4">02X</span><span class="s2">}{</span><span class="s1">b</span><span class="s2">:</span><span class="s4">02X</span><span class="s2">}</span><span class="s4">&quot;</span>
+    
+    <span class="s2">else</span><span class="s3">:</span>
+        <span class="s5"># Red: Least suitable (0-4)</span>
+        <span class="s5"># Interpolate from dark red (0) to light red (4)</span>
+        <span class="s1">ratio </span><span class="s3">= </span><span class="s1">score </span><span class="s3">/ </span><span class="s6">4.0  </span><span class="s5"># 0 to 1</span>
+        <span class="s5"># Dark red (#8B0000) to light red (#FF6B6B)</span>
+        <span class="s1">r </span><span class="s3">= </span><span class="s1">int</span><span class="s3">(</span><span class="s6">139 </span><span class="s3">+ (</span><span class="s6">255 </span><span class="s3">- </span><span class="s6">139</span><span class="s3">) * </span><span class="s1">ratio</span><span class="s3">)</span>
+        <span class="s1">g </span><span class="s3">= </span><span class="s1">int</span><span class="s3">(</span><span class="s6">0 </span><span class="s3">+ (</span><span class="s6">107 </span><span class="s3">- </span><span class="s6">0</span><span class="s3">) * </span><span class="s1">ratio</span><span class="s3">)</span>
+        <span class="s1">b </span><span class="s3">= </span><span class="s1">int</span><span class="s3">(</span><span class="s6">0 </span><span class="s3">+ (</span><span class="s6">107 </span><span class="s3">- </span><span class="s6">0</span><span class="s3">) * </span><span class="s1">ratio</span><span class="s3">)</span>
+        <span class="s2">return </span><span class="s4">f&quot;#</span><span class="s2">{</span><span class="s1">r</span><span class="s2">:</span><span class="s4">02X</span><span class="s2">}{</span><span class="s1">g</span><span class="s2">:</span><span class="s4">02X</span><span class="s2">}{</span><span class="s1">b</span><span class="s2">:</span><span class="s4">02X</span><span class="s2">}</span><span class="s4">&quot;</span>
+
+
+<span class="s2">def </span><span class="s1">get_color_rgb</span><span class="s3">(</span><span class="s1">score</span><span class="s3">: </span><span class="s1">float</span><span class="s3">) </span><span class="s1">-&gt; Tuple</span><span class="s3">[</span><span class="s1">int</span><span class="s3">, </span><span class="s1">int</span><span class="s3">, </span><span class="s1">int</span><span class="s3">]:</span>
+    <span class="s0">&quot;&quot;&quot; 
+    Get RGB color tuple for a suitability score. 
+     
+    Parameters 
+    ---------- 
+    score : float 
+        Suitability score (0-10) 
+     
+    Returns 
+    ------- 
+    Tuple[int, int, int] 
+        RGB color tuple (0-255) 
+    &quot;&quot;&quot;</span>
+    <span class="s1">hex_color </span><span class="s3">= </span><span class="s1">get_color_for_score</span><span class="s3">(</span><span class="s1">score</span><span class="s3">)</span>
+    <span class="s5"># Convert hex to RGB</span>
+    <span class="s1">hex_color </span><span class="s3">= </span><span class="s1">hex_color</span><span class="s3">.</span><span class="s1">lstrip</span><span class="s3">(</span><span class="s4">'#'</span><span class="s3">)</span>
+    <span class="s2">return </span><span class="s1">tuple</span><span class="s3">(</span><span class="s1">int</span><span class="s3">(</span><span class="s1">hex_color</span><span class="s3">[</span><span class="s1">i</span><span class="s3">:</span><span class="s1">i</span><span class="s3">+</span><span class="s6">2</span><span class="s3">], </span><span class="s6">16</span><span class="s3">) </span><span class="s2">for </span><span class="s1">i </span><span class="s2">in </span><span class="s3">(</span><span class="s6">0</span><span class="s3">, </span><span class="s6">2</span><span class="s3">, </span><span class="s6">4</span><span class="s3">))</span>
+
+
+<span class="s2">def </span><span class="s1">get_color_scheme_info</span><span class="s3">() </span><span class="s1">-&gt; dict</span><span class="s3">:</span>
+    <span class="s0">&quot;&quot;&quot; 
+    Get information about the color scheme. 
+     
+    Returns 
+    ------- 
+    dict 
+        Color scheme information 
+    &quot;&quot;&quot;</span>
+    <span class="s2">return </span><span class="s3">{</span>
+        <span class="s4">&quot;ranges&quot;</span><span class="s3">: [</span>
+            <span class="s3">{</span><span class="s4">&quot;min&quot;</span><span class="s3">: </span><span class="s6">8.0</span><span class="s3">, </span><span class="s4">&quot;max&quot;</span><span class="s3">: </span><span class="s6">10.0</span><span class="s3">, </span><span class="s4">&quot;color&quot;</span><span class="s3">: </span><span class="s4">&quot;#006400&quot;</span><span class="s3">, </span><span class="s4">&quot;label&quot;</span><span class="s3">: </span><span class="s4">&quot;Most Suitable (8-10)&quot;</span><span class="s3">},</span>
+            <span class="s3">{</span><span class="s4">&quot;min&quot;</span><span class="s3">: </span><span class="s6">5.0</span><span class="s3">, </span><span class="s4">&quot;max&quot;</span><span class="s3">: </span><span class="s6">7.99</span><span class="s3">, </span><span class="s4">&quot;color&quot;</span><span class="s3">: </span><span class="s4">&quot;#FFD700&quot;</span><span class="s3">, </span><span class="s4">&quot;label&quot;</span><span class="s3">: </span><span class="s4">&quot;Moderately Suitable (5-7)&quot;</span><span class="s3">},</span>
+            <span class="s3">{</span><span class="s4">&quot;min&quot;</span><span class="s3">: </span><span class="s6">0.0</span><span class="s3">, </span><span class="s4">&quot;max&quot;</span><span class="s3">: </span><span class="s6">4.99</span><span class="s3">, </span><span class="s4">&quot;color&quot;</span><span class="s3">: </span><span class="s4">&quot;#8B0000&quot;</span><span class="s3">, </span><span class="s4">&quot;label&quot;</span><span class="s3">: </span><span class="s4">&quot;Least Suitable (0-4)&quot;</span><span class="s3">},</span>
+        <span class="s3">],</span>
+        <span class="s4">&quot;description&quot;</span><span class="s3">: </span><span class="s4">&quot;Green = most suitable, Yellow = moderately suitable, Red = least suitable&quot;</span>
+    <span class="s3">}</span>
+
+</pre>
+</body>
+</html>

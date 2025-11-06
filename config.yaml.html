@@ -1,0 +1,122 @@
+<html>
+<head>
+<title>config.yaml</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #5f826b; font-style: italic;}
+.s1 { color: #bcbec4;}
+.s2 { color: #cf8e6d;}
+.s3 { color: #bcbec4;}
+.s4 { color: #6aab73;}
+.s5 { color: #bcbec4;}
+</style>
+</head>
+<body bgcolor="#1e1f22">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+config.yaml</font>
+</center></td></tr></table>
+<pre><span class="s0"># Residual_Carbon - Biochar Suitability Mapping Tool Configuration</span>
+
+<span class="s0"># Data directories</span>
+<span class="s2">data</span><span class="s3">:</span>
+  <span class="s2">raw</span><span class="s3">: </span><span class="s4">&quot;data/raw&quot;</span>
+  <span class="s2">processed</span><span class="s3">: </span><span class="s4">&quot;data/processed&quot;</span>
+  <span class="s2">external</span><span class="s3">: </span><span class="s4">&quot;data/external&quot;</span>
+
+<span class="s0"># Output directories</span>
+<span class="s2">output</span><span class="s3">:</span>
+  <span class="s2">maps</span><span class="s3">: </span><span class="s4">&quot;output/maps&quot;</span>
+  <span class="s2">html</span><span class="s3">: </span><span class="s4">&quot;output/html&quot;</span>
+
+<span class="s0"># Google Earth Engine configuration</span>
+<span class="s2">gee</span><span class="s3">:</span>
+  <span class="s2">project_name</span><span class="s3">: </span><span class="s4">&quot;sigma-lane-472616-j4&quot;  </span><span class="s0"># GEE project ID</span>
+  <span class="s2">export_folder</span><span class="s3">: </span><span class="s4">&quot;1IIBYV68TBZ2evWnUYgBZY9mKI2PalciE&quot;  </span><span class="s0"># Google Drive folder ID</span>
+  <span class="s2">default_scale</span><span class="s3">: </span><span class="s5">250  </span><span class="s0"># meters - default resolution for GeoTIFF export (250m for most, native for SMAP &gt;250m)</span>
+  <span class="s2">default_region</span><span class="s3">: </span><span class="s4">&quot;mato_grosso&quot;  </span><span class="s0"># Options: &quot;brazil&quot;, &quot;mato_grosso&quot;</span>
+
+<span class="s0"># Google Drive API configuration (for automated download)</span>
+<span class="s2">drive</span><span class="s3">:</span>
+  <span class="s2">credentials_file</span><span class="s3">: </span><span class="s4">&quot;configs/credentials.json&quot;  </span><span class="s0"># OAuth2 credentials file</span>
+  <span class="s2">client_secrets_file</span><span class="s3">: </span><span class="s4">&quot;configs/client_secrets.json&quot;  </span><span class="s0"># Client secrets from Google Cloud Console</span>
+  <span class="s2">settings_file</span><span class="s3">: </span><span class="s4">&quot;configs/settings.yaml&quot;  </span><span class="s0"># PyDrive settings file</span>
+  <span class="s2">download_folder</span><span class="s3">: </span><span class="s4">&quot;EarthEngineExports&quot;  </span><span class="s0"># Must match gee.export_folder</span>
+
+<span class="s0"># Soil property datasets (Google Earth Engine)</span>
+<span class="s2">datasets</span><span class="s3">:</span>
+  <span class="s2">soil_moisture</span><span class="s3">:</span>
+    <span class="s2">collection</span><span class="s3">: </span><span class="s4">&quot;NASA/SMAP/SPL4SMGP/008&quot;</span>
+    <span class="s2">band</span><span class="s3">: </span><span class="s4">&quot;sm_surface&quot;</span>
+    <span class="s2">date_range</span><span class="s3">: [</span><span class="s4">&quot;2024-01-01&quot;</span><span class="s3">, </span><span class="s4">&quot;2025-01-01&quot;</span><span class="s3">]</span>
+    <span class="s2">aggregation</span><span class="s3">: </span><span class="s4">&quot;mean&quot;  </span><span class="s0"># Use mean for soil properties that need accurate averaging</span>
+  <span class="s2">soil_type</span><span class="s3">:</span>
+    <span class="s2">image</span><span class="s3">: </span><span class="s4">&quot;OpenLandMap/SOL/SOL_TEXTURE-CLASS_USDA-TT_M/v02&quot;</span>
+  <span class="s2">soil_temperature</span><span class="s3">:</span>
+    <span class="s2">collection</span><span class="s3">: </span><span class="s4">&quot;NASA/SMAP/SPL4SMGP/008&quot;</span>
+    <span class="s2">band</span><span class="s3">: </span><span class="s4">&quot;soil_temp_layer1&quot;</span>
+    <span class="s2">date_range</span><span class="s3">: [</span><span class="s4">&quot;2024-01-01&quot;</span><span class="s3">, </span><span class="s4">&quot;2025-01-01&quot;</span><span class="s3">]</span>
+    <span class="s2">aggregation</span><span class="s3">: </span><span class="s4">&quot;mean&quot;  </span><span class="s0"># Use mean for soil properties that need accurate averaging</span>
+  <span class="s2">soil_organic_carbon</span><span class="s3">:</span>
+    <span class="s2">image</span><span class="s3">: </span><span class="s4">&quot;OpenLandMap/SOL/SOL_ORGANIC-CARBON_USDA-6A1C_M/v02&quot;</span>
+    <span class="s2">aggregation</span><span class="s3">: </span><span class="s4">&quot;mean&quot;  </span><span class="s0"># Use mean for soil properties that need accurate averaging</span>
+  <span class="s2">soil_pH</span><span class="s3">:</span>
+    <span class="s2">image</span><span class="s3">: </span><span class="s4">&quot;OpenLandMap/SOL/SOL_PH-H2O_USDA-4C1A2A_M/v02&quot;</span>
+    <span class="s2">aggregation</span><span class="s3">: </span><span class="s4">&quot;mean&quot;  </span><span class="s0"># Use mean for soil properties that need accurate averaging</span>
+  <span class="s2">land_cover</span><span class="s3">:</span>
+    <span class="s2">collection</span><span class="s3">: </span><span class="s4">&quot;ESA/WorldCover/v100&quot;</span>
+    <span class="s2">aggregation</span><span class="s3">: </span><span class="s4">&quot;recent&quot;  </span><span class="s0"># Use first image (fastest for WorldCover)</span>
+
+<span class="s0"># Spatial clipping configuration</span>
+<span class="s2">clipping</span><span class="s3">:</span>
+  <span class="s2">default_radius_km</span><span class="s3">: </span><span class="s5">100  </span><span class="s0"># Default radius for clipping around user location</span>
+  <span class="s0"># User coordinates will be provided at runtime</span>
+  <span class="s0"># lat: null  # Set at runtime</span>
+  <span class="s0"># lon: null  # Set at runtime</span>
+
+<span class="s0"># Coordinate Reference System</span>
+<span class="s2">crs</span><span class="s3">:</span>
+  <span class="s2">default</span><span class="s3">: </span><span class="s4">&quot;EPSG:4326&quot;  </span><span class="s0"># WGS84</span>
+  <span class="s2">target</span><span class="s3">: </span><span class="s4">&quot;EPSG:4326&quot;</span>
+
+<span class="s0"># Raster processing</span>
+<span class="s2">raster</span><span class="s3">:</span>
+  <span class="s2">default_band</span><span class="s3">: </span><span class="s5">1  </span><span class="s0"># First band by default</span>
+  <span class="s2">nodata_handling</span><span class="s3">: </span><span class="s4">&quot;skip&quot;  </span><span class="s0"># Options: &quot;skip&quot;, &quot;nan&quot;, &quot;zero&quot;</span>
+
+<span class="s0"># Data processing</span>
+<span class="s2">processing</span><span class="s3">:</span>
+  <span class="s2">h3_resolution</span><span class="s3">: </span><span class="s5">7  </span><span class="s0"># H3 spatial index resolution (0-15, higher = finer hexagons)</span>
+  <span class="s2">enable_clipping</span><span class="s3">: </span><span class="s5">true  </span><span class="s0"># Enable spatial clipping workflow</span>
+  <span class="s2">convert_to_csv</span><span class="s3">: </span><span class="s5">true  </span><span class="s0"># Convert clipped rasters to CSV</span>
+
+<span class="s0"># CSV column names</span>
+<span class="s2">csv</span><span class="s3">:</span>
+  <span class="s2">lon_column</span><span class="s3">: </span><span class="s4">&quot;lon&quot;</span>
+  <span class="s2">lat_column</span><span class="s3">: </span><span class="s4">&quot;lat&quot;</span>
+  <span class="s2">value_column</span><span class="s3">: </span><span class="s4">&quot;value&quot;</span>
+
+<span class="s0"># Suitability scoring</span>
+<span class="s2">scoring</span><span class="s3">:</span>
+  <span class="s2">scale</span><span class="s3">: </span><span class="s5">10  </span><span class="s0"># Maximum score (0-10 scale)</span>
+  <span class="s2">color_scheme</span><span class="s3">:</span>
+    <span class="s2">high_suitability</span><span class="s3">: [</span><span class="s5">8</span><span class="s3">, </span><span class="s5">10</span><span class="s3">]  </span><span class="s0"># Green</span>
+    <span class="s2">medium_suitability</span><span class="s3">: [</span><span class="s5">5</span><span class="s3">, </span><span class="s5">7</span><span class="s3">]  </span><span class="s0"># Yellow</span>
+    <span class="s2">low_suitability</span><span class="s3">: [</span><span class="s5">0</span><span class="s3">, </span><span class="s5">4</span><span class="s3">]  </span><span class="s0"># Red</span>
+
+<span class="s0"># Visualization</span>
+<span class="s2">visualization</span><span class="s3">:</span>
+  <span class="s2">auto_open_html</span><span class="s3">: </span><span class="s5">true  </span><span class="s0"># Automatically open HTML map in browser</span>
+  <span class="s2">map_title</span><span class="s3">: </span><span class="s4">&quot;Biochar Suitability Map - Mato Grosso, Brazil&quot;</span>
+  <span class="s2">default_zoom</span><span class="s3">: </span><span class="s5">6</span>
+
+<span class="s0"># Logging</span>
+<span class="s2">logging</span><span class="s3">:</span>
+  <span class="s2">level</span><span class="s3">: </span><span class="s4">&quot;INFO&quot;  </span><span class="s0"># Options: &quot;DEBUG&quot;, &quot;INFO&quot;, &quot;WARNING&quot;, &quot;ERROR&quot;</span>
+  <span class="s2">file</span><span class="s3">: </span><span class="s4">&quot;logs/residual_carbon.log&quot;</span>
+  <span class="s2">console</span><span class="s3">: </span><span class="s5">true</span>
+
+</pre>
+</body>
+</html>

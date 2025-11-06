@@ -1,0 +1,208 @@
+<html>
+<head>
+<title>SETUP_GUIDE.md</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cf8e6d;}
+.s1 { color: #bcbec4;}
+.s2 { color: #bcbec4;}
+.s3 { color: #c77dbb; font-style: italic;}
+.s4 { color: #6aab73;}
+.s5 { color: #56a8f5;}
+</style>
+</head>
+<body bgcolor="#1e1f22">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+SETUP_GUIDE.md</font>
+</center></td></tr></table>
+<pre><span class="s0"># </span><span class="s2">Setup Guide - Residual_Carbon</span>
+
+<span class="s0">## </span><span class="s2">Quick Setup Checklist</span>
+
+<span class="s0">- </span><span class="s1">[ ] </span><span class="s2">Python 3.9+ installed</span>
+<span class="s0">- </span><span class="s1">[ ] </span><span class="s2">Virtual environment created and activated</span>
+<span class="s0">- </span><span class="s1">[ ] </span><span class="s2">Dependencies installed </span><span class="s1">(</span><span class="s2">`pip install -r requirements.txt`</span><span class="s1">)</span>
+<span class="s0">- </span><span class="s1">[ ] </span><span class="s2">Google Earth Engine authenticated</span>
+<span class="s0">- </span><span class="s1">[ ] </span><span class="s2">Google Drive API credentials configured</span>
+<span class="s0">- </span><span class="s1">[ ] </span><span class="s2">Configuration file updated </span><span class="s1">(</span><span class="s2">`configs/config.yaml`</span><span class="s1">)</span>
+
+<span class="s0">## </span><span class="s2">Detailed Setup Instructions</span>
+
+<span class="s0">### </span><span class="s2">1. Python Environment</span>
+
+<span class="s0">```</span><span class="s3">bash</span>
+<span class="s4"># Create virtual environment</span>
+<span class="s4">python -m venv venv</span>
+
+<span class="s4"># Activate (Windows)</span>
+<span class="s4">venv\Scripts\activate</span>
+
+<span class="s4"># Activate (Linux/Mac)</span>
+<span class="s4">source venv/bin/activate</span>
+<span class="s0">```</span>
+
+<span class="s0">### </span><span class="s2">2. Install Dependencies</span>
+
+<span class="s1">**</span><span class="s2">Windows </span><span class="s1">(</span><span class="s2">Recommended</span><span class="s1">):**</span>
+<span class="s0">```</span><span class="s3">bash</span>
+<span class="s4"># Install geospatial packages via Conda first</span>
+<span class="s4">conda install -c conda-forge geopandas rasterio shapely fiona pyproj gdal</span>
+
+<span class="s4"># Then install remaining packages</span>
+<span class="s4">pip install -r requirements.txt</span>
+<span class="s0">```</span>
+
+<span class="s1">**</span><span class="s2">Linux/Mac</span><span class="s1">:**</span>
+<span class="s0">```</span><span class="s3">bash</span>
+<span class="s4">pip install -r requirements.txt</span>
+<span class="s0">```</span>
+
+<span class="s0">### </span><span class="s2">3. Google Earth Engine Setup</span>
+
+<span class="s0">1. </span><span class="s1">**</span><span class="s2">Authenticate</span><span class="s1">:**</span>
+   <span class="s0">```</span><span class="s3">bash</span>
+   <span class="s4">python -c &quot;import ee; ee.Authenticate()&quot;</span>
+   <span class="s0">```</span>
+   <span class="s2">This will open a browser for authentication.</span>
+
+<span class="s0">2. </span><span class="s1">**</span><span class="s2">Set project name in `configs/config.yaml`</span><span class="s1">:**</span>
+   <span class="s0">```</span><span class="s3">yaml</span>
+   <span class="s4">gee:</span>
+     <span class="s4">project_name: &quot;your-project-name&quot;</span>
+   <span class="s0">```</span>
+
+<span class="s0">### </span><span class="s2">4. Google Drive API Setup </span><span class="s1">(</span><span class="s2">for Automated Download</span><span class="s1">)</span>
+
+<span class="s0">#### </span><span class="s2">Step 4.1</span><span class="s1">: </span><span class="s2">Enable Google Drive API</span>
+
+<span class="s0">1. </span><span class="s2">Go to </span><span class="s1">[</span><span class="s2">Google Cloud Console</span><span class="s1">](</span><span class="s5">https://console.cloud.google.com/</span><span class="s1">)</span>
+<span class="s0">2. </span><span class="s2">Create a new project or select an existing one</span>
+<span class="s0">3. </span><span class="s2">Enable the </span><span class="s1">**</span><span class="s2">Google Drive API</span><span class="s1">**:</span>
+   <span class="s0">- </span><span class="s2">Navigate to </span><span class="s1">&quot;</span><span class="s2">APIs &amp; Services</span><span class="s1">&quot; &gt; &quot;</span><span class="s2">Library</span><span class="s1">&quot;</span>
+   <span class="s0">- </span><span class="s2">Search for </span><span class="s1">&quot;</span><span class="s2">Google Drive API</span><span class="s1">&quot;</span>
+   <span class="s0">- </span><span class="s2">Click </span><span class="s1">&quot;</span><span class="s2">Enable</span><span class="s1">&quot;</span>
+
+<span class="s0">#### </span><span class="s2">Step 4.2</span><span class="s1">: </span><span class="s2">Create OAuth 2.0 Credentials</span>
+
+<span class="s0">1. </span><span class="s2">Go to </span><span class="s1">&quot;</span><span class="s2">APIs &amp; Services</span><span class="s1">&quot; &gt; &quot;</span><span class="s2">Credentials</span><span class="s1">&quot;</span>
+<span class="s0">2. </span><span class="s2">Click </span><span class="s1">&quot;</span><span class="s2">Create Credentials</span><span class="s1">&quot; &gt; &quot;</span><span class="s2">OAuth client ID</span><span class="s1">&quot;</span>
+<span class="s0">3. </span><span class="s2">If prompted, configure OAuth consent screen</span><span class="s1">:</span>
+   <span class="s0">- </span><span class="s2">User Type</span><span class="s1">: </span><span class="s2">External </span><span class="s1">(</span><span class="s2">or Internal if using Google Workspace</span><span class="s1">)</span>
+   <span class="s0">- </span><span class="s2">App name</span><span class="s1">: &quot;</span><span class="s2">Residual_Carbon</span><span class="s1">&quot;</span>
+   <span class="s0">- </span><span class="s2">Scopes</span><span class="s1">: </span><span class="s2">Add `</span><span class="s5">https://www.googleapis.com/auth/drive.readonly</span><span class="s2">`</span>
+   <span class="s0">- </span><span class="s2">Save and continue</span>
+<span class="s0">4. </span><span class="s2">Application type</span><span class="s1">: **</span><span class="s2">Desktop application</span><span class="s1">**</span>
+<span class="s0">5. </span><span class="s2">Name</span><span class="s1">: &quot;</span><span class="s2">Residual_Carbon Desktop Client</span><span class="s1">&quot;</span>
+<span class="s0">6. </span><span class="s2">Click </span><span class="s1">&quot;</span><span class="s2">Create</span><span class="s1">&quot;</span>
+<span class="s0">7. </span><span class="s2">Download the JSON file </span><span class="s1">(</span><span class="s2">it will be named something like `client_secret_xxxxx.json`</span><span class="s1">)</span>
+
+<span class="s0">#### </span><span class="s2">Step 4.3</span><span class="s1">: </span><span class="s2">Configure PyDrive</span>
+
+<span class="s0">1. </span><span class="s1">**</span><span class="s2">Rename the downloaded file</span><span class="s1">:**</span>
+   <span class="s0">```</span><span class="s3">bash</span>
+   <span class="s4"># Rename the downloaded JSON file to:</span>
+   <span class="s4">configs/client_secrets.json</span>
+   <span class="s0">```</span>
+
+<span class="s0">2. </span><span class="s1">**</span><span class="s2">First-time authentication</span><span class="s1">:**</span>
+   <span class="s0">- </span><span class="s2">When you first run the tool, it will automatically</span><span class="s1">:</span>
+     <span class="s0">- </span><span class="s2">Open a browser for OAuth authentication</span>
+     <span class="s0">- </span><span class="s2">Create `configs/credentials.json` </span><span class="s1">(</span><span class="s2">stores your access token</span><span class="s1">)</span>
+     <span class="s0">- </span><span class="s2">Create `configs/settings.yaml` </span><span class="s1">(</span><span class="s2">PyDrive configuration</span><span class="s1">)</span>
+   <span class="s0">- </span><span class="s2">You only need to do this once</span>
+
+<span class="s0">#### </span><span class="s2">Alternative</span><span class="s1">: </span><span class="s2">Manual PyDrive Setup</span>
+
+<span class="s2">If you prefer to set up PyDrive manually</span><span class="s1">:</span>
+
+<span class="s0">1. </span><span class="s2">Copy `configs/settings.yaml.template` to `configs/settings.yaml`</span>
+<span class="s0">2. </span><span class="s2">Extract `client_id` and `client_secret` from your `client_secrets.json`</span>
+<span class="s0">3. </span><span class="s2">Update `configs/settings.yaml` with your credentials</span>
+
+<span class="s0">### </span><span class="s2">5. Verify Installation</span>
+
+<span class="s0">```</span><span class="s3">bash</span>
+<span class="s4"># Test imports</span>
+<span class="s4">python -c &quot;import ee; import pandas; import geopandas; import h3; print('All imports successful!')&quot;</span>
+
+<span class="s4"># Test Google Earth Engine</span>
+<span class="s4">python -c &quot;import ee; ee.Initialize(); print('GEE initialized successfully!')&quot;</span>
+<span class="s0">```</span>
+
+<span class="s0">### </span><span class="s2">6. Configuration</span>
+
+<span class="s2">Edit `configs/config.yaml` to customize</span><span class="s1">:</span>
+
+<span class="s0">- </span><span class="s1">**</span><span class="s2">GEE Project Name</span><span class="s1">**: </span><span class="s2">Your Google Earth Engine project name</span>
+<span class="s0">- </span><span class="s1">**</span><span class="s2">Export Resolution</span><span class="s1">**: </span><span class="s2">Default 1000m </span><span class="s1">(</span><span class="s2">affects processing time and file size</span><span class="s1">)</span>
+<span class="s0">- </span><span class="s1">**</span><span class="s2">H3 Resolution</span><span class="s1">**: </span><span class="s2">Default 6 </span><span class="s1">(</span><span class="s2">higher = finer hexagons</span><span class="s1">)</span>
+<span class="s0">- </span><span class="s1">**</span><span class="s2">Export Folder</span><span class="s1">**: </span><span class="s2">Must match in both `gee.export_folder` and `drive.download_folder`</span>
+
+<span class="s0">## </span><span class="s2">Troubleshooting</span>
+
+<span class="s0">### </span><span class="s2">Issue</span><span class="s1">: &quot;</span><span class="s2">No module named </span><span class="s1">'</span><span class="s2">pydrive2'</span><span class="s1">&quot;</span>
+
+<span class="s1">**</span><span class="s2">Solution</span><span class="s1">:**</span>
+<span class="s0">```</span><span class="s3">bash</span>
+<span class="s4">pip install pydrive2</span>
+<span class="s0">```</span>
+
+<span class="s0">### </span><span class="s2">Issue</span><span class="s1">: </span><span class="s2">Google Earth Engine Authentication Error</span>
+
+<span class="s1">**</span><span class="s2">Solution</span><span class="s1">:**</span>
+<span class="s0">```</span><span class="s3">bash</span>
+<span class="s4"># Re-authenticate</span>
+<span class="s4">python -c &quot;import ee; ee.Authenticate()&quot;</span>
+<span class="s0">```</span>
+
+<span class="s0">### </span><span class="s2">Issue</span><span class="s1">: </span><span class="s2">Google Drive API Authentication Error</span>
+
+<span class="s1">**</span><span class="s2">Solution</span><span class="s1">:**</span>
+<span class="s0">1. </span><span class="s2">Delete `configs/credentials.json` if it exists</span>
+<span class="s0">2. </span><span class="s2">Ensure `configs/client_secrets.json` is present</span>
+<span class="s0">3. </span><span class="s2">Run the tool again - it will re-authenticate</span>
+
+<span class="s0">### </span><span class="s2">Issue</span><span class="s1">: &quot;</span><span class="s2">Drive API not enabled</span><span class="s1">&quot;</span>
+
+<span class="s1">**</span><span class="s2">Solution</span><span class="s1">:**</span>
+<span class="s0">1. </span><span class="s2">Go to Google Cloud Console</span>
+<span class="s0">2. </span><span class="s2">Enable Google Drive API </span><span class="s1">(</span><span class="s2">see Step 4.1 above</span><span class="s1">)</span>
+
+<span class="s0">### </span><span class="s2">Issue</span><span class="s1">: </span><span class="s2">GeoTIFF files not downloading</span>
+
+<span class="s1">**</span><span class="s2">Solution</span><span class="s1">:**</span>
+<span class="s0">1. </span><span class="s2">Check that export tasks completed in Google Earth Engine Code Editor</span>
+<span class="s0">2. </span><span class="s2">Verify folder name matches in `config.yaml` </span><span class="s1">(</span><span class="s2">`gee.export_folder` and `drive.download_folder`</span><span class="s1">)</span>
+<span class="s0">3. </span><span class="s2">Check Google Drive for the exported files</span>
+<span class="s0">4. </span><span class="s2">Verify Drive API credentials are correct</span>
+
+<span class="s0">## </span><span class="s2">Next Steps</span>
+
+<span class="s2">Once setup is complete, you can</span><span class="s1">:</span>
+
+<span class="s0">1. </span><span class="s1">**</span><span class="s2">Test the workflow</span><span class="s1">:**</span>
+   <span class="s0">```</span><span class="s3">bash</span>
+   <span class="s4">python src/main.py</span>
+   <span class="s0">```</span>
+
+<span class="s0">2. </span><span class="s1">**</span><span class="s2">Run with specific coordinates</span><span class="s1">:**</span>
+   <span class="s0">```</span><span class="s3">bash</span>
+   <span class="s4">python src/main.py --lat -15.5 --lon -56.0 --radius 100</span>
+   <span class="s0">```</span>
+
+<span class="s0">3. </span><span class="s1">**</span><span class="s2">Check the project plan</span><span class="s1">:**</span>
+   <span class="s0">- </span><span class="s2">See `PROJECT_PLAN.md` for step-by-step implementation progress</span>
+   <span class="s0">- </span><span class="s2">We'll implement each step one at a time</span>
+
+<span class="s0">## </span><span class="s2">Support</span>
+
+<span class="s2">For issues or questions</span><span class="s1">:</span>
+<span class="s0">- </span><span class="s2">Check `PROJECT_PLAN.md` for implementation status</span>
+<span class="s0">- </span><span class="s2">Review `README.md` for general information</span>
+<span class="s0">- </span><span class="s2">Check logs in `logs/residual_carbon.log`</span>
+
+</pre>
+</body>
+</html>

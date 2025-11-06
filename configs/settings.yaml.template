@@ -1,0 +1,18 @@
+# PyDrive Settings Template
+# Copy this file to settings.yaml and update with your Google Drive API settings
+# This file is used by PyDrive for automated download from Google Drive
+
+client_config_backend: settings
+client_config:
+  client_id: YOUR_CLIENT_ID_HERE
+  client_secret: YOUR_CLIENT_SECRET_HERE
+
+save_credentials: True
+save_credentials_backend: file
+save_credentials_file: configs/credentials.json
+
+get_refresh_token: True
+
+oauth_scope:
+  - https://www.googleapis.com/auth/drive.readonly
+

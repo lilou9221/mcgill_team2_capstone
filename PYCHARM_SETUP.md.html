@@ -1,0 +1,162 @@
+<html>
+<head>
+<title>PYCHARM_SETUP.md</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cf8e6d;}
+.s1 { color: #bcbec4;}
+.s2 { color: #bcbec4;}
+.s3 { color: #c77dbb; font-style: italic;}
+.s4 { color: #6aab73;}
+</style>
+</head>
+<body bgcolor="#1e1f22">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+PYCHARM_SETUP.md</font>
+</center></td></tr></table>
+<pre><span class="s0"># </span><span class="s2">PyCharm Configuration Guide - Residual_Carbon</span>
+
+<span class="s0">## </span><span class="s2">Resolving </span><span class="s1">&quot;</span><span class="s2">Unresolved Reference</span><span class="s1">&quot; </span><span class="s2">Errors</span>
+
+<span class="s2">If you're seeing </span><span class="s1">&quot;</span><span class="s2">unresolved reference</span><span class="s1">&quot; </span><span class="s2">errors for `src` imports in PyCharm, follow these steps</span><span class="s1">:</span>
+
+<span class="s0">## </span><span class="s2">Solution 1</span><span class="s1">: </span><span class="s2">Mark Project Root as Source Root </span><span class="s1">(</span><span class="s2">Recommended</span><span class="s1">)</span>
+
+<span class="s0">1. </span><span class="s1">**</span><span class="s2">Open PyCharm Settings</span><span class="s1">:**</span>
+   <span class="s0">- </span><span class="s2">File → Settings </span><span class="s1">(</span><span class="s2">Windows/Linux</span><span class="s1">) </span><span class="s2">or PyCharm → Preferences </span><span class="s1">(</span><span class="s2">Mac</span><span class="s1">)</span>
+   <span class="s0">- </span><span class="s2">Or press `Ctrl+Alt+S` </span><span class="s1">(</span><span class="s2">Windows/Linux</span><span class="s1">) </span><span class="s2">or `Cmd+,` </span><span class="s1">(</span><span class="s2">Mac</span><span class="s1">)</span>
+
+<span class="s0">2. </span><span class="s1">**</span><span class="s2">Navigate to Project Structure</span><span class="s1">:**</span>
+   <span class="s0">- </span><span class="s2">Go to</span><span class="s1">: </span><span class="s2">Project → Project Structure</span>
+
+<span class="s0">3. </span><span class="s1">**</span><span class="s2">Mark Residual_Carbon as Source Root</span><span class="s1">:**</span>
+   <span class="s0">- </span><span class="s2">Select the `Residual_Carbon` folder in the directory tree</span>
+   <span class="s0">- </span><span class="s2">Click the </span><span class="s1">&quot;</span><span class="s2">Sources</span><span class="s1">&quot; </span><span class="s2">button </span><span class="s1">(</span><span class="s2">or right-click → Mark Directory as → Sources Root</span><span class="s1">)</span>
+   <span class="s0">- </span><span class="s2">The folder should turn blue, indicating it's a source root</span>
+
+<span class="s0">4. </span><span class="s1">**</span><span class="s2">Apply and Close</span><span class="s1">:**</span>
+   <span class="s0">- </span><span class="s2">Click </span><span class="s1">&quot;</span><span class="s2">Apply</span><span class="s1">&quot; </span><span class="s2">and then </span><span class="s1">&quot;</span><span class="s2">OK</span><span class="s1">&quot;</span>
+
+<span class="s2">PyCharm should now recognize imports like `from src.data.gee_loader import GEEDataLoader`.</span>
+
+<span class="s0">## </span><span class="s2">Solution 2</span><span class="s1">: </span><span class="s2">Install Package in Editable Mode </span><span class="s1">(</span><span class="s2">Alternative</span><span class="s1">)</span>
+
+<span class="s2">If marking as source root doesn't work, you can install the package in editable mode</span><span class="s1">:</span>
+
+<span class="s0">1. </span><span class="s1">**</span><span class="s2">Open Terminal in PyCharm</span><span class="s1">:**</span>
+   <span class="s0">- </span><span class="s2">View → Tool Windows → Terminal</span>
+   <span class="s0">- </span><span class="s2">Or press `Alt+F12`</span>
+
+<span class="s0">2. </span><span class="s1">**</span><span class="s2">Navigate to project root</span><span class="s1">:**</span>
+   <span class="s0">```</span><span class="s3">bash</span>
+   <span class="s4">cd C:\Users\lilou\PycharmProjects\PythonProject\Residual_Carbon</span>
+   <span class="s0">```</span>
+
+<span class="s0">3. </span><span class="s1">**</span><span class="s2">Install in editable mode</span><span class="s1">:**</span>
+   <span class="s0">```</span><span class="s3">bash</span>
+   <span class="s4">pip install -e .</span>
+   <span class="s0">```</span>
+
+   <span class="s2">This installs the package in </span><span class="s1">&quot;</span><span class="s2">editable</span><span class="s1">&quot; </span><span class="s2">mode, so changes to source files are immediately reflected.</span>
+
+<span class="s0">4. </span><span class="s1">**</span><span class="s2">Restart PyCharm</span><span class="s1">:**</span>
+   <span class="s0">- </span><span class="s2">File → Invalidate Caches / Restart → Invalidate and Restart</span>
+
+<span class="s0">## </span><span class="s2">Solution 3</span><span class="s1">: </span><span class="s2">Configure Python Path </span><span class="s1">(</span><span class="s2">If still not working</span><span class="s1">)</span>
+
+<span class="s0">1. </span><span class="s1">**</span><span class="s2">Open Run/Debug Configurations</span><span class="s1">:**</span>
+   <span class="s0">- </span><span class="s2">Run → Edit Configurations...</span>
+   <span class="s0">- </span><span class="s2">Or click the dropdown next to the run button</span>
+
+<span class="s0">2. </span><span class="s1">**</span><span class="s2">Edit Python Interpreter</span><span class="s1">:**</span>
+   <span class="s0">- </span><span class="s2">Select your Python interpreter</span>
+   <span class="s0">- </span><span class="s2">In </span><span class="s1">&quot;</span><span class="s2">Environment variables</span><span class="s1">&quot; </span><span class="s2">section, add</span><span class="s1">:</span>
+     <span class="s0">```</span>
+     <span class="s4">PYTHONPATH=C:\Users\lilou\PycharmProjects\PythonProject\Residual_Carbon</span>
+     <span class="s0">```</span>
+
+<span class="s0">3. </span><span class="s1">**</span><span class="s2">Apply and Close</span><span class="s1">**</span>
+
+<span class="s0">## </span><span class="s2">Solution 4</span><span class="s1">: </span><span class="s2">Verify Project Interpreter</span>
+
+<span class="s0">1. </span><span class="s1">**</span><span class="s2">Check Python Interpreter</span><span class="s1">:**</span>
+   <span class="s0">- </span><span class="s2">File → Settings → Project → Python Interpreter</span>
+   <span class="s0">- </span><span class="s2">Make sure the correct interpreter is selected </span><span class="s1">(</span><span class="s2">the one with your virtual environment</span><span class="s1">)</span>
+
+<span class="s0">2. </span><span class="s1">**</span><span class="s2">Verify Interpreter Path</span><span class="s1">:**</span>
+   <span class="s0">- </span><span class="s2">Ensure it's pointing to your virtual environment if you</span><span class="s1">'</span><span class="s2">re using one</span>
+   <span class="s0">- </span><span class="s2">Example</span><span class="s1">: </span><span class="s2">`C</span><span class="s1">:</span><span class="s2">\Users\lilou\PycharmProjects\PythonProject\Residual_Carbon\venv\Scripts\python.exe`</span>
+
+<span class="s0">## </span><span class="s2">Verification</span>
+
+<span class="s2">After applying any solution, verify it works</span><span class="s1">:</span>
+
+<span class="s0">1. </span><span class="s1">**</span><span class="s2">Open `src/main.py`</span><span class="s1">**</span>
+<span class="s0">2. </span><span class="s1">**</span><span class="s2">Check if the imports are resolved</span><span class="s1">:**</span>
+   <span class="s0">- </span><span class="s2">`from src.data.gee_loader import GEEDataLoader` should not show red squiggly lines</span>
+<span class="s0">3. </span><span class="s1">**</span><span class="s2">Try running the code</span><span class="s1">:**</span>
+   <span class="s0">```</span><span class="s3">bash</span>
+   <span class="s4">python src/main.py --help</span>
+   <span class="s0">```</span>
+
+<span class="s0">## </span><span class="s2">Common Issues</span>
+
+<span class="s0">### </span><span class="s2">Issue</span><span class="s1">: &quot;</span><span class="s2">Config file not found</span><span class="s1">&quot; </span><span class="s2">when running in PyCharm</span>
+
+<span class="s1">**</span><span class="s2">Solution</span><span class="s1">:**</span>
+<span class="s0">- </span><span class="s1">**</span><span class="s2">This has been fixed</span><span class="s1">!** </span><span class="s2">The code now resolves relative paths relative to the project root, not the working directory</span>
+<span class="s0">- </span><span class="s1">**</span><span class="s2">If you still see this error</span><span class="s1">:**</span>
+  <span class="s0">1. </span><span class="s2">Check that `configs/config.yaml` exists in the project root</span>
+  <span class="s0">2. </span><span class="s2">Set the working directory in Run Configuration</span><span class="s1">:</span>
+     <span class="s0">- </span><span class="s2">Run → Edit Configurations...</span>
+     <span class="s0">- </span><span class="s2">Select your run configuration</span>
+     <span class="s0">- </span><span class="s2">Set </span><span class="s1">&quot;</span><span class="s2">Working directory</span><span class="s1">&quot; </span><span class="s2">to</span><span class="s1">: </span><span class="s2">`C</span><span class="s1">:</span><span class="s2">\Users\lilou\PycharmProjects\PythonProject\Residual_Carbon`</span>
+     <span class="s0">- </span><span class="s2">Or use</span><span class="s1">: </span><span class="s2">`$PROJECT_DIR$` </span><span class="s1">(</span><span class="s2">PyCharm variable</span><span class="s1">)</span>
+  <span class="s0">3. </span><span class="s2">The code should now work regardless of working directory</span>
+
+<span class="s0">### </span><span class="s2">Issue</span><span class="s1">: </span><span class="s2">Still seeing unresolved references after marking as source root</span>
+
+<span class="s1">**</span><span class="s2">Solution</span><span class="s1">:**</span>
+<span class="s0">- </span><span class="s2">Invalidate caches</span><span class="s1">: </span><span class="s2">File → Invalidate Caches → Invalidate and Restart</span>
+<span class="s0">- </span><span class="s2">Make sure you marked the `Residual_Carbon` folder, not the `src` folder</span>
+<span class="s0">- </span><span class="s2">Check that `.idea` folder exists </span><span class="s1">(</span><span class="s2">PyCharm project folder</span><span class="s1">)</span>
+
+<span class="s0">### </span><span class="s2">Issue</span><span class="s1">: </span><span class="s2">Python path is correct but imports still fail</span>
+
+<span class="s1">**</span><span class="s2">Solution</span><span class="s1">:**</span>
+<span class="s0">- </span><span class="s2">Close and reopen PyCharm</span>
+<span class="s0">- </span><span class="s2">Check that `</span><span class="s1">__</span><span class="s2">init</span><span class="s1">__</span><span class="s2">.py` files exist in all package directories</span><span class="s1">:</span>
+  <span class="s0">- </span><span class="s2">`src/</span><span class="s1">__</span><span class="s2">init</span><span class="s1">__</span><span class="s2">.py` </span><span class="s1">[</span><span class="s2">OK</span><span class="s1">]</span>
+  <span class="s0">- </span><span class="s2">`src/data/</span><span class="s1">__</span><span class="s2">init</span><span class="s1">__</span><span class="s2">.py` </span><span class="s1">[</span><span class="s2">OK</span><span class="s1">]</span>
+  <span class="s0">- </span><span class="s2">`src/utils/</span><span class="s1">__</span><span class="s2">init</span><span class="s1">__</span><span class="s2">.py` </span><span class="s1">[</span><span class="s2">OK</span><span class="s1">]</span>
+  <span class="s0">- </span><span class="s2">`src/analysis/</span><span class="s1">__</span><span class="s2">init</span><span class="s1">__</span><span class="s2">.py` </span><span class="s1">[</span><span class="s2">OK</span><span class="s1">]</span>
+  <span class="s0">- </span><span class="s2">`src/visualization/</span><span class="s1">__</span><span class="s2">init</span><span class="s1">__</span><span class="s2">.py` </span><span class="s1">[</span><span class="s2">OK</span><span class="s1">]</span>
+
+<span class="s0">### </span><span class="s2">Issue</span><span class="s1">: </span><span class="s2">Works in terminal but not in PyCharm</span>
+
+<span class="s1">**</span><span class="s2">Solution</span><span class="s1">:**</span>
+<span class="s0">- </span><span class="s2">PyCharm might be using a different Python interpreter</span>
+<span class="s0">- </span><span class="s2">Check</span><span class="s1">: </span><span class="s2">File → Settings → Project → Python Interpreter</span>
+<span class="s0">- </span><span class="s2">Make sure it matches your terminal's Python interpreter</span>
+
+<span class="s0">## </span><span class="s2">Quick Fix Checklist</span>
+
+<span class="s0">- </span><span class="s1">[ ] </span><span class="s2">Mark `Residual_Carbon` folder as Sources Root</span>
+<span class="s0">- </span><span class="s1">[ ] </span><span class="s2">Verify Python interpreter is correct</span>
+<span class="s0">- </span><span class="s1">[ ] </span><span class="s2">Check that all `</span><span class="s1">__</span><span class="s2">init</span><span class="s1">__</span><span class="s2">.py` files exist</span>
+<span class="s0">- </span><span class="s1">[ ] </span><span class="s2">Invalidate caches and restart PyCharm</span>
+<span class="s0">- </span><span class="s1">[ ] </span><span class="s2">If still not working, try `pip install -e .` in terminal</span>
+
+<span class="s0">## </span><span class="s2">Still Having Issues?</span>
+
+<span class="s2">If none of these solutions work</span><span class="s1">:</span>
+
+<span class="s0">1. </span><span class="s1">**</span><span class="s2">Check PyCharm version</span><span class="s1">:** </span><span class="s2">Make sure you're using a recent version </span><span class="s1">(</span><span class="s2">2021.1+</span><span class="s1">)</span>
+<span class="s0">2. </span><span class="s1">**</span><span class="s2">Check project structure</span><span class="s1">:** </span><span class="s2">Ensure your project structure matches the expected layout</span>
+<span class="s0">3. </span><span class="s1">**</span><span class="s2">Try creating a new PyCharm project</span><span class="s1">:** </span><span class="s2">File → New → Project from Existing Sources</span>
+<span class="s0">4. </span><span class="s1">**</span><span class="s2">Check for conflicting Python installations</span><span class="s1">:** </span><span class="s2">Make sure there's only one Python interpreter active</span>
+</pre>
+</body>
+</html>

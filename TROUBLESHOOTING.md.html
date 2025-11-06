@@ -1,0 +1,180 @@
+<html>
+<head>
+<title>TROUBLESHOOTING.md</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cf8e6d;}
+.s1 { color: #bcbec4;}
+.s2 { color: #bcbec4;}
+.s3 { color: #c77dbb; font-style: italic;}
+.s4 { color: #6aab73;}
+</style>
+</head>
+<body bgcolor="#1e1f22">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+TROUBLESHOOTING.md</font>
+</center></td></tr></table>
+<pre><span class="s0"># </span><span class="s2">Troubleshooting Guide</span>
+
+<span class="s2">This guide helps you resolve common issues when using the Residual_Carbon biochar suitability mapping tool.</span>
+
+<span class="s0">## </span><span class="s2">Table of Contents</span>
+
+<span class="s0">1. </span><span class="s1">[</span><span class="s2">Common Errors</span><span class="s1">](</span><span class="s2">#common-errors</span><span class="s1">)</span>
+<span class="s0">2. </span><span class="s1">[</span><span class="s2">Data Issues</span><span class="s1">](</span><span class="s2">#data-issues</span><span class="s1">)</span>
+<span class="s0">3. </span><span class="s1">[</span><span class="s2">Configuration Issues</span><span class="s1">](</span><span class="s2">#configuration-issues</span><span class="s1">)</span>
+<span class="s0">4. </span><span class="s1">[</span><span class="s2">Performance Issues</span><span class="s1">](</span><span class="s2">#performance-issues</span><span class="s1">)</span>
+<span class="s0">5. </span><span class="s1">[</span><span class="s2">Visualization Issues</span><span class="s1">](</span><span class="s2">#visualization-issues</span><span class="s1">)</span>
+
+<span class="s0">## </span><span class="s2">Common Errors</span>
+
+<span class="s0">### </span><span class="s2">PermissionError</span><span class="s1">: [</span><span class="s2">Errno 13</span><span class="s1">] </span><span class="s2">Permission denied</span>
+
+<span class="s1">**</span><span class="s2">Problem</span><span class="s1">**: </span><span class="s2">Cannot write to CSV files during H3 conversion or suitability scoring.</span>
+
+<span class="s1">**</span><span class="s2">Solution</span><span class="s1">**:</span>
+<span class="s0">- </span><span class="s2">Close any programs that might have the CSV files open </span><span class="s1">(</span><span class="s2">Excel, text editors, etc.</span><span class="s1">)</span>
+<span class="s0">- </span><span class="s2">Check file permissions on the `data/processed/` directory</span>
+<span class="s0">- </span><span class="s2">Run the script with appropriate permissions</span>
+
+<span class="s0">### </span><span class="s2">TypeError</span><span class="s1">: </span><span class="s2">Could not convert string to numeric</span>
+
+<span class="s1">**</span><span class="s2">Problem</span><span class="s1">**: </span><span class="s2">Non-numeric columns </span><span class="s1">(</span><span class="s2">like color codes</span><span class="s1">) </span><span class="s2">are being included in aggregation.</span>
+
+<span class="s1">**</span><span class="s2">Solution</span><span class="s1">**:</span>
+<span class="s0">- </span><span class="s2">This has been fixed in the latest version - the code now filters to only numeric columns</span>
+<span class="s0">- </span><span class="s2">If you still see this error, check your CSV files for unexpected string columns</span>
+<span class="s0">- </span><span class="s2">Ensure CSV files only contain numeric data for soil properties</span>
+
+<span class="s0">### </span><span class="s2">ModuleNotFoundError</span>
+
+<span class="s1">**</span><span class="s2">Problem</span><span class="s1">**: </span><span class="s2">Missing Python packages.</span>
+
+<span class="s1">**</span><span class="s2">Solution</span><span class="s1">**:</span>
+<span class="s0">```</span><span class="s3">bash</span>
+<span class="s4">pip install -e .</span>
+<span class="s0">```</span>
+
+<span class="s2">Or install specific packages</span><span class="s1">:</span>
+<span class="s0">```</span><span class="s3">bash</span>
+<span class="s4">pip install earthengine-api rasterio pandas h3 folium pydeck shapely pyyaml</span>
+<span class="s0">```</span>
+
+<span class="s0">### </span><span class="s2">Config file not found</span>
+
+<span class="s1">**</span><span class="s2">Problem</span><span class="s1">**: </span><span class="s2">Configuration file cannot be loaded.</span>
+
+<span class="s1">**</span><span class="s2">Solution</span><span class="s1">**:</span>
+<span class="s0">- </span><span class="s2">Ensure `configs/config.yaml` exists</span>
+<span class="s0">- </span><span class="s2">Run the script from the project root directory</span>
+<span class="s0">- </span><span class="s2">Use `--config` flag to specify a custom config path</span>
+
+<span class="s0">## </span><span class="s2">Data Issues</span>
+
+<span class="s0">### </span><span class="s2">No GeoTIFF files found</span>
+
+<span class="s1">**</span><span class="s2">Problem</span><span class="s1">**: </span><span class="s2">`data/raw/` directory is empty or files are missing.</span>
+
+<span class="s1">**</span><span class="s2">Solution</span><span class="s1">**:</span>
+<span class="s0">1. </span><span class="s2">Run the data loader first</span><span class="s1">: </span><span class="s2">`python src/data_loader.py`</span>
+<span class="s0">2. </span><span class="s2">Export data from Google Earth Engine to Google Drive</span>
+<span class="s0">3. </span><span class="s2">Manually download GeoTIFF files to `data/raw/`</span>
+
+<span class="s0">### </span><span class="s2">CSV files are empty</span>
+
+<span class="s1">**</span><span class="s2">Problem</span><span class="s1">**: </span><span class="s2">Converted CSV files have no data.</span>
+
+<span class="s1">**</span><span class="s2">Solution</span><span class="s1">**:</span>
+<span class="s0">- </span><span class="s2">Check that GeoTIFF files are valid and not corrupted</span>
+<span class="s0">- </span><span class="s2">Verify the clipping area intersects with the data</span>
+<span class="s0">- </span><span class="s2">Check for NoData values in the GeoTIFF files</span>
+
+<span class="s0">### </span><span class="s2">Suitability scores are all zero</span>
+
+<span class="s1">**</span><span class="s2">Problem</span><span class="s1">**: </span><span class="s2">All suitability scores are 0.0.</span>
+
+<span class="s1">**</span><span class="s2">Solution</span><span class="s1">**:</span>
+<span class="s0">- </span><span class="s2">Check that thresholds file exists</span><span class="s1">: </span><span class="s2">`configs/thresholds.yaml`</span>
+<span class="s0">- </span><span class="s2">Verify CSV files contain the required soil property columns</span>
+<span class="s0">- </span><span class="s2">Check that property values are within expected ranges</span>
+<span class="s0">- </span><span class="s2">Review threshold values in `configs/thresholds.yaml`</span>
+
+<span class="s0">## </span><span class="s2">Configuration Issues</span>
+
+<span class="s0">### </span><span class="s2">Invalid H3 resolution</span>
+
+<span class="s1">**</span><span class="s2">Problem</span><span class="s1">**: </span><span class="s2">H3 resolution is outside valid range </span><span class="s1">(</span><span class="s2">0-15</span><span class="s1">)</span><span class="s2">.</span>
+
+<span class="s1">**</span><span class="s2">Solution</span><span class="s1">**:</span>
+<span class="s0">- </span><span class="s2">Use `--h3-resolution` flag with a value between 0 and 15</span>
+<span class="s0">- </span><span class="s2">Default is 7 </span><span class="s1">(</span><span class="s2">recommended for most use cases</span><span class="s1">)</span>
+<span class="s0">- </span><span class="s2">Higher values = finer hexagons </span><span class="s1">(</span><span class="s2">more detail, larger files</span><span class="s1">)</span>
+
+<span class="s0">### </span><span class="s2">Coordinates outside Mato Grosso</span>
+
+<span class="s1">**</span><span class="s2">Problem</span><span class="s1">**: </span><span class="s2">Input coordinates are outside the state bounds.</span>
+
+<span class="s1">**</span><span class="s2">Solution</span><span class="s1">**:</span>
+<span class="s0">- </span><span class="s2">Use coordinates within Mato Grosso bounds</span><span class="s1">:</span>
+  <span class="s0">- </span><span class="s2">Latitude</span><span class="s1">: </span><span class="s2">-7.0 to -18.0</span>
+  <span class="s0">- </span><span class="s2">Longitude</span><span class="s1">: </span><span class="s2">-50.0 to -62.0</span>
+<span class="s0">- </span><span class="s2">Or omit coordinates to use the full state</span>
+
+<span class="s0">## </span><span class="s2">Performance Issues</span>
+
+<span class="s0">### </span><span class="s2">Slow processing</span>
+
+<span class="s1">**</span><span class="s2">Problem</span><span class="s1">**: </span><span class="s2">Steps take a long time to complete.</span>
+
+<span class="s1">**</span><span class="s2">Solution</span><span class="s1">**:</span>
+<span class="s0">- </span><span class="s2">Use `--skip-steps` to skip already completed steps</span>
+<span class="s0">- </span><span class="s2">Use `--resume` to continue from last successful step</span>
+<span class="s0">- </span><span class="s2">Reduce H3 resolution for faster processing</span>
+<span class="s0">- </span><span class="s2">Process smaller areas </span><span class="s1">(</span><span class="s2">use coordinates with smaller radius</span><span class="s1">)</span>
+
+<span class="s0">### </span><span class="s2">Large map files </span><span class="s1">(&gt;</span><span class="s2">100MB</span><span class="s1">)</span>
+
+<span class="s1">**</span><span class="s2">Problem</span><span class="s1">**: </span><span class="s2">HTML map files are too large.</span>
+
+<span class="s1">**</span><span class="s2">Solution</span><span class="s1">**:</span>
+<span class="s0">- </span><span class="s2">The code automatically switches to PyDeck for large files</span>
+<span class="s0">- </span><span class="s2">Reduce H3 resolution to create smaller hexagons</span>
+<span class="s0">- </span><span class="s2">Process smaller areas</span>
+<span class="s0">- </span><span class="s2">Use lower resolution GeoTIFF files</span>
+
+<span class="s0">## </span><span class="s2">Visualization Issues</span>
+
+<span class="s0">### </span><span class="s2">Map not opening in browser</span>
+
+<span class="s1">**</span><span class="s2">Problem</span><span class="s1">**: </span><span class="s2">Auto-open fails or map doesn't display correctly.</span>
+
+<span class="s1">**</span><span class="s2">Solution</span><span class="s1">**:</span>
+<span class="s0">- </span><span class="s2">Manually open the HTML file</span><span class="s1">: </span><span class="s2">`output/html/suitability_map.html`</span>
+<span class="s0">- </span><span class="s2">Check browser console for JavaScript errors</span>
+<span class="s0">- </span><span class="s2">Try a different browser</span>
+<span class="s0">- </span><span class="s2">Disable auto-open in config and open manually</span>
+
+<span class="s0">### </span><span class="s2">Map shows no data</span>
+
+<span class="s1">**</span><span class="s2">Problem</span><span class="s1">**: </span><span class="s2">Map is empty or shows only background.</span>
+
+<span class="s1">**</span><span class="s2">Solution</span><span class="s1">**:</span>
+<span class="s0">- </span><span class="s2">Check that `suitability_scores.csv` exists and has data</span>
+<span class="s0">- </span><span class="s2">Verify the file has `lon`, `lat`, and `suitability_score` columns</span>
+<span class="s0">- </span><span class="s2">Check that scores are in valid range </span><span class="s1">(</span><span class="s2">0-10</span><span class="s1">)</span>
+<span class="s0">- </span><span class="s2">Review the data in `data/processed/suitability_scores.csv`</span>
+
+<span class="s0">## </span><span class="s2">Getting Help</span>
+
+<span class="s2">If you encounter issues not covered here</span><span class="s1">:</span>
+
+<span class="s0">1. </span><span class="s2">Check the log file</span><span class="s1">: </span><span class="s2">`logs/residual_carbon.log` </span><span class="s1">(</span><span class="s2">if logging is enabled</span><span class="s1">)</span>
+<span class="s0">2. </span><span class="s2">Run with `--verbose` flag for detailed output</span>
+<span class="s0">3. </span><span class="s2">Check the progress file</span><span class="s1">: </span><span class="s2">`.progress.json` to see which steps completed</span>
+<span class="s0">4. </span><span class="s2">Review error messages and stack traces for specific error details</span>
+
+</pre>
+</body>
+</html>

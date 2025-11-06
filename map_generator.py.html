@@ -1,0 +1,210 @@
+<html>
+<head>
+<title>map_generator.py</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #5f826b; font-style: italic;}
+.s1 { color: #bcbec4;}
+.s2 { color: #cf8e6d;}
+.s3 { color: #bcbec4;}
+.s4 { color: #2aacb8;}
+.s5 { color: #7a7e85;}
+.s6 { color: #6aab73;}
+</style>
+</head>
+<body bgcolor="#1e1f22">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+map_generator.py</font>
+</center></td></tr></table>
+<pre><span class="s0">&quot;&quot;&quot; 
+Map Generator Module 
+ 
+Creates interactive maps with suitability scores. 
+Tries Folium first, falls back to PyDeck if file size &gt; 100MB. 
+&quot;&quot;&quot;</span>
+
+<span class="s2">from </span><span class="s1">pathlib </span><span class="s2">import </span><span class="s1">Path</span>
+<span class="s2">from </span><span class="s1">typing </span><span class="s2">import </span><span class="s1">Optional</span><span class="s3">, </span><span class="s1">Dict</span><span class="s3">, </span><span class="s1">Any</span>
+<span class="s2">import </span><span class="s1">pandas </span><span class="s2">as </span><span class="s1">pd</span>
+<span class="s2">import </span><span class="s1">numpy </span><span class="s2">as </span><span class="s1">np</span>
+
+<span class="s2">from </span><span class="s1">src</span><span class="s3">.</span><span class="s1">visualization</span><span class="s3">.</span><span class="s1">color_scheme </span><span class="s2">import </span><span class="s1">get_color_for_score</span><span class="s3">, </span><span class="s1">get_color_scheme_info</span>
+<span class="s2">from </span><span class="s1">src</span><span class="s3">.</span><span class="s1">visualization</span><span class="s3">.</span><span class="s1">folium_map </span><span class="s2">import </span><span class="s1">create_folium_map</span>
+<span class="s2">from </span><span class="s1">src</span><span class="s3">.</span><span class="s1">visualization</span><span class="s3">.</span><span class="s1">pydeck_map </span><span class="s2">import </span><span class="s1">create_pydeck_map</span>
+
+
+<span class="s2">def </span><span class="s1">create_suitability_map</span><span class="s3">(</span>
+    <span class="s1">df</span><span class="s3">: </span><span class="s1">pd</span><span class="s3">.</span><span class="s1">DataFrame</span><span class="s3">,</span>
+    <span class="s1">output_path</span><span class="s3">: </span><span class="s1">Path</span><span class="s3">,</span>
+    <span class="s1">max_file_size_mb</span><span class="s3">: </span><span class="s1">float </span><span class="s3">= </span><span class="s4">100.0</span><span class="s3">,</span>
+    <span class="s1">use_h3</span><span class="s3">: </span><span class="s1">bool </span><span class="s3">= </span><span class="s2">True</span><span class="s3">,</span>
+    <span class="s1">center_lat</span><span class="s3">: </span><span class="s1">Optional</span><span class="s3">[</span><span class="s1">float</span><span class="s3">] = </span><span class="s2">None</span><span class="s3">,</span>
+    <span class="s1">center_lon</span><span class="s3">: </span><span class="s1">Optional</span><span class="s3">[</span><span class="s1">float</span><span class="s3">] = </span><span class="s2">None</span><span class="s3">,</span>
+    <span class="s1">zoom_start</span><span class="s3">: </span><span class="s1">int </span><span class="s3">= </span><span class="s4">6</span><span class="s3">,</span>
+    <span class="s1">prefer_pydeck</span><span class="s3">: </span><span class="s1">bool </span><span class="s3">= </span><span class="s2">True  </span><span class="s5"># Prefer PyDeck for H3 hexagons (matches Capstone format)</span>
+<span class="s3">) </span><span class="s1">-&gt; Dict</span><span class="s3">[</span><span class="s1">str</span><span class="s3">, </span><span class="s1">Any</span><span class="s3">]:</span>
+    <span class="s0">&quot;&quot;&quot; 
+    Create interactive suitability map. 
+     
+    Uses PyDeck for H3 hexagons (matches Capstone format),  
+    falls back to Folium for points or if PyDeck fails. 
+     
+    Parameters 
+    ---------- 
+    df : pd.DataFrame 
+        DataFrame with suitability scores (must have 'lon', 'lat', 'suitability_score') 
+    output_path : Path 
+        Path to save HTML file 
+    max_file_size_mb : float, optional 
+        Maximum file size in MB before switching to PyDeck (default: 100.0) 
+    use_h3 : bool, optional 
+        Use H3 hexagons if available (default: True) 
+    center_lat : float, optional 
+        Center latitude for map (default: None, auto-calculated) 
+    center_lon : float, optional 
+        Center longitude for map (default: None, auto-calculated) 
+    zoom_start : int, optional 
+        Initial zoom level (default: 6) 
+    prefer_pydeck : bool, optional 
+        Prefer PyDeck for H3 hexagons (default: True, matches Capstone format) 
+     
+    Returns 
+    ------- 
+    dict 
+        Map generation info with keys: 'method', 'file_size_mb', 'file_path' 
+    &quot;&quot;&quot;</span>
+    <span class="s5"># Validate required columns</span>
+    <span class="s1">required_cols </span><span class="s3">= [</span><span class="s6">'lon'</span><span class="s3">, </span><span class="s6">'lat'</span><span class="s3">, </span><span class="s6">'suitability_score'</span><span class="s3">]</span>
+    <span class="s1">missing_cols </span><span class="s3">= [</span><span class="s1">col </span><span class="s2">for </span><span class="s1">col </span><span class="s2">in </span><span class="s1">required_cols </span><span class="s2">if </span><span class="s1">col </span><span class="s2">not in </span><span class="s1">df</span><span class="s3">.</span><span class="s1">columns</span><span class="s3">]</span>
+    <span class="s2">if </span><span class="s1">missing_cols</span><span class="s3">:</span>
+        <span class="s2">raise </span><span class="s1">ValueError</span><span class="s3">(</span><span class="s6">f&quot;Missing required columns: </span><span class="s2">{</span><span class="s1">missing_cols</span><span class="s2">}</span><span class="s6">&quot;</span><span class="s3">)</span>
+    
+    <span class="s5"># Filter out NaN scores</span>
+    <span class="s1">df </span><span class="s3">= </span><span class="s1">df</span><span class="s3">.</span><span class="s1">dropna</span><span class="s3">(</span><span class="s1">subset</span><span class="s3">=[</span><span class="s6">'suitability_score'</span><span class="s3">]).</span><span class="s1">copy</span><span class="s3">()</span>
+    
+    <span class="s2">if </span><span class="s1">df</span><span class="s3">.</span><span class="s1">empty</span><span class="s3">:</span>
+        <span class="s2">raise </span><span class="s1">ValueError</span><span class="s3">(</span><span class="s6">&quot;No valid suitability scores found in DataFrame&quot;</span><span class="s3">)</span>
+    
+    <span class="s5"># Calculate center if not provided</span>
+    <span class="s2">if </span><span class="s1">center_lat </span><span class="s2">is None</span><span class="s3">:</span>
+        <span class="s1">center_lat </span><span class="s3">= </span><span class="s1">df</span><span class="s3">[</span><span class="s6">'lat'</span><span class="s3">].</span><span class="s1">mean</span><span class="s3">()</span>
+    <span class="s2">if </span><span class="s1">center_lon </span><span class="s2">is None</span><span class="s3">:</span>
+        <span class="s1">center_lon </span><span class="s3">= </span><span class="s1">df</span><span class="s3">[</span><span class="s6">'lon'</span><span class="s3">].</span><span class="s1">mean</span><span class="s3">()</span>
+    
+    <span class="s5"># Check if H3 indexes are available</span>
+    <span class="s1">has_h3 </span><span class="s3">= </span><span class="s1">use_h3 </span><span class="s2">and </span><span class="s6">'h3_index' </span><span class="s2">in </span><span class="s1">df</span><span class="s3">.</span><span class="s1">columns</span>
+    
+    <span class="s5"># Prefer PyDeck for H3 hexagons (matches Capstone format)</span>
+    <span class="s2">if </span><span class="s1">has_h3 </span><span class="s2">and </span><span class="s1">prefer_pydeck</span><span class="s3">:</span>
+        <span class="s1">print</span><span class="s3">(</span><span class="s6">f&quot;</span><span class="s2">\n</span><span class="s6">Creating map with PyDeck (H3 hexagons)...&quot;</span><span class="s3">)</span>
+        <span class="s1">print</span><span class="s3">(</span><span class="s6">f&quot;  Data points: </span><span class="s2">{</span><span class="s1">len</span><span class="s3">(</span><span class="s1">df</span><span class="s3">)</span><span class="s2">:</span><span class="s6">,</span><span class="s2">}</span><span class="s6">&quot;</span><span class="s3">)</span>
+        <span class="s1">print</span><span class="s3">(</span><span class="s6">f&quot;  Using H3 hexagons: </span><span class="s2">{</span><span class="s1">has_h3</span><span class="s2">}</span><span class="s6">&quot;</span><span class="s3">)</span>
+        
+        <span class="s2">try</span><span class="s3">:</span>
+            <span class="s5"># Create PyDeck map</span>
+            <span class="s1">create_pydeck_map</span><span class="s3">(</span>
+                <span class="s1">df</span><span class="s3">=</span><span class="s1">df</span><span class="s3">,</span>
+                <span class="s1">output_path</span><span class="s3">=</span><span class="s1">output_path</span><span class="s3">,</span>
+                <span class="s1">use_h3</span><span class="s3">=</span><span class="s1">has_h3</span><span class="s3">,</span>
+                <span class="s1">center_lat</span><span class="s3">=</span><span class="s1">center_lat</span><span class="s3">,</span>
+                <span class="s1">center_lon</span><span class="s3">=</span><span class="s1">center_lon</span><span class="s3">,</span>
+                <span class="s1">zoom_start</span><span class="s3">=</span><span class="s1">zoom_start</span>
+            <span class="s3">)</span>
+            
+            <span class="s1">file_size_mb </span><span class="s3">= </span><span class="s1">output_path</span><span class="s3">.</span><span class="s1">stat</span><span class="s3">().</span><span class="s1">st_size </span><span class="s3">/ (</span><span class="s4">1024 </span><span class="s3">* </span><span class="s4">1024</span><span class="s3">)</span>
+            <span class="s1">print</span><span class="s3">(</span><span class="s6">f&quot;  PyDeck map created: </span><span class="s2">{</span><span class="s1">file_size_mb</span><span class="s2">:</span><span class="s6">.2f</span><span class="s2">} </span><span class="s6">MB&quot;</span><span class="s3">)</span>
+            
+            <span class="s2">return </span><span class="s3">{</span>
+                <span class="s6">'method'</span><span class="s3">: </span><span class="s6">'pydeck'</span><span class="s3">,</span>
+                <span class="s6">'file_size_mb'</span><span class="s3">: </span><span class="s1">file_size_mb</span><span class="s3">,</span>
+                <span class="s6">'file_path'</span><span class="s3">: </span><span class="s1">output_path</span>
+            <span class="s3">}</span>
+        <span class="s2">except </span><span class="s1">Exception </span><span class="s2">as </span><span class="s1">e</span><span class="s3">:</span>
+            <span class="s1">print</span><span class="s3">(</span><span class="s6">f&quot;  Error creating PyDeck map: </span><span class="s2">{</span><span class="s1">e</span><span class="s2">}</span><span class="s6">&quot;</span><span class="s3">)</span>
+            <span class="s1">print</span><span class="s3">(</span><span class="s6">f&quot;  Falling back to Folium...&quot;</span><span class="s3">)</span>
+            <span class="s5"># Continue to Folium fallback</span>
+    
+    <span class="s5"># Try Folium (for points or as fallback)</span>
+    <span class="s1">print</span><span class="s3">(</span><span class="s6">f&quot;</span><span class="s2">\n</span><span class="s6">Creating map with Folium...&quot;</span><span class="s3">)</span>
+    <span class="s1">print</span><span class="s3">(</span><span class="s6">f&quot;  Data points: </span><span class="s2">{</span><span class="s1">len</span><span class="s3">(</span><span class="s1">df</span><span class="s3">)</span><span class="s2">:</span><span class="s6">,</span><span class="s2">}</span><span class="s6">&quot;</span><span class="s3">)</span>
+    <span class="s1">print</span><span class="s3">(</span><span class="s6">f&quot;  Using H3 hexagons: </span><span class="s2">{</span><span class="s1">has_h3</span><span class="s2">}</span><span class="s6">&quot;</span><span class="s3">)</span>
+    
+    <span class="s2">try</span><span class="s3">:</span>
+        <span class="s5"># Create Folium map</span>
+        <span class="s1">folium_path </span><span class="s3">= </span><span class="s1">output_path</span><span class="s3">.</span><span class="s1">parent </span><span class="s3">/ </span><span class="s6">f&quot;</span><span class="s2">{</span><span class="s1">output_path</span><span class="s3">.</span><span class="s1">stem</span><span class="s2">}</span><span class="s6">_folium.html&quot;</span>
+        <span class="s1">create_folium_map</span><span class="s3">(</span>
+            <span class="s1">df</span><span class="s3">=</span><span class="s1">df</span><span class="s3">,</span>
+            <span class="s1">output_path</span><span class="s3">=</span><span class="s1">folium_path</span><span class="s3">,</span>
+            <span class="s1">use_h3</span><span class="s3">=</span><span class="s1">has_h3</span><span class="s3">,</span>
+            <span class="s1">center_lat</span><span class="s3">=</span><span class="s1">center_lat</span><span class="s3">,</span>
+            <span class="s1">center_lon</span><span class="s3">=</span><span class="s1">center_lon</span><span class="s3">,</span>
+            <span class="s1">zoom_start</span><span class="s3">=</span><span class="s1">zoom_start</span>
+        <span class="s3">)</span>
+        
+        <span class="s5"># Check file size</span>
+        <span class="s1">file_size_mb </span><span class="s3">= </span><span class="s1">folium_path</span><span class="s3">.</span><span class="s1">stat</span><span class="s3">().</span><span class="s1">st_size </span><span class="s3">/ (</span><span class="s4">1024 </span><span class="s3">* </span><span class="s4">1024</span><span class="s3">)</span>
+        <span class="s1">print</span><span class="s3">(</span><span class="s6">f&quot;  Folium map created: </span><span class="s2">{</span><span class="s1">file_size_mb</span><span class="s2">:</span><span class="s6">.2f</span><span class="s2">} </span><span class="s6">MB&quot;</span><span class="s3">)</span>
+        
+        <span class="s2">if </span><span class="s1">file_size_mb </span><span class="s3">&gt; </span><span class="s1">max_file_size_mb</span><span class="s3">:</span>
+            <span class="s1">print</span><span class="s3">(</span><span class="s6">f&quot;  File size (</span><span class="s2">{</span><span class="s1">file_size_mb</span><span class="s2">:</span><span class="s6">.2f</span><span class="s2">} </span><span class="s6">MB) exceeds limit (</span><span class="s2">{</span><span class="s1">max_file_size_mb</span><span class="s2">} </span><span class="s6">MB)&quot;</span><span class="s3">)</span>
+            <span class="s1">print</span><span class="s3">(</span><span class="s6">f&quot;  Switching to PyDeck...&quot;</span><span class="s3">)</span>
+            
+            <span class="s5"># Delete Folium map and create PyDeck map</span>
+            <span class="s1">folium_path</span><span class="s3">.</span><span class="s1">unlink</span><span class="s3">()</span>
+            
+            <span class="s5"># Create PyDeck map</span>
+            <span class="s1">create_pydeck_map</span><span class="s3">(</span>
+                <span class="s1">df</span><span class="s3">=</span><span class="s1">df</span><span class="s3">,</span>
+                <span class="s1">output_path</span><span class="s3">=</span><span class="s1">output_path</span><span class="s3">,</span>
+                <span class="s1">use_h3</span><span class="s3">=</span><span class="s1">has_h3</span><span class="s3">,</span>
+                <span class="s1">center_lat</span><span class="s3">=</span><span class="s1">center_lat</span><span class="s3">,</span>
+                <span class="s1">center_lon</span><span class="s3">=</span><span class="s1">center_lon</span><span class="s3">,</span>
+                <span class="s1">zoom_start</span><span class="s3">=</span><span class="s1">zoom_start</span>
+            <span class="s3">)</span>
+            
+            <span class="s1">file_size_mb </span><span class="s3">= </span><span class="s1">output_path</span><span class="s3">.</span><span class="s1">stat</span><span class="s3">().</span><span class="s1">st_size </span><span class="s3">/ (</span><span class="s4">1024 </span><span class="s3">* </span><span class="s4">1024</span><span class="s3">)</span>
+            <span class="s1">print</span><span class="s3">(</span><span class="s6">f&quot;  PyDeck map created: </span><span class="s2">{</span><span class="s1">file_size_mb</span><span class="s2">:</span><span class="s6">.2f</span><span class="s2">} </span><span class="s6">MB&quot;</span><span class="s3">)</span>
+            
+            <span class="s2">return </span><span class="s3">{</span>
+                <span class="s6">'method'</span><span class="s3">: </span><span class="s6">'pydeck'</span><span class="s3">,</span>
+                <span class="s6">'file_size_mb'</span><span class="s3">: </span><span class="s1">file_size_mb</span><span class="s3">,</span>
+                <span class="s6">'file_path'</span><span class="s3">: </span><span class="s1">output_path</span>
+            <span class="s3">}</span>
+        <span class="s2">else</span><span class="s3">:</span>
+            <span class="s5"># Rename to final output path</span>
+            <span class="s1">folium_path</span><span class="s3">.</span><span class="s1">rename</span><span class="s3">(</span><span class="s1">output_path</span><span class="s3">)</span>
+            
+            <span class="s2">return </span><span class="s3">{</span>
+                <span class="s6">'method'</span><span class="s3">: </span><span class="s6">'folium'</span><span class="s3">,</span>
+                <span class="s6">'file_size_mb'</span><span class="s3">: </span><span class="s1">file_size_mb</span><span class="s3">,</span>
+                <span class="s6">'file_path'</span><span class="s3">: </span><span class="s1">output_path</span>
+            <span class="s3">}</span>
+    
+    <span class="s2">except </span><span class="s1">Exception </span><span class="s2">as </span><span class="s1">e</span><span class="s3">:</span>
+        <span class="s1">print</span><span class="s3">(</span><span class="s6">f&quot;  Error creating Folium map: </span><span class="s2">{</span><span class="s1">e</span><span class="s2">}</span><span class="s6">&quot;</span><span class="s3">)</span>
+        <span class="s1">print</span><span class="s3">(</span><span class="s6">f&quot;  Falling back to PyDeck...&quot;</span><span class="s3">)</span>
+        
+        <span class="s5"># Create PyDeck map</span>
+        <span class="s1">create_pydeck_map</span><span class="s3">(</span>
+            <span class="s1">df</span><span class="s3">=</span><span class="s1">df</span><span class="s3">,</span>
+            <span class="s1">output_path</span><span class="s3">=</span><span class="s1">output_path</span><span class="s3">,</span>
+            <span class="s1">use_h3</span><span class="s3">=</span><span class="s1">has_h3</span><span class="s3">,</span>
+            <span class="s1">center_lat</span><span class="s3">=</span><span class="s1">center_lat</span><span class="s3">,</span>
+            <span class="s1">center_lon</span><span class="s3">=</span><span class="s1">center_lon</span><span class="s3">,</span>
+            <span class="s1">zoom_start</span><span class="s3">=</span><span class="s1">zoom_start</span>
+        <span class="s3">)</span>
+        
+        <span class="s1">file_size_mb </span><span class="s3">= </span><span class="s1">output_path</span><span class="s3">.</span><span class="s1">stat</span><span class="s3">().</span><span class="s1">st_size </span><span class="s3">/ (</span><span class="s4">1024 </span><span class="s3">* </span><span class="s4">1024</span><span class="s3">)</span>
+        <span class="s1">print</span><span class="s3">(</span><span class="s6">f&quot;  PyDeck map created: </span><span class="s2">{</span><span class="s1">file_size_mb</span><span class="s2">:</span><span class="s6">.2f</span><span class="s2">} </span><span class="s6">MB&quot;</span><span class="s3">)</span>
+        
+        <span class="s2">return </span><span class="s3">{</span>
+            <span class="s6">'method'</span><span class="s3">: </span><span class="s6">'pydeck'</span><span class="s3">,</span>
+            <span class="s6">'file_size_mb'</span><span class="s3">: </span><span class="s1">file_size_mb</span><span class="s3">,</span>
+            <span class="s6">'file_path'</span><span class="s3">: </span><span class="s1">output_path</span>
+        <span class="s3">}</span>
+
+</pre>
+</body>
+</html>

@@ -1,0 +1,412 @@
+<html>
+<head>
+<title>REMAINING_STEPS.md</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cf8e6d;}
+.s1 { color: #bcbec4;}
+.s2 { color: #bcbec4;}
+.s3 { color: #c77dbb; font-style: italic;}
+.s4 { color: #6aab73;}
+</style>
+</head>
+<body bgcolor="#1e1f22">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+REMAINING_STEPS.md</font>
+</center></td></tr></table>
+<pre><span class="s0"># </span><span class="s2">Remaining Steps - Residual_Carbon Project</span>
+
+<span class="s2">This document outlines all remaining steps after STEP 4 </span><span class="s1">(</span><span class="s2">Export to GeoTIFF Format</span><span class="s1">)</span><span class="s2">.</span>
+
+<span class="s0">## </span><span class="s2">Completed Steps</span>
+
+<span class="s0">- </span><span class="s1">**</span><span class="s2">STEP 1</span><span class="s1">**: </span><span class="s2">Project Structure Setup </span><span class="s1">[</span><span class="s2">COMPLETED</span><span class="s1">]</span>
+<span class="s0">- </span><span class="s1">**</span><span class="s2">STEP 2</span><span class="s1">**: </span><span class="s2">Google Earth Engine Data Retrieval </span><span class="s1">[</span><span class="s2">COMPLETED</span><span class="s1">]</span>
+<span class="s0">- </span><span class="s1">**</span><span class="s2">STEP 3</span><span class="s1">**: </span><span class="s2">Clipping to Mato Grosso State </span><span class="s1">[</span><span class="s2">COMPLETED</span><span class="s1">]</span>
+<span class="s0">- </span><span class="s1">**</span><span class="s2">STEP 4</span><span class="s1">**: </span><span class="s2">Export to GeoTIFF Format </span><span class="s1">[</span><span class="s2">COMPLETED</span><span class="s1">]</span>
+<span class="s0">- </span><span class="s1">**</span><span class="s2">STEP 5</span><span class="s1">**: </span><span class="s2">User Interface - Coordinate Input </span><span class="s1">[</span><span class="s2">COMPLETED</span><span class="s1">]</span>
+<span class="s0">- </span><span class="s1">**</span><span class="s2">STEP 6</span><span class="s1">**: </span><span class="s2">Radius Clipping </span><span class="s1">(</span><span class="s2">100km circles</span><span class="s1">) [</span><span class="s2">COMPLETED</span><span class="s1">]</span>
+<span class="s0">- </span><span class="s1">**</span><span class="s2">STEP 7</span><span class="s1">**: </span><span class="s2">Convert Maps to CSV </span><span class="s1">(</span><span class="s2">within circles</span><span class="s1">) [</span><span class="s2">COMPLETED</span><span class="s1">]</span>
+<span class="s0">- </span><span class="s1">**</span><span class="s2">STEP 8</span><span class="s1">**: </span><span class="s2">H3 Index Conversion </span><span class="s1">[</span><span class="s2">COMPLETED</span><span class="s1">]</span>
+
+<span class="s0">---</span>
+
+<span class="s0">## </span><span class="s2">STEP 5</span><span class="s1">: </span><span class="s2">User Interface - Coordinate Input</span>
+
+<span class="s1">**</span><span class="s2">Goal</span><span class="s1">**: </span><span class="s2">Create interface for user to specify area of interest</span>
+
+<span class="s1">**</span><span class="s2">Status</span><span class="s1">**: </span><span class="s2">Completed</span>
+
+<span class="s1">**</span><span class="s2">Tasks</span><span class="s1">**:</span>
+<span class="s0">- </span><span class="s2">Enhance CLI to accept coordinate input </span><span class="s1">(</span><span class="s2">already partially implemented in main.py</span><span class="s1">)</span>
+<span class="s0">- </span><span class="s2">Validate coordinate inputs </span><span class="s1">(</span><span class="s2">latitude</span><span class="s1">: </span><span class="s2">-90 to 90, longitude</span><span class="s1">: </span><span class="s2">-180 to 180</span><span class="s1">)</span>
+<span class="s0">- </span><span class="s2">Validate that coordinates are within Mato Grosso bounds</span>
+<span class="s0">- </span><span class="s2">Store user preferences </span><span class="s1">(</span><span class="s2">coordinates and radius</span><span class="s1">)</span>
+<span class="s0">- </span><span class="s2">Add option to skip coordinate input </span><span class="s1">(</span><span class="s2">use full state</span><span class="s1">)</span>
+
+<span class="s1">**</span><span class="s2">Files to Create/Modify</span><span class="s1">**:</span>
+<span class="s0">- </span><span class="s2">`src/utils/coordinate_validator.py` - Validate coordinates</span>
+<span class="s0">- </span><span class="s2">`src/main.py` - Enhance CLI argument parsing</span>
+<span class="s0">- </span><span class="s2">`src/data/user_input.py` - Handle user input processing</span>
+
+<span class="s1">**</span><span class="s2">Key Functions</span><span class="s1">**:</span>
+<span class="s0">```</span><span class="s3">python</span>
+<span class="s4">def validate_coordinates(lat: float, lon: float) -&gt; bool</span>
+<span class="s4">def is_within_mato_grosso(lat: float, lon: float) -&gt; bool</span>
+<span class="s4">def get_user_area_of_interest(lat: Optional[float], lon: Optional[float], radius_km: float) -&gt; AreaOfInterest</span>
+<span class="s0">```</span>
+
+<span class="s0">---</span>
+
+<span class="s0">## </span><span class="s2">STEP 6</span><span class="s1">: </span><span class="s2">Radius Clipping </span><span class="s1">(</span><span class="s2">100km circles</span><span class="s1">)</span>
+
+<span class="s1">**</span><span class="s2">Goal</span><span class="s1">**: </span><span class="s2">Clip GeoTIFFs to user-specified circles</span>
+
+<span class="s1">**</span><span class="s2">Status</span><span class="s1">**: </span><span class="s2">Completed</span>
+
+<span class="s1">**</span><span class="s2">Tasks</span><span class="s1">**:</span>
+<span class="s0">- </span><span class="s2">If coordinates provided</span><span class="s1">:</span>
+  <span class="s0">- </span><span class="s2">Create 100km radius buffer around point</span>
+  <span class="s0">- </span><span class="s2">Convert to Shapely geometry</span>
+  <span class="s0">- </span><span class="s2">Clip all GeoTIFF files to this circle using rasterio</span>
+  <span class="s0">- </span><span class="s2">Save clipped versions to `data/processed/`</span>
+<span class="s0">- </span><span class="s2">If no coordinates</span><span class="s1">:</span>
+  <span class="s0">- </span><span class="s2">Use full state data </span><span class="s1">(</span><span class="s2">already in `data/raw/`</span><span class="s1">)</span>
+<span class="s0">- </span><span class="s2">Handle coordinate transformations </span><span class="s1">(</span><span class="s2">WGS84 to projected CRS if needed</span><span class="s1">)</span>
+<span class="s0">- </span><span class="s2">Verify clipping success</span>
+
+<span class="s1">**</span><span class="s2">Files to Create/Modify</span><span class="s1">**:</span>
+<span class="s0">- </span><span class="s2">`src/data/raster_clip.py` - Implement circle clipping for GeoTIFFs</span>
+<span class="s0">- </span><span class="s2">`src/utils/geospatial.py` - Helper functions for geometry operations</span>
+
+<span class="s1">**</span><span class="s2">Key Functions</span><span class="s1">**:</span>
+<span class="s0">```</span><span class="s3">python</span>
+<span class="s4">def create_circle_buffer(lat: float, lon: float, radius_km: float) -&gt; Geometry</span>
+<span class="s4">def clip_raster_to_circle(tif_path: Path, circle_geometry: Geometry, output_path: Path) -&gt; Path</span>
+<span class="s4">def clip_all_rasters_to_circle(input_dir: Path, output_dir: Path, circle_geometry: Geometry) -&gt; List[Path]</span>
+<span class="s0">```</span>
+
+<span class="s1">**</span><span class="s2">Dependencies</span><span class="s1">**:</span>
+<span class="s0">- </span><span class="s2">rasterio </span><span class="s1">(</span><span class="s2">already in requirements.txt</span><span class="s1">)</span>
+<span class="s0">- </span><span class="s2">shapely </span><span class="s1">(</span><span class="s2">already in requirements.txt</span><span class="s1">)</span>
+<span class="s0">- </span><span class="s2">geopandas </span><span class="s1">(</span><span class="s2">already in requirements.txt</span><span class="s1">)</span>
+
+<span class="s0">---</span>
+
+<span class="s0">## </span><span class="s2">STEP 7</span><span class="s1">: </span><span class="s2">Convert Maps to CSV </span><span class="s1">(</span><span class="s2">within circles</span><span class="s1">)</span>
+
+<span class="s1">**</span><span class="s2">Goal</span><span class="s1">**: </span><span class="s2">Convert clipped GeoTIFFs to CSV format</span>
+
+<span class="s1">**</span><span class="s2">Status</span><span class="s1">**: </span><span class="s2">Completed</span>
+
+<span class="s1">**</span><span class="s2">Tasks</span><span class="s1">**:</span>
+<span class="s0">- </span><span class="s2">Extract pixel values from clipped rasters</span>
+<span class="s0">- </span><span class="s2">Create CSV with columns</span><span class="s1">: </span><span class="s2">lon, lat, value for each soil property</span>
+<span class="s0">- </span><span class="s2">Handle nodata values </span><span class="s1">(</span><span class="s2">skip or convert to NaN</span><span class="s1">)</span>
+<span class="s0">- </span><span class="s2">Merge spatial coordinates across all datasets</span>
+<span class="s0">- </span><span class="s2">Save individual CSV files per dataset OR one merged CSV</span>
+<span class="s0">- </span><span class="s2">Validate CSV output</span>
+
+<span class="s1">**</span><span class="s2">Files to Create/Modify</span><span class="s1">**:</span>
+<span class="s0">- </span><span class="s2">`src/data/raster_to_csv.py` - Convert raster to CSV </span><span class="s1">(</span><span class="s2">can reuse from biochar-brazil</span><span class="s1">)</span>
+<span class="s0">- </span><span class="s2">`src/data/csv_merger.py` - Merge multiple CSV files by coordinates</span>
+
+<span class="s1">**</span><span class="s2">Key Functions</span><span class="s1">**:</span>
+<span class="s0">```</span><span class="s3">python</span>
+<span class="s4">def raster_to_csv(tif_path: Path, output_csv: Path, band: int = 1) -&gt; pd.DataFrame</span>
+<span class="s4">def merge_csv_files_by_coordinates(csv_files: List[Path], output_csv: Path) -&gt; pd.DataFrame</span>
+<span class="s4">def handle_nodata_values(df: pd.DataFrame, nodata_handling: str) -&gt; pd.DataFrame</span>
+<span class="s0">```</span>
+
+<span class="s1">**</span><span class="s2">Output Format</span><span class="s1">**:</span>
+<span class="s0">- </span><span class="s2">CSV files in `data/processed/` with columns</span><span class="s1">: </span><span class="s2">`lon`, `lat`, `soil_moisture`, `soil_type`, `soil_temperature`, `soil_organic_carbon`, `soil_pH`, `land_cover`</span>
+
+<span class="s0">---</span>
+
+<span class="s0">## </span><span class="s2">STEP 8</span><span class="s1">: </span><span class="s2">H3 Index Conversion</span>
+
+<span class="s1">**</span><span class="s2">Goal</span><span class="s1">**: </span><span class="s2">Convert coordinates to H3 hexagonal grid</span>
+
+<span class="s1">**</span><span class="s2">Status</span><span class="s1">**: </span><span class="s2">Completed</span>
+
+<span class="s1">**</span><span class="s2">Tasks</span><span class="s1">**:</span>
+<span class="s0">- </span><span class="s2">Install and configure H3 library </span><span class="s1">(</span><span class="s2">already in requirements.txt</span><span class="s1">)</span>
+<span class="s0">- </span><span class="s2">Convert lat/lon to H3 indexes using configurable resolution </span><span class="s1">(</span><span class="s2">default</span><span class="s1">: </span><span class="s2">6</span><span class="s1">)</span>
+<span class="s0">- </span><span class="s2">Generate H3 polygons </span><span class="s1">(</span><span class="s2">hexagon boundaries</span><span class="s1">) </span><span class="s2">for visualization</span>
+<span class="s0">- </span><span class="s2">Aggregate data by H3 hexagons if multiple points per hexagon</span>
+<span class="s0">- </span><span class="s2">Store H3 index and polygon data in CSV</span>
+<span class="s0">- </span><span class="s2">Create GeoJSON for H3 polygons </span><span class="s1">(</span><span class="s2">optional, for visualization</span><span class="s1">)</span>
+
+<span class="s1">**</span><span class="s2">Files to Create/Modify</span><span class="s1">**:</span>
+<span class="s0">- </span><span class="s2">`src/data/h3_converter.py` - H3 index conversion and polygon generation</span>
+<span class="s0">- </span><span class="s2">`src/data/preprocessing.py` - H3 preprocessing and aggregation</span>
+
+<span class="s1">**</span><span class="s2">Key Functions</span><span class="s1">**:</span>
+<span class="s0">```</span><span class="s3">python</span>
+<span class="s4">def add_h3_index(df: pd.DataFrame, resolution: int = 6) -&gt; pd.DataFrame</span>
+<span class="s4">def get_h3_polygon(h3_index: str) -&gt; List[List[float]]</span>
+<span class="s4">def aggregate_by_h3_hexagon(df: pd.DataFrame, aggregation_method: str = 'mean') -&gt; pd.DataFrame</span>
+<span class="s0">```</span>
+
+<span class="s1">**</span><span class="s2">Output Format</span><span class="s1">**:</span>
+<span class="s0">- </span><span class="s2">Enhanced CSV with columns</span><span class="s1">: </span><span class="s2">`lon`, `lat`, `h3_index`, `h3_boundary_geojson`, plus all soil properties</span>
+
+<span class="s0">---</span>
+
+<span class="s0">## </span><span class="s2">STEP 9</span><span class="s1">: </span><span class="s2">Biochar Thresholds Database</span>
+
+<span class="s1">**</span><span class="s2">Goal</span><span class="s1">**: </span><span class="s2">Create/load database with soil property thresholds</span>
+
+<span class="s1">**</span><span class="s2">Status</span><span class="s1">**: </span><span class="s2">Not Started</span>
+
+<span class="s1">**</span><span class="s2">Tasks</span><span class="s1">**:</span>
+<span class="s0">- </span><span class="s2">Design database structure for thresholds </span><span class="s1">(</span><span class="s2">YAML or JSON</span><span class="s1">)</span>
+<span class="s0">- </span><span class="s2">Define optimal ranges for soil properties with thresholds</span><span class="s1">:</span>
+  <span class="s0">- </span><span class="s2">Soil moisture </span><span class="s1">(</span><span class="s2">optimal range</span><span class="s1">)</span>
+  <span class="s0">- </span><span class="s2">Soil temperature </span><span class="s1">(</span><span class="s2">optimal range</span><span class="s1">)</span>
+  <span class="s0">- </span><span class="s2">Soil organic carbon </span><span class="s1">(</span><span class="s2">optimal range</span><span class="s1">)</span>
+  <span class="s0">- </span><span class="s2">Soil pH </span><span class="s1">(</span><span class="s2">optimal range</span><span class="s1">)</span>
+<span class="s0">- </span><span class="s2">Note</span><span class="s1">: </span><span class="s2">Land cover and soil type are useful but will be handled later </span><span class="s1">(</span><span class="s2">not included in initial thresholds</span><span class="s1">)</span>
+<span class="s0">- </span><span class="s2">Create scoring system </span><span class="s1">(</span><span class="s2">0-10 scale</span><span class="s1">) </span><span class="s2">with thresholds</span>
+<span class="s0">- </span><span class="s2">Load biochar outputs database </span><span class="s1">(</span><span class="s2">feedstock properties</span><span class="s1">) </span><span class="s2">- if available</span>
+<span class="s0">- </span><span class="s2">Create configuration file for thresholds</span>
+<span class="s0">- </span><span class="s2">Allow user to customize thresholds</span>
+
+<span class="s1">**</span><span class="s2">Files to Create/Modify</span><span class="s1">**:</span>
+<span class="s0">- </span><span class="s2">`configs/thresholds.yaml` - Threshold definitions</span>
+<span class="s0">- </span><span class="s2">`src/analysis/thresholds.py` - Load and manage thresholds</span>
+<span class="s0">- </span><span class="s2">`data/external/biochar_outputs.csv` - Biochar properties database </span><span class="s1">(</span><span class="s2">if provided</span><span class="s1">)</span>
+
+<span class="s1">**</span><span class="s2">Threshold Structure Example</span><span class="s1">**:</span>
+<span class="s0">```</span><span class="s3">yaml</span>
+<span class="s4">soil_moisture:</span>
+  <span class="s4">optimal_min: 0.2</span>
+  <span class="s4">optimal_max: 0.4</span>
+  <span class="s4">acceptable_min: 0.1</span>
+  <span class="s4">acceptable_max: 0.5</span>
+  <span class="s4">scoring:</span>
+    <span class="s4">high: [0.2, 0.4]  # Score 8-10</span>
+    <span class="s4">medium: [0.1, 0.2] or [0.4, 0.5]  # Score 5-7</span>
+    <span class="s4">low: [0.0, 0.1] or [0.5, 1.0]  # Score 0-4</span>
+
+<span class="s4">soil_temperature:</span>
+  <span class="s4">optimal_min: 20.0</span>
+  <span class="s4">optimal_max: 30.0</span>
+  <span class="s4"># ... similar structure</span>
+
+<span class="s4">soil_organic_carbon:</span>
+  <span class="s4">optimal_min: 2.0</span>
+  <span class="s4">optimal_max: 5.0</span>
+  <span class="s4"># ... similar structure</span>
+
+<span class="s4">soil_pH:</span>
+  <span class="s4">optimal_min: 6.0</span>
+  <span class="s4">optimal_max: 7.5</span>
+  <span class="s4"># ... similar structure</span>
+
+<span class="s4"># Note: land_cover and soil_type will be handled later</span>
+<span class="s0">```</span>
+
+<span class="s0">---</span>
+
+<span class="s0">## </span><span class="s2">STEP 10</span><span class="s1">: </span><span class="s2">Suitability Score Calculator</span>
+
+<span class="s1">**</span><span class="s2">Goal</span><span class="s1">**: </span><span class="s2">Calculate suitability scores based on thresholds</span>
+
+<span class="s1">**</span><span class="s2">Status</span><span class="s1">**: </span><span class="s2">Not Started</span>
+
+<span class="s1">**</span><span class="s2">Tasks</span><span class="s1">**:</span>
+<span class="s0">- </span><span class="s2">Implement scoring algorithm</span><span class="s1">:</span>
+  <span class="s0">- </span><span class="s2">Compare soil properties to thresholds </span><span class="s1">(</span><span class="s2">moisture, temperature, organic carbon, pH only</span><span class="s1">)</span>
+  <span class="s0">- </span><span class="s2">Calculate individual scores for each property </span><span class="s1">(</span><span class="s2">0-10 scale</span><span class="s1">)</span>
+  <span class="s0">- </span><span class="s2">Weight and combine scores </span><span class="s1">(</span><span class="s2">weighted average or other method</span><span class="s1">)</span>
+  <span class="s0">- </span><span class="s2">Generate final suitability score </span><span class="s1">(</span><span class="s2">0-10</span><span class="s1">)</span>
+<span class="s0">- </span><span class="s2">Note</span><span class="s1">: </span><span class="s2">Land cover and soil type are available in data but not used in scoring initially</span>
+<span class="s0">- </span><span class="s2">Handle multiple soil layers </span><span class="s1">(</span><span class="s2">if applicable</span><span class="s1">)</span>
+<span class="s0">- </span><span class="s2">Incorporate biochar output data </span><span class="s1">(</span><span class="s2">if available</span><span class="s1">)</span>
+<span class="s0">- </span><span class="s2">Handle missing data </span><span class="s1">(</span><span class="s2">NaN values</span><span class="s1">)</span>
+<span class="s0">- </span><span class="s2">Validate scores are within 0-10 range</span>
+
+<span class="s1">**</span><span class="s2">Files to Create/Modify</span><span class="s1">**:</span>
+<span class="s0">- </span><span class="s2">`src/analysis/suitability.py` - Main suitability scoring algorithm</span>
+<span class="s0">- </span><span class="s2">`src/analysis/scoring.py` - Individual property scoring functions</span>
+<span class="s0">- </span><span class="s2">`src/analysis/weighting.py` - Score weighting and combination</span>
+
+<span class="s1">**</span><span class="s2">Key Functions</span><span class="s1">**:</span>
+<span class="s0">```</span><span class="s3">python</span>
+<span class="s4">def calculate_property_score(value: float, thresholds: Dict) -&gt; float</span>
+<span class="s4">def calculate_suitability_score(df: pd.DataFrame, thresholds: Dict, weights: Dict) -&gt; pd.DataFrame</span>
+<span class="s4">def apply_biochar_considerations(df: pd.DataFrame, biochar_data: pd.DataFrame) -&gt; pd.DataFrame</span>
+<span class="s0">```</span>
+
+<span class="s1">**</span><span class="s2">Scoring Method</span><span class="s1">**:</span>
+<span class="s0">- </span><span class="s2">For each property</span><span class="s1">: </span><span class="s2">calculate score based on distance from optimal range</span>
+<span class="s0">- </span><span class="s2">Weighted combination</span><span class="s1">: </span><span class="s2">weighted average of all property scores</span>
+<span class="s0">- </span><span class="s2">Final score</span><span class="s1">: </span><span class="s2">0-10 scale where 10 = most suitable</span>
+
+<span class="s1">**</span><span class="s2">Output Format</span><span class="s1">**:</span>
+<span class="s0">- </span><span class="s2">CSV with columns</span><span class="s1">: </span><span class="s2">`lon`, `lat`, `h3_index`, `suitability_score`, plus all individual property scores</span>
+
+<span class="s0">---</span>
+
+<span class="s0">## </span><span class="s2">STEP 11</span><span class="s1">: </span><span class="s2">Visualization - Color-Coded Map</span>
+
+<span class="s1">**</span><span class="s2">Goal</span><span class="s1">**: </span><span class="s2">Create interactive map with suitability scores</span>
+
+<span class="s1">**</span><span class="s2">Status</span><span class="s1">**: </span><span class="s2">Not Started</span>
+
+<span class="s1">**</span><span class="s2">Tasks</span><span class="s1">**:</span>
+<span class="s0">- </span><span class="s2">Generate color scheme</span><span class="s1">:</span>
+  <span class="s0">- </span><span class="s2">Green = most suitable </span><span class="s1">(</span><span class="s2">score 8-10</span><span class="s1">)</span>
+  <span class="s0">- </span><span class="s2">Yellow = moderately suitable </span><span class="s1">(</span><span class="s2">score 5-7</span><span class="s1">)</span>
+  <span class="s0">- </span><span class="s2">Red = least suitable </span><span class="s1">(</span><span class="s2">score 0-4</span><span class="s1">)</span>
+<span class="s0">- </span><span class="s2">Create interactive HTML map using Folium or PyDeck</span>
+<span class="s0">- </span><span class="s2">Display H3 hexagons colored by suitability score</span>
+<span class="s0">- </span><span class="s2">Add legend and grade scale </span><span class="s1">(</span><span class="s2">0-10</span><span class="s1">)</span>
+<span class="s0">- </span><span class="s2">Include tooltips with score details </span><span class="s1">(</span><span class="s2">hover over hexagons</span><span class="s1">)</span>
+<span class="s0">- </span><span class="s2">Add base map layers </span><span class="s1">(</span><span class="s2">satellite, terrain</span><span class="s1">)</span>
+<span class="s0">- </span><span class="s2">Add control for zoom and pan</span>
+
+<span class="s1">**</span><span class="s2">Files to Create/Modify</span><span class="s1">**:</span>
+<span class="s0">- </span><span class="s2">`src/visualization/map_generator.py` - Main map generation</span>
+<span class="s0">- </span><span class="s2">`src/visualization/color_scheme.py` - Color mapping functions</span>
+<span class="s0">- </span><span class="s2">`src/visualization/folium_map.py` - Folium implementation </span><span class="s1">(</span><span class="s2">or PyDeck</span><span class="s1">)</span>
+
+<span class="s1">**</span><span class="s2">Key Functions</span><span class="s1">**:</span>
+<span class="s0">```</span><span class="s3">python</span>
+<span class="s4">def get_color_for_score(score: float) -&gt; str</span>
+<span class="s4">def create_suitability_map(df: pd.DataFrame, output_path: Path) -&gt; str</span>
+<span class="s4">def add_hexagon_layer(map_obj, df: pd.DataFrame) -&gt; None</span>
+<span class="s4">def add_legend(map_obj, color_scheme: Dict) -&gt; None</span>
+<span class="s0">```</span>
+
+<span class="s1">**</span><span class="s2">Output Format</span><span class="s1">**:</span>
+<span class="s0">- </span><span class="s2">Interactive HTML file in `output/html/suitability_map.html`</span>
+
+<span class="s0">---</span>
+
+<span class="s0">## </span><span class="s2">STEP 12</span><span class="s1">: </span><span class="s2">HTML Output and Auto-Open</span>
+
+<span class="s1">**</span><span class="s2">Goal</span><span class="s1">**: </span><span class="s2">Generate HTML file and open it automatically</span>
+
+<span class="s1">**</span><span class="s2">Status</span><span class="s1">**: </span><span class="s2">Not Started</span>
+
+<span class="s1">**</span><span class="s2">Tasks</span><span class="s1">**:</span>
+<span class="s0">- </span><span class="s2">Save map as HTML file</span>
+<span class="s0">- </span><span class="s2">Automatically open HTML in default browser using `webbrowser` module</span>
+<span class="s0">- </span><span class="s2">Add styling and interactivity </span><span class="s1">(</span><span class="s2">already in Folium/PyDeck</span><span class="s1">)</span>
+<span class="s0">- </span><span class="s2">Include metadata </span><span class="s1">(</span><span class="s2">date, input parameters, etc.</span><span class="s1">)</span>
+<span class="s0">- </span><span class="s2">Add footer with project information</span>
+<span class="s0">- </span><span class="s2">Handle browser opening errors gracefully</span>
+
+<span class="s1">**</span><span class="s2">Files to Create/Modify</span><span class="s1">**:</span>
+<span class="s0">- </span><span class="s2">`src/visualization/map_generator.py` - Enhance with auto-open functionality</span>
+<span class="s0">- </span><span class="s2">`src/utils/browser.py` - Browser opening utilities</span>
+
+<span class="s1">**</span><span class="s2">Key Functions</span><span class="s1">**:</span>
+<span class="s0">```</span><span class="s3">python</span>
+<span class="s4">def save_and_open_html(html_content: str, output_path: Path) -&gt; None</span>
+<span class="s4">def open_html_in_browser(file_path: Path) -&gt; None</span>
+<span class="s4">def add_metadata_to_html(html_content: str, metadata: Dict) -&gt; str</span>
+<span class="s0">```</span>
+
+<span class="s1">**</span><span class="s2">Metadata to Include</span><span class="s1">**:</span>
+<span class="s0">- </span><span class="s2">Generation date/time</span>
+<span class="s0">- </span><span class="s2">Analysis area </span><span class="s1">(</span><span class="s2">coordinates or </span><span class="s1">&quot;</span><span class="s2">Full State</span><span class="s1">&quot;)</span>
+<span class="s0">- </span><span class="s2">Radius </span><span class="s1">(</span><span class="s2">if applicable</span><span class="s1">)</span>
+<span class="s0">- </span><span class="s2">Number of datasets processed</span>
+<span class="s0">- </span><span class="s2">H3 resolution used</span>
+<span class="s0">- </span><span class="s2">Thresholds version</span>
+
+<span class="s0">---</span>
+
+<span class="s0">## </span><span class="s2">STEP 13</span><span class="s1">: </span><span class="s2">Main Pipeline Integration</span>
+
+<span class="s1">**</span><span class="s2">Goal</span><span class="s1">**: </span><span class="s2">Connect all components into a single workflow</span>
+
+<span class="s1">**</span><span class="s2">Status</span><span class="s1">**: </span><span class="s2">Partially Complete </span><span class="s1">(</span><span class="s2">STEPS 1-4 integrated</span><span class="s1">)</span>
+
+<span class="s1">**</span><span class="s2">Tasks</span><span class="s1">**:</span>
+<span class="s0">- </span><span class="s2">Create main.py that orchestrates all steps </span><span class="s1">(</span><span class="s2">already started</span><span class="s1">)</span>
+<span class="s0">- </span><span class="s2">Add error handling and logging throughout</span>
+<span class="s0">- </span><span class="s2">Create unified CLI interface </span><span class="s1">(</span><span class="s2">already started</span><span class="s1">)</span>
+<span class="s0">- </span><span class="s2">Add progress indicators for long-running operations</span>
+<span class="s0">- </span><span class="s2">Add option to skip completed steps </span><span class="s1">(</span><span class="s2">resume functionality</span><span class="s1">)</span>
+<span class="s0">- </span><span class="s2">Test end-to-end workflow</span>
+<span class="s0">- </span><span class="s2">Add configuration for skipping steps</span>
+<span class="s0">- </span><span class="s2">Add verbose/debug mode</span>
+
+<span class="s1">**</span><span class="s2">Files to Create/Modify</span><span class="s1">**:</span>
+<span class="s0">- </span><span class="s2">`src/main.py` - Enhance with all steps</span>
+<span class="s0">- </span><span class="s2">`src/utils/logging.py` - Logging configuration</span>
+<span class="s0">- </span><span class="s2">`src/utils/progress.py` - Progress indicators</span>
+
+<span class="s1">**</span><span class="s2">Key Features</span><span class="s1">**:</span>
+<span class="s0">- </span><span class="s2">Pipeline resume capability </span><span class="s1">(</span><span class="s2">skip already-completed steps</span><span class="s1">)</span>
+<span class="s0">- </span><span class="s2">Error recovery </span><span class="s1">(</span><span class="s2">continue from last successful step</span><span class="s1">)</span>
+<span class="s0">- </span><span class="s2">Progress reporting</span>
+<span class="s0">- </span><span class="s2">Configuration validation</span>
+
+<span class="s0">---</span>
+
+<span class="s0">## </span><span class="s2">STEP 14</span><span class="s1">: </span><span class="s2">Testing and Documentation</span>
+
+<span class="s1">**</span><span class="s2">Goal</span><span class="s1">**: </span><span class="s2">Ensure tool works correctly and is documented</span>
+
+<span class="s1">**</span><span class="s2">Status</span><span class="s1">**: </span><span class="s2">Not Started</span>
+
+<span class="s1">**</span><span class="s2">Tasks</span><span class="s1">**:</span>
+<span class="s0">- </span><span class="s2">Test with different coordinate inputs</span>
+<span class="s0">- </span><span class="s2">Test with no coordinates </span><span class="s1">(</span><span class="s2">full state</span><span class="s1">)</span>
+<span class="s0">- </span><span class="s2">Validate suitability scores </span><span class="s1">(</span><span class="s2">check they're in 0-10 range</span><span class="s1">)</span>
+<span class="s0">- </span><span class="s2">Test edge cases </span><span class="s1">(</span><span class="s2">coordinates outside Mato Grosso, invalid inputs</span><span class="s1">)</span>
+<span class="s0">- </span><span class="s2">Create user documentation</span>
+<span class="s0">- </span><span class="s2">Add code comments and docstrings throughout</span>
+<span class="s0">- </span><span class="s2">Create example workflows</span>
+<span class="s0">- </span><span class="s2">Add troubleshooting guide</span>
+
+<span class="s1">**</span><span class="s2">Files to Create/Modify</span><span class="s1">**:</span>
+<span class="s0">- </span><span class="s2">`tests/test_suitability.py` - Unit tests</span>
+<span class="s0">- </span><span class="s2">`tests/test_geospatial.py` - Geospatial tests</span>
+<span class="s0">- </span><span class="s2">`docs/USER_GUIDE.md` - User documentation</span>
+<span class="s0">- </span><span class="s2">`docs/API_REFERENCE.md` - API documentation</span>
+<span class="s0">- </span><span class="s2">`docs/TROUBLESHOOTING.md` - Troubleshooting guide</span>
+
+<span class="s1">**</span><span class="s2">Test Cases</span><span class="s1">**:</span>
+<span class="s0">1. </span><span class="s2">Full state analysis </span><span class="s1">(</span><span class="s2">no coordinates</span><span class="s1">)</span>
+<span class="s0">2. </span><span class="s2">100km radius with coordinates</span>
+<span class="s0">3. </span><span class="s2">Invalid coordinates </span><span class="s1">(</span><span class="s2">outside bounds</span><span class="s1">)</span>
+<span class="s0">4. </span><span class="s2">Missing data handling</span>
+<span class="s0">5. </span><span class="s2">Empty exports</span>
+<span class="s0">6. </span><span class="s2">Large dataset performance</span>
+
+<span class="s0">---</span>
+
+<span class="s0">## </span><span class="s2">Implementation Order Recommendation</span>
+
+<span class="s0">1. </span><span class="s1">**</span><span class="s2">STEP 5</span><span class="s1">** </span><span class="s2">- User Interface </span><span class="s1">(</span><span class="s2">quick, builds on existing CLI</span><span class="s1">)</span>
+<span class="s0">2. </span><span class="s1">**</span><span class="s2">STEP 6</span><span class="s1">** </span><span class="s2">- Radius Clipping </span><span class="s1">(</span><span class="s2">needed for coordinate-based analysis</span><span class="s1">)</span>
+<span class="s0">3. </span><span class="s1">**</span><span class="s2">STEP 7</span><span class="s1">** </span><span class="s2">- Convert to CSV </span><span class="s1">(</span><span class="s2">needed for all downstream steps</span><span class="s1">)</span>
+<span class="s0">4. </span><span class="s1">**</span><span class="s2">STEP 8</span><span class="s1">** </span><span class="s2">- H3 Index Conversion </span><span class="s1">(</span><span class="s2">needed for visualization</span><span class="s1">)</span>
+<span class="s0">5. </span><span class="s1">**</span><span class="s2">STEP 9</span><span class="s1">** </span><span class="s2">- Thresholds Database </span><span class="s1">(</span><span class="s2">needed for scoring</span><span class="s1">)</span>
+<span class="s0">6. </span><span class="s1">**</span><span class="s2">STEP 10</span><span class="s1">** </span><span class="s2">- Suitability Calculator </span><span class="s1">(</span><span class="s2">core functionality</span><span class="s1">)</span>
+<span class="s0">7. </span><span class="s1">**</span><span class="s2">STEP 11</span><span class="s1">** </span><span class="s2">- Visualization </span><span class="s1">(</span><span class="s2">uses scores from STEP 10</span><span class="s1">)</span>
+<span class="s0">8. </span><span class="s1">**</span><span class="s2">STEP 12</span><span class="s1">** </span><span class="s2">- Auto-Open </span><span class="s1">(</span><span class="s2">simple addition to STEP 11</span><span class="s1">)</span>
+<span class="s0">9. </span><span class="s1">**</span><span class="s2">STEP 13</span><span class="s1">** </span><span class="s2">- Pipeline Integration </span><span class="s1">(</span><span class="s2">integrates all steps</span><span class="s1">)</span>
+<span class="s0">10. </span><span class="s1">**</span><span class="s2">STEP 14</span><span class="s1">** </span><span class="s2">- Testing and Documentation </span><span class="s1">(</span><span class="s2">final polish</span><span class="s1">)</span>
+
+<span class="s0">---</span>
+
+<span class="s0">## </span><span class="s2">Notes</span>
+
+<span class="s0">- </span><span class="s2">Steps can be implemented incrementally and tested independently</span>
+<span class="s0">- </span><span class="s2">Each step should have clear inputs and outputs</span>
+<span class="s0">- </span><span class="s2">Error handling should be added at each step</span>
+<span class="s0">- </span><span class="s2">Configuration should be centralized in `configs/config.yaml`</span>
+<span class="s0">- </span><span class="s2">Logging should be added throughout for debugging</span>
+
+</pre>
+</body>
+</html>

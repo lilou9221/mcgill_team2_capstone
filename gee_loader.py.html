@@ -1,0 +1,620 @@
+<html>
+<head>
+<title>gee_loader.py</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #5f826b; font-style: italic;}
+.s1 { color: #bcbec4;}
+.s2 { color: #cf8e6d;}
+.s3 { color: #bcbec4;}
+.s4 { color: #7a7e85;}
+.s5 { color: #6aab73;}
+.s6 { color: #2aacb8;}
+</style>
+</head>
+<body bgcolor="#1e1f22">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+gee_loader.py</font>
+</center></td></tr></table>
+<pre><span class="s0">&quot;&quot;&quot; 
+Google Earth Engine Data Loader Module 
+ 
+Retrieves soil property datasets from Google Earth Engine. 
+Handles authentication, image retrieval, and standardization. 
+&quot;&quot;&quot;</span>
+
+<span class="s2">import </span><span class="s1">os</span>
+<span class="s2">import </span><span class="s1">yaml</span>
+<span class="s2">from </span><span class="s1">pathlib </span><span class="s2">import </span><span class="s1">Path</span>
+<span class="s2">from </span><span class="s1">typing </span><span class="s2">import </span><span class="s1">Dict</span><span class="s3">, </span><span class="s1">Optional</span><span class="s3">, </span><span class="s1">List</span><span class="s3">, </span><span class="s1">Union</span>
+<span class="s2">import </span><span class="s1">ee</span>
+
+
+<span class="s4"># Mapping from internal dataset names to simplified file names (matching biochar-brazil convention)</span>
+<span class="s1">DATASET_NAME_MAPPING </span><span class="s3">= {</span>
+    <span class="s5">'soil_organic_carbon'</span><span class="s3">: </span><span class="s5">'SOC'</span><span class="s3">,</span>
+    <span class="s5">'soil_temperature'</span><span class="s3">: </span><span class="s5">'soil_temp'</span><span class="s3">,</span>
+    <span class="s5">'soil_moisture'</span><span class="s3">: </span><span class="s5">'soil_moisture'</span><span class="s3">,</span>
+    <span class="s5">'soil_pH'</span><span class="s3">: </span><span class="s5">'soil_pH'</span><span class="s3">,</span>
+    <span class="s5">'soil_type'</span><span class="s3">: </span><span class="s5">'soil_type'</span><span class="s3">,</span>
+    <span class="s5">'land_cover'</span><span class="s3">: </span><span class="s5">'land_cover'</span><span class="s3">,</span>
+<span class="s3">}</span>
+
+<span class="s4"># Native resolutions for each dataset (in meters)</span>
+<span class="s4"># Datasets with native resolution &gt; 250m will be exported at native resolution</span>
+<span class="s4"># Others will be exported at 250m</span>
+<span class="s1">DATASET_NATIVE_RESOLUTIONS </span><span class="s3">= {</span>
+    <span class="s5">'soil_moisture'</span><span class="s3">: </span><span class="s6">3000</span><span class="s3">,      </span><span class="s4"># NASA SMAP native ~3000m</span>
+    <span class="s5">'soil_temperature'</span><span class="s3">: </span><span class="s6">3000</span><span class="s3">,   </span><span class="s4"># NASA SMAP native ~3000m</span>
+    <span class="s5">'soil_organic_carbon'</span><span class="s3">: </span><span class="s6">250</span><span class="s3">,  </span><span class="s4"># OpenLandMap native ~250m</span>
+    <span class="s5">'soil_pH'</span><span class="s3">: </span><span class="s6">250</span><span class="s3">,              </span><span class="s4"># OpenLandMap native ~250m</span>
+    <span class="s5">'soil_type'</span><span class="s3">: </span><span class="s6">250</span><span class="s3">,            </span><span class="s4"># OpenLandMap native ~250m</span>
+    <span class="s5">'land_cover'</span><span class="s3">: </span><span class="s6">10</span><span class="s3">,            </span><span class="s4"># ESA WorldCover native ~10m (will export at 250m)</span>
+<span class="s3">}</span>
+
+<span class="s4"># Default export resolution (250m)</span>
+<span class="s1">DEFAULT_EXPORT_RESOLUTION </span><span class="s3">= </span><span class="s6">250</span>
+
+
+<span class="s2">def </span><span class="s1">get_simplified_filename</span><span class="s3">(</span><span class="s1">dataset_name</span><span class="s3">: </span><span class="s1">str</span><span class="s3">) </span><span class="s1">-&gt; str</span><span class="s3">:</span>
+    <span class="s0">&quot;&quot;&quot; 
+    Get simplified filename for dataset (matching biochar-brazil convention). 
+     
+    Parameters 
+    ---------- 
+    dataset_name : str 
+        Internal dataset name 
+         
+    Returns 
+    ------- 
+    str 
+        Simplified filename (without extension) 
+    &quot;&quot;&quot;</span>
+    <span class="s2">return </span><span class="s1">DATASET_NAME_MAPPING</span><span class="s3">.</span><span class="s1">get</span><span class="s3">(</span><span class="s1">dataset_name</span><span class="s3">, </span><span class="s1">dataset_name</span><span class="s3">)</span>
+
+
+<span class="s2">def </span><span class="s1">get_export_resolution</span><span class="s3">(</span><span class="s1">dataset_name</span><span class="s3">: </span><span class="s1">str</span><span class="s3">) </span><span class="s1">-&gt; int</span><span class="s3">:</span>
+    <span class="s0">&quot;&quot;&quot; 
+    Get the export resolution for a dataset. 
+    Uses 250m by default, but keeps native resolution if it's &gt; 250m. 
+     
+    Parameters 
+    ---------- 
+    dataset_name : str 
+        Internal dataset name 
+         
+    Returns 
+    ------- 
+    int 
+        Export resolution in meters 
+    &quot;&quot;&quot;</span>
+    <span class="s1">native_res </span><span class="s3">= </span><span class="s1">DATASET_NATIVE_RESOLUTIONS</span><span class="s3">.</span><span class="s1">get</span><span class="s3">(</span><span class="s1">dataset_name</span><span class="s3">, </span><span class="s1">DEFAULT_EXPORT_RESOLUTION</span><span class="s3">)</span>
+    
+    <span class="s4"># If native resolution &gt; 250m, use native; otherwise use 250m</span>
+    <span class="s2">if </span><span class="s1">native_res </span><span class="s3">&gt; </span><span class="s1">DEFAULT_EXPORT_RESOLUTION</span><span class="s3">:</span>
+        <span class="s2">return </span><span class="s1">native_res</span>
+    <span class="s2">else</span><span class="s3">:</span>
+        <span class="s2">return </span><span class="s1">DEFAULT_EXPORT_RESOLUTION</span>
+
+
+<span class="s2">class </span><span class="s1">GEEDataLoader</span><span class="s3">:</span>
+    <span class="s0">&quot;&quot;&quot; 
+    Loads and standardizes soil property datasets from Google Earth Engine. 
+    Handles ImageCollections and Images, standardizes projections to EPSG:4326. 
+    &quot;&quot;&quot;</span>
+
+    <span class="s2">def </span><span class="s1">__init__</span><span class="s3">(</span><span class="s1">self</span><span class="s3">, </span><span class="s1">config_path</span><span class="s3">: </span><span class="s1">Optional</span><span class="s3">[</span><span class="s1">str</span><span class="s3">] = </span><span class="s2">None</span><span class="s3">):</span>
+        <span class="s0">&quot;&quot;&quot; 
+        Initialize the GEE Data Loader. 
+ 
+        Parameters 
+        ---------- 
+        config_path : str, optional 
+            Path to configuration file. Defaults to configs/config.yaml 
+        &quot;&quot;&quot;</span>
+        <span class="s4"># Get project root (parent of src directory)</span>
+        <span class="s1">project_root </span><span class="s3">= </span><span class="s1">Path</span><span class="s3">(</span><span class="s1">__file__</span><span class="s3">).</span><span class="s1">parent</span><span class="s3">.</span><span class="s1">parent</span><span class="s3">.</span><span class="s1">parent</span><span class="s3">.</span><span class="s1">parent</span>
+        
+        <span class="s2">if </span><span class="s1">config_path </span><span class="s2">is None</span><span class="s3">:</span>
+            <span class="s1">config_path </span><span class="s3">= </span><span class="s1">project_root </span><span class="s3">/ </span><span class="s5">&quot;configs&quot; </span><span class="s3">/ </span><span class="s5">&quot;config.yaml&quot;</span>
+        <span class="s2">else</span><span class="s3">:</span>
+            <span class="s1">config_path </span><span class="s3">= </span><span class="s1">Path</span><span class="s3">(</span><span class="s1">config_path</span><span class="s3">)</span>
+            <span class="s4"># If it's a relative path, resolve it relative to project root</span>
+            <span class="s2">if not </span><span class="s1">config_path</span><span class="s3">.</span><span class="s1">is_absolute</span><span class="s3">():</span>
+                <span class="s1">config_path </span><span class="s3">= </span><span class="s1">project_root </span><span class="s3">/ </span><span class="s1">config_path</span>
+
+        <span class="s1">self</span><span class="s3">.</span><span class="s1">config_path </span><span class="s3">= </span><span class="s1">config_path</span>
+        <span class="s1">self</span><span class="s3">.</span><span class="s1">config </span><span class="s3">= </span><span class="s1">self</span><span class="s3">.</span><span class="s1">_load_config</span><span class="s3">()</span>
+        
+        <span class="s4"># Initialize attributes</span>
+        <span class="s1">self</span><span class="s3">.</span><span class="s1">project_name </span><span class="s3">= </span><span class="s1">self</span><span class="s3">.</span><span class="s1">config</span><span class="s3">.</span><span class="s1">get</span><span class="s3">(</span><span class="s5">&quot;gee&quot;</span><span class="s3">, {}).</span><span class="s1">get</span><span class="s3">(</span><span class="s5">&quot;project_name&quot;</span><span class="s3">)</span>
+        <span class="s1">self</span><span class="s3">.</span><span class="s1">target_scale </span><span class="s3">= </span><span class="s1">self</span><span class="s3">.</span><span class="s1">config</span><span class="s3">.</span><span class="s1">get</span><span class="s3">(</span><span class="s5">&quot;gee&quot;</span><span class="s3">, {}).</span><span class="s1">get</span><span class="s3">(</span><span class="s5">&quot;default_scale&quot;</span><span class="s3">, </span><span class="s6">1000</span><span class="s3">)  </span><span class="s4"># Fallback default</span>
+        <span class="s1">self</span><span class="s3">.</span><span class="s1">feature </span><span class="s3">= </span><span class="s2">None</span>
+        <span class="s1">self</span><span class="s3">.</span><span class="s1">images </span><span class="s3">= {}</span>
+        <span class="s1">self</span><span class="s3">.</span><span class="s1">images_names </span><span class="s3">= []</span>
+        <span class="s1">self</span><span class="s3">.</span><span class="s1">tasks </span><span class="s3">= []</span>
+        <span class="s4"># Store export resolutions for each dataset</span>
+        <span class="s1">self</span><span class="s3">.</span><span class="s1">dataset_resolutions </span><span class="s3">= {}</span>
+
+    <span class="s2">def </span><span class="s1">_load_config</span><span class="s3">(</span><span class="s1">self</span><span class="s3">) </span><span class="s1">-&gt; Dict</span><span class="s3">:</span>
+        <span class="s0">&quot;&quot;&quot;Load configuration from YAML file.&quot;&quot;&quot;</span>
+        <span class="s2">with </span><span class="s1">open</span><span class="s3">(</span><span class="s1">self</span><span class="s3">.</span><span class="s1">config_path</span><span class="s3">, </span><span class="s5">'r'</span><span class="s3">) </span><span class="s2">as </span><span class="s1">f</span><span class="s3">:</span>
+            <span class="s2">return </span><span class="s1">yaml</span><span class="s3">.</span><span class="s1">safe_load</span><span class="s3">(</span><span class="s1">f</span><span class="s3">)</span>
+
+    <span class="s2">def </span><span class="s1">initialize</span><span class="s3">(</span><span class="s1">self</span><span class="s3">, </span><span class="s1">project_name</span><span class="s3">: </span><span class="s1">Optional</span><span class="s3">[</span><span class="s1">str</span><span class="s3">] = </span><span class="s2">None</span><span class="s3">) </span><span class="s1">-&gt; </span><span class="s2">None</span><span class="s3">:</span>
+        <span class="s0">&quot;&quot;&quot; 
+        Initialize Google Earth Engine. 
+ 
+        Parameters 
+        ---------- 
+        project_name : str, optional 
+            GEE project name. If not provided, uses config file value. 
+        &quot;&quot;&quot;</span>
+        <span class="s2">if </span><span class="s1">project_name</span><span class="s3">:</span>
+            <span class="s1">self</span><span class="s3">.</span><span class="s1">project_name </span><span class="s3">= </span><span class="s1">project_name</span>
+        <span class="s2">elif </span><span class="s1">self</span><span class="s3">.</span><span class="s1">project_name </span><span class="s2">is None</span><span class="s3">:</span>
+            <span class="s2">raise </span><span class="s1">ValueError</span><span class="s3">(</span>
+                <span class="s5">&quot;GEE project name not set. &quot;</span>
+                <span class="s5">&quot;Either provide project_name parameter or set gee.project_name in config.yaml&quot;</span>
+            <span class="s3">)</span>
+
+        <span class="s2">try</span><span class="s3">:</span>
+            <span class="s4"># Try to initialize (may already be initialized)</span>
+            <span class="s1">ee</span><span class="s3">.</span><span class="s1">Initialize</span><span class="s3">(</span><span class="s1">project</span><span class="s3">=</span><span class="s1">self</span><span class="s3">.</span><span class="s1">project_name</span><span class="s3">)</span>
+            <span class="s1">print</span><span class="s3">(</span><span class="s5">f&quot;Google Earth Engine initialized with project: </span><span class="s2">{</span><span class="s1">self</span><span class="s3">.</span><span class="s1">project_name</span><span class="s2">}</span><span class="s5">&quot;</span><span class="s3">)</span>
+        <span class="s2">except </span><span class="s1">Exception </span><span class="s2">as </span><span class="s1">e</span><span class="s3">:</span>
+            <span class="s4"># If not authenticated, authenticate first</span>
+            <span class="s1">print</span><span class="s3">(</span><span class="s5">&quot;Authenticating with Google Earth Engine...&quot;</span><span class="s3">)</span>
+            <span class="s1">print</span><span class="s3">(</span><span class="s5">&quot;This will open a browser window for authentication.&quot;</span><span class="s3">)</span>
+            <span class="s1">ee</span><span class="s3">.</span><span class="s1">Authenticate</span><span class="s3">()</span>
+            <span class="s1">ee</span><span class="s3">.</span><span class="s1">Initialize</span><span class="s3">(</span><span class="s1">project</span><span class="s3">=</span><span class="s1">self</span><span class="s3">.</span><span class="s1">project_name</span><span class="s3">)</span>
+            <span class="s1">print</span><span class="s3">(</span><span class="s5">f&quot;Google Earth Engine initialized with project: </span><span class="s2">{</span><span class="s1">self</span><span class="s3">.</span><span class="s1">project_name</span><span class="s2">}</span><span class="s5">&quot;</span><span class="s3">)</span>
+
+    <span class="s2">def </span><span class="s1">get_dataset_images</span><span class="s3">(</span><span class="s1">self</span><span class="s3">) </span><span class="s1">-&gt; Dict</span><span class="s3">[</span><span class="s1">str</span><span class="s3">, </span><span class="s1">ee</span><span class="s3">.</span><span class="s1">Image</span><span class="s3">]:</span>
+        <span class="s0">&quot;&quot;&quot; 
+        Retrieve all soil property datasets from GEE based on config. 
+ 
+        Returns 
+        ------- 
+        Dict[str, ee.Image] 
+            Dictionary mapping dataset names to ee.Image objects 
+        &quot;&quot;&quot;</span>
+        <span class="s1">datasets_config </span><span class="s3">= </span><span class="s1">self</span><span class="s3">.</span><span class="s1">config</span><span class="s3">.</span><span class="s1">get</span><span class="s3">(</span><span class="s5">&quot;datasets&quot;</span><span class="s3">, {})</span>
+        <span class="s1">images </span><span class="s3">= {}</span>
+
+        <span class="s2">for </span><span class="s1">dataset_name</span><span class="s3">, </span><span class="s1">dataset_config </span><span class="s2">in </span><span class="s1">datasets_config</span><span class="s3">.</span><span class="s1">items</span><span class="s3">():</span>
+            <span class="s1">print</span><span class="s3">(</span><span class="s5">f&quot;</span><span class="s2">\n</span><span class="s5">Retrieving </span><span class="s2">{</span><span class="s1">dataset_name</span><span class="s2">}</span><span class="s5">...&quot;</span><span class="s3">)</span>
+            
+            <span class="s2">if </span><span class="s5">&quot;image&quot; </span><span class="s2">in </span><span class="s1">dataset_config</span><span class="s3">:</span>
+                <span class="s4"># Single image</span>
+                <span class="s1">image_id </span><span class="s3">= </span><span class="s1">dataset_config</span><span class="s3">[</span><span class="s5">&quot;image&quot;</span><span class="s3">]</span>
+                <span class="s1">image </span><span class="s3">= </span><span class="s1">ee</span><span class="s3">.</span><span class="s1">Image</span><span class="s3">(</span><span class="s1">image_id</span><span class="s3">)</span>
+                
+                <span class="s4"># Select specific band if provided (OpenLandMap images often have multiple bands)</span>
+                <span class="s1">band </span><span class="s3">= </span><span class="s1">dataset_config</span><span class="s3">.</span><span class="s1">get</span><span class="s3">(</span><span class="s5">&quot;band&quot;</span><span class="s3">, </span><span class="s2">None</span><span class="s3">)</span>
+                <span class="s2">if </span><span class="s1">band</span><span class="s3">:</span>
+                    <span class="s1">image </span><span class="s3">= </span><span class="s1">image</span><span class="s3">.</span><span class="s1">select</span><span class="s3">(</span><span class="s1">band</span><span class="s3">)</span>
+                    <span class="s1">print</span><span class="s3">(</span><span class="s5">f&quot;  Selected band: </span><span class="s2">{</span><span class="s1">band</span><span class="s2">}</span><span class="s5">&quot;</span><span class="s3">)</span>
+                
+                <span class="s1">images</span><span class="s3">[</span><span class="s1">dataset_name</span><span class="s3">] = </span><span class="s1">image</span>
+                <span class="s1">print</span><span class="s3">(</span><span class="s5">f&quot;  Loaded image: </span><span class="s2">{</span><span class="s1">image_id</span><span class="s2">}</span><span class="s5">&quot;</span><span class="s3">)</span>
+                
+            <span class="s2">elif </span><span class="s5">&quot;collection&quot; </span><span class="s2">in </span><span class="s1">dataset_config</span><span class="s3">:</span>
+                <span class="s4"># ImageCollection - need to process</span>
+                <span class="s1">collection_id </span><span class="s3">= </span><span class="s1">dataset_config</span><span class="s3">[</span><span class="s5">&quot;collection&quot;</span><span class="s3">]</span>
+                <span class="s1">band </span><span class="s3">= </span><span class="s1">dataset_config</span><span class="s3">.</span><span class="s1">get</span><span class="s3">(</span><span class="s5">&quot;band&quot;</span><span class="s3">, </span><span class="s2">None</span><span class="s3">)</span>
+                <span class="s1">date_range </span><span class="s3">= </span><span class="s1">dataset_config</span><span class="s3">.</span><span class="s1">get</span><span class="s3">(</span><span class="s5">&quot;date_range&quot;</span><span class="s3">, </span><span class="s2">None</span><span class="s3">)</span>
+                <span class="s1">aggregation_method </span><span class="s3">= </span><span class="s1">dataset_config</span><span class="s3">.</span><span class="s1">get</span><span class="s3">(</span><span class="s5">&quot;aggregation&quot;</span><span class="s3">, </span><span class="s5">&quot;median&quot;</span><span class="s3">)  </span><span class="s4"># Default to median</span>
+                
+                <span class="s4"># Create collection</span>
+                <span class="s1">collection </span><span class="s3">= </span><span class="s1">ee</span><span class="s3">.</span><span class="s1">ImageCollection</span><span class="s3">(</span><span class="s1">collection_id</span><span class="s3">)</span>
+                
+                <span class="s4"># Filter by date if provided</span>
+                <span class="s2">if </span><span class="s1">date_range</span><span class="s3">:</span>
+                    <span class="s1">collection </span><span class="s3">= </span><span class="s1">collection</span><span class="s3">.</span><span class="s1">filterDate</span><span class="s3">(</span><span class="s1">date_range</span><span class="s3">[</span><span class="s6">0</span><span class="s3">], </span><span class="s1">date_range</span><span class="s3">[</span><span class="s6">1</span><span class="s3">])</span>
+                
+                <span class="s4"># Select band if provided</span>
+                <span class="s2">if </span><span class="s1">band</span><span class="s3">:</span>
+                    <span class="s1">collection </span><span class="s3">= </span><span class="s1">collection</span><span class="s3">.</span><span class="s1">select</span><span class="s3">(</span><span class="s1">band</span><span class="s3">)</span>
+                
+                <span class="s4"># Apply aggregation method</span>
+                <span class="s2">if </span><span class="s1">aggregation_method </span><span class="s3">== </span><span class="s5">&quot;recent&quot;</span><span class="s3">:</span>
+                    <span class="s4"># Use most recent image only (fastest)</span>
+                    <span class="s1">collection </span><span class="s3">= </span><span class="s1">collection</span><span class="s3">.</span><span class="s1">sort</span><span class="s3">(</span><span class="s5">'system:time_start'</span><span class="s3">, </span><span class="s2">False</span><span class="s3">).</span><span class="s1">limit</span><span class="s3">(</span><span class="s6">1</span><span class="s3">)</span>
+                    <span class="s1">images</span><span class="s3">[</span><span class="s1">dataset_name</span><span class="s3">] = </span><span class="s1">collection</span><span class="s3">.</span><span class="s1">first</span><span class="s3">()</span>
+                    <span class="s1">print</span><span class="s3">(</span><span class="s5">f&quot;  Using most recent image&quot;</span><span class="s3">)</span>
+                <span class="s2">elif </span><span class="s1">aggregation_method </span><span class="s3">== </span><span class="s5">&quot;mean&quot;</span><span class="s3">:</span>
+                    <span class="s4"># Use mean (more accurate for continuous data)</span>
+                    <span class="s1">images</span><span class="s3">[</span><span class="s1">dataset_name</span><span class="s3">] = </span><span class="s1">collection</span><span class="s3">.</span><span class="s1">mean</span><span class="s3">()</span>
+                    <span class="s1">print</span><span class="s3">(</span><span class="s5">f&quot;  Using mean aggregation&quot;</span><span class="s3">)</span>
+                <span class="s2">else</span><span class="s3">:</span>
+                    <span class="s4"># Default to median (faster, good for categorical data)</span>
+                    <span class="s1">images</span><span class="s3">[</span><span class="s1">dataset_name</span><span class="s3">] = </span><span class="s1">collection</span><span class="s3">.</span><span class="s1">median</span><span class="s3">()</span>
+                    <span class="s1">print</span><span class="s3">(</span><span class="s5">f&quot;  Using median aggregation&quot;</span><span class="s3">)</span>
+                
+                <span class="s1">print</span><span class="s3">(</span><span class="s5">f&quot;  Loaded collection: </span><span class="s2">{</span><span class="s1">collection_id</span><span class="s2">}</span><span class="s5">&quot;</span><span class="s3">)</span>
+                <span class="s2">if </span><span class="s1">date_range</span><span class="s3">:</span>
+                    <span class="s1">print</span><span class="s3">(</span><span class="s5">f&quot;  Date range: </span><span class="s2">{</span><span class="s1">date_range</span><span class="s3">[</span><span class="s6">0</span><span class="s3">]</span><span class="s2">} </span><span class="s5">to </span><span class="s2">{</span><span class="s1">date_range</span><span class="s3">[</span><span class="s6">1</span><span class="s3">]</span><span class="s2">}</span><span class="s5">&quot;</span><span class="s3">)</span>
+                <span class="s2">if </span><span class="s1">band</span><span class="s3">:</span>
+                    <span class="s1">print</span><span class="s3">(</span><span class="s5">f&quot;  Selected band: </span><span class="s2">{</span><span class="s1">band</span><span class="s2">}</span><span class="s5">&quot;</span><span class="s3">)</span>
+        
+        <span class="s1">print</span><span class="s3">(</span><span class="s5">f&quot;</span><span class="s2">\n</span><span class="s5">Retrieved </span><span class="s2">{</span><span class="s1">len</span><span class="s3">(</span><span class="s1">images</span><span class="s3">)</span><span class="s2">} </span><span class="s5">datasets&quot;</span><span class="s3">)</span>
+        <span class="s2">return </span><span class="s1">images</span>
+
+    <span class="s3">@</span><span class="s1">staticmethod</span>
+    <span class="s2">def </span><span class="s1">_standardize_images</span><span class="s3">(</span><span class="s1">images</span><span class="s3">: </span><span class="s1">Dict</span><span class="s3">[</span><span class="s1">str</span><span class="s3">, </span><span class="s1">ee</span><span class="s3">.</span><span class="s1">Image</span><span class="s3">]) </span><span class="s1">-&gt; Dict</span><span class="s3">[</span><span class="s1">str</span><span class="s3">, </span><span class="s1">ee</span><span class="s3">.</span><span class="s1">Image</span><span class="s3">]:</span>
+        <span class="s0">&quot;&quot;&quot; 
+        Standardize images to EPSG:4326 projection. 
+ 
+        Parameters 
+        ---------- 
+        images : Dict[str, ee.Image] 
+            Dictionary of images to standardize 
+ 
+        Returns 
+        ------- 
+        Dict[str, ee.Image] 
+            Dictionary of standardized images 
+        &quot;&quot;&quot;</span>
+        <span class="s1">standardized </span><span class="s3">= {}</span>
+        <span class="s1">target_crs </span><span class="s3">= </span><span class="s5">'EPSG:4326'</span>
+        
+        <span class="s4"># Define categorical layers (use nearest neighbor resampling)</span>
+        <span class="s1">categorical_layers </span><span class="s3">= {</span><span class="s5">&quot;land_cover&quot;</span><span class="s3">, </span><span class="s5">&quot;soil_type&quot;</span><span class="s3">}</span>
+
+        <span class="s2">for </span><span class="s1">key_name</span><span class="s3">, </span><span class="s1">image </span><span class="s2">in </span><span class="s1">images</span><span class="s3">.</span><span class="s1">items</span><span class="s3">():</span>
+            <span class="s1">print</span><span class="s3">(</span><span class="s5">f&quot;</span><span class="s2">\n</span><span class="s5">Standardizing </span><span class="s2">{</span><span class="s1">key_name</span><span class="s2">}</span><span class="s5">...&quot;</span><span class="s3">)</span>
+            
+            <span class="s4"># Choose resampling method</span>
+            <span class="s1">resample_method </span><span class="s3">= </span><span class="s5">'nearest' </span><span class="s2">if </span><span class="s1">key_name </span><span class="s2">in </span><span class="s1">categorical_layers </span><span class="s2">else </span><span class="s5">'bilinear'</span>
+
+            <span class="s4"># Get projection info</span>
+            <span class="s2">try</span><span class="s3">:</span>
+                <span class="s1">proj_info </span><span class="s3">= </span><span class="s1">image</span><span class="s3">.</span><span class="s1">projection</span><span class="s3">().</span><span class="s1">getInfo</span><span class="s3">()</span>
+                <span class="s1">crs </span><span class="s3">= </span><span class="s1">proj_info</span><span class="s3">.</span><span class="s1">get</span><span class="s3">(</span><span class="s5">&quot;crs&quot;</span><span class="s3">, </span><span class="s2">None</span><span class="s3">)</span>
+                <span class="s1">nominal_scale </span><span class="s3">= </span><span class="s1">proj_info</span><span class="s3">.</span><span class="s1">get</span><span class="s3">(</span><span class="s5">&quot;nominalScale&quot;</span><span class="s3">, </span><span class="s2">None</span><span class="s3">)</span>
+                
+                <span class="s1">print</span><span class="s3">(</span><span class="s5">f&quot;  Current CRS: </span><span class="s2">{</span><span class="s1">crs</span><span class="s2">}</span><span class="s5">&quot;</span><span class="s3">)</span>
+                <span class="s1">print</span><span class="s3">(</span><span class="s5">f&quot;  Nominal scale: </span><span class="s2">{</span><span class="s1">nominal_scale</span><span class="s2">}</span><span class="s5">m&quot; </span><span class="s2">if </span><span class="s1">nominal_scale </span><span class="s2">else </span><span class="s5">&quot;  Nominal scale: N/A&quot;</span><span class="s3">)</span>
+
+                <span class="s4"># Reproject if needed</span>
+                <span class="s2">if </span><span class="s1">crs </span><span class="s3">!= </span><span class="s1">target_crs </span><span class="s2">or </span><span class="s3">(</span><span class="s1">nominal_scale </span><span class="s2">and </span><span class="s1">nominal_scale </span><span class="s3">&gt; </span><span class="s6">1000</span><span class="s3">):</span>
+                    <span class="s1">print</span><span class="s3">(</span><span class="s5">f&quot;  Reprojecting to </span><span class="s2">{</span><span class="s1">target_crs</span><span class="s2">} </span><span class="s5">using </span><span class="s2">{</span><span class="s1">resample_method</span><span class="s2">} </span><span class="s5">resampling&quot;</span><span class="s3">)</span>
+                    <span class="s1">image </span><span class="s3">= </span><span class="s1">image</span><span class="s3">.</span><span class="s1">resample</span><span class="s3">(</span><span class="s1">resample_method</span><span class="s3">).</span><span class="s1">reproject</span><span class="s3">(</span><span class="s1">crs</span><span class="s3">=</span><span class="s1">target_crs</span><span class="s3">)</span>
+                <span class="s2">else</span><span class="s3">:</span>
+                    <span class="s1">print</span><span class="s3">(</span><span class="s5">f&quot;  Already in </span><span class="s2">{</span><span class="s1">target_crs</span><span class="s2">}</span><span class="s5">&quot;</span><span class="s3">)</span>
+
+            <span class="s2">except </span><span class="s1">Exception </span><span class="s2">as </span><span class="s1">e</span><span class="s3">:</span>
+                <span class="s1">print</span><span class="s3">(</span><span class="s5">f&quot;  Warning: Could not retrieve CRS info: </span><span class="s2">{</span><span class="s1">e</span><span class="s2">}</span><span class="s5">&quot;</span><span class="s3">)</span>
+                <span class="s1">print</span><span class="s3">(</span><span class="s5">f&quot;  Attempting reprojection to </span><span class="s2">{</span><span class="s1">target_crs</span><span class="s2">} </span><span class="s5">anyway&quot;</span><span class="s3">)</span>
+                <span class="s1">image </span><span class="s3">= </span><span class="s1">image</span><span class="s3">.</span><span class="s1">resample</span><span class="s3">(</span><span class="s1">resample_method</span><span class="s3">).</span><span class="s1">reproject</span><span class="s3">(</span><span class="s1">crs</span><span class="s3">=</span><span class="s1">target_crs</span><span class="s3">)</span>
+
+            <span class="s1">standardized</span><span class="s3">[</span><span class="s1">key_name</span><span class="s3">] = </span><span class="s1">image</span>
+
+        <span class="s1">print</span><span class="s3">(</span><span class="s5">&quot;</span><span class="s2">\n</span><span class="s5">All images standardized successfully&quot;</span><span class="s3">)</span>
+        <span class="s2">return </span><span class="s1">standardized</span>
+
+    <span class="s2">def </span><span class="s1">load_datasets</span><span class="s3">(</span><span class="s1">self</span><span class="s3">) </span><span class="s1">-&gt; Dict</span><span class="s3">[</span><span class="s1">str</span><span class="s3">, </span><span class="s1">ee</span><span class="s3">.</span><span class="s1">Image</span><span class="s3">]:</span>
+        <span class="s0">&quot;&quot;&quot; 
+        Load and standardize all datasets from config. 
+ 
+        Returns 
+        ------- 
+        Dict[str, ee.Image] 
+            Dictionary of standardized images ready for clipping/export 
+        &quot;&quot;&quot;</span>
+        <span class="s4"># Get raw images from GEE</span>
+        <span class="s1">raw_images </span><span class="s3">= </span><span class="s1">self</span><span class="s3">.</span><span class="s1">get_dataset_images</span><span class="s3">()</span>
+        
+        <span class="s4"># Standardize projections</span>
+        <span class="s1">standardized_images </span><span class="s3">= </span><span class="s1">self</span><span class="s3">.</span><span class="s1">_standardize_images</span><span class="s3">(</span><span class="s1">raw_images</span><span class="s3">)</span>
+        
+        <span class="s4"># Store images</span>
+        <span class="s1">self</span><span class="s3">.</span><span class="s1">images </span><span class="s3">= </span><span class="s1">standardized_images</span>
+        <span class="s1">self</span><span class="s3">.</span><span class="s1">images_names </span><span class="s3">= </span><span class="s1">list</span><span class="s3">(</span><span class="s1">standardized_images</span><span class="s3">.</span><span class="s1">keys</span><span class="s3">())</span>
+        
+        <span class="s2">return </span><span class="s1">standardized_images</span>
+
+    <span class="s2">def </span><span class="s1">clip_to_mato_grosso</span><span class="s3">(</span><span class="s1">self</span><span class="s3">) </span><span class="s1">-&gt; Dict</span><span class="s3">[</span><span class="s1">str</span><span class="s3">, </span><span class="s1">ee</span><span class="s3">.</span><span class="s1">Image</span><span class="s3">]:</span>
+        <span class="s0">&quot;&quot;&quot; 
+        Clip all images to Mato Grosso state boundaries. 
+ 
+        Returns 
+        ------- 
+        Dict[str, ee.Image] 
+            Dictionary of clipped images 
+        &quot;&quot;&quot;</span>
+        <span class="s2">if not </span><span class="s1">self</span><span class="s3">.</span><span class="s1">images</span><span class="s3">:</span>
+            <span class="s2">raise </span><span class="s1">ValueError</span><span class="s3">(</span><span class="s5">&quot;No images loaded. Call load_datasets() first.&quot;</span><span class="s3">)</span>
+
+        <span class="s1">print</span><span class="s3">(</span><span class="s5">&quot;</span><span class="s2">\n</span><span class="s5">Clipping images to Mato Grosso boundaries...&quot;</span><span class="s3">)</span>
+        
+        <span class="s4"># Load Mato Grosso boundaries</span>
+        <span class="s1">mato_grosso </span><span class="s3">= (</span>
+            <span class="s1">ee</span><span class="s3">.</span><span class="s1">FeatureCollection</span><span class="s3">(</span><span class="s5">&quot;FAO/GAUL_SIMPLIFIED_500m/2015/level1&quot;</span><span class="s3">)</span>
+            <span class="s3">.</span><span class="s1">filter</span><span class="s3">(</span><span class="s1">ee</span><span class="s3">.</span><span class="s1">Filter</span><span class="s3">.</span><span class="s1">eq</span><span class="s3">(</span><span class="s5">'ADM1_NAME'</span><span class="s3">, </span><span class="s5">'Mato Grosso'</span><span class="s3">))</span>
+        <span class="s3">)</span>
+        
+        <span class="s1">self</span><span class="s3">.</span><span class="s1">feature </span><span class="s3">= </span><span class="s5">'mato_grosso'</span>
+        
+        <span class="s4"># Clip all images</span>
+        <span class="s1">clipped_images </span><span class="s3">= {}</span>
+        <span class="s2">for </span><span class="s1">name</span><span class="s3">, </span><span class="s1">image </span><span class="s2">in </span><span class="s1">self</span><span class="s3">.</span><span class="s1">images</span><span class="s3">.</span><span class="s1">items</span><span class="s3">():</span>
+            <span class="s1">print</span><span class="s3">(</span><span class="s5">f&quot;  Clipping </span><span class="s2">{</span><span class="s1">name</span><span class="s2">}</span><span class="s5">...&quot;</span><span class="s3">)</span>
+            <span class="s1">clipped_images</span><span class="s3">[</span><span class="s1">name</span><span class="s3">] = </span><span class="s1">image</span><span class="s3">.</span><span class="s1">clip</span><span class="s3">(</span><span class="s1">mato_grosso</span><span class="s3">)</span>
+        
+        <span class="s4"># Update stored images</span>
+        <span class="s1">self</span><span class="s3">.</span><span class="s1">images </span><span class="s3">= </span><span class="s1">clipped_images</span>
+        
+        <span class="s1">print</span><span class="s3">(</span><span class="s5">&quot;</span><span class="s2">\n</span><span class="s5">All images clipped to Mato Grosso successfully&quot;</span><span class="s3">)</span>
+        <span class="s2">return </span><span class="s1">clipped_images</span>
+
+    <span class="s2">def </span><span class="s1">get_region_geometry</span><span class="s3">(</span><span class="s1">self</span><span class="s3">) </span><span class="s1">-&gt; ee</span><span class="s3">.</span><span class="s1">Geometry</span><span class="s3">:</span>
+        <span class="s0">&quot;&quot;&quot; 
+        Get the geometry for Mato Grosso state. 
+ 
+        Returns 
+        ------- 
+        ee.Geometry 
+            Geometry of Mato Grosso state 
+        &quot;&quot;&quot;</span>
+        <span class="s2">if </span><span class="s1">self</span><span class="s3">.</span><span class="s1">feature </span><span class="s3">== </span><span class="s5">'mato_grosso'</span><span class="s3">:</span>
+            <span class="s2">return </span><span class="s3">(</span>
+                <span class="s1">ee</span><span class="s3">.</span><span class="s1">FeatureCollection</span><span class="s3">(</span><span class="s5">&quot;FAO/GAUL_SIMPLIFIED_500m/2015/level1&quot;</span><span class="s3">)</span>
+                <span class="s3">.</span><span class="s1">filter</span><span class="s3">(</span><span class="s1">ee</span><span class="s3">.</span><span class="s1">Filter</span><span class="s3">.</span><span class="s1">eq</span><span class="s3">(</span><span class="s5">'ADM1_NAME'</span><span class="s3">, </span><span class="s5">'Mato Grosso'</span><span class="s3">))</span>
+                <span class="s3">.</span><span class="s1">geometry</span><span class="s3">()</span>
+            <span class="s3">)</span>
+        <span class="s2">else</span><span class="s3">:</span>
+            <span class="s2">raise </span><span class="s1">ValueError</span><span class="s3">(</span><span class="s5">&quot;Feature not set. Call clip_to_mato_grosso() first.&quot;</span><span class="s3">)</span>
+
+    <span class="s2">def </span><span class="s1">set_export_scale</span><span class="s3">(</span><span class="s1">self</span><span class="s3">, </span><span class="s1">scale</span><span class="s3">: </span><span class="s1">int</span><span class="s3">) </span><span class="s1">-&gt; </span><span class="s2">None</span><span class="s3">:</span>
+        <span class="s0">&quot;&quot;&quot; 
+        Set the target scale for export. 
+ 
+        Parameters 
+        ---------- 
+        scale : int 
+            Scale in meters 
+        &quot;&quot;&quot;</span>
+        <span class="s1">self</span><span class="s3">.</span><span class="s1">target_scale </span><span class="s3">= </span><span class="s1">scale</span>
+        <span class="s1">print</span><span class="s3">(</span><span class="s5">f&quot;Export scale set to </span><span class="s2">{</span><span class="s1">scale</span><span class="s2">} </span><span class="s5">meters&quot;</span><span class="s3">)</span>
+
+    <span class="s2">def </span><span class="s1">create_export_tasks</span><span class="s3">(</span><span class="s1">self</span><span class="s3">, </span><span class="s1">folder_name</span><span class="s3">: </span><span class="s1">Optional</span><span class="s3">[</span><span class="s1">str</span><span class="s3">] = </span><span class="s2">None</span><span class="s3">, </span><span class="s1">selected_layers</span><span class="s3">: </span><span class="s1">Optional</span><span class="s3">[</span><span class="s1">List</span><span class="s3">[</span><span class="s1">str</span><span class="s3">]] = </span><span class="s2">None</span><span class="s3">) </span><span class="s1">-&gt; List</span><span class="s3">[</span><span class="s1">ee</span><span class="s3">.</span><span class="s1">batch</span><span class="s3">.</span><span class="s1">Task</span><span class="s3">]:</span>
+        <span class="s0">&quot;&quot;&quot; 
+        Create export tasks for images to Google Drive. 
+ 
+        Parameters 
+        ---------- 
+        folder_name : str, optional 
+            Folder name in Google Drive. Uses config default if not provided. 
+        selected_layers : List[str], optional 
+            List of layer names to export. If None, exports all loaded images. 
+ 
+        Returns 
+        ------- 
+        List[ee.batch.Task] 
+            List of export tasks 
+        &quot;&quot;&quot;</span>
+        <span class="s2">if not </span><span class="s1">self</span><span class="s3">.</span><span class="s1">images</span><span class="s3">:</span>
+            <span class="s2">raise </span><span class="s1">ValueError</span><span class="s3">(</span><span class="s5">&quot;No images loaded. Call load_datasets() and clip_to_mato_grosso() first.&quot;</span><span class="s3">)</span>
+
+        <span class="s2">if </span><span class="s1">folder_name </span><span class="s2">is None</span><span class="s3">:</span>
+            <span class="s1">folder_name </span><span class="s3">= </span><span class="s1">self</span><span class="s3">.</span><span class="s1">config</span><span class="s3">.</span><span class="s1">get</span><span class="s3">(</span><span class="s5">&quot;gee&quot;</span><span class="s3">, {}).</span><span class="s1">get</span><span class="s3">(</span><span class="s5">&quot;export_folder&quot;</span><span class="s3">, </span><span class="s5">&quot;1IIBYV68TBZ2evWnUYgBZY9mKI2PalciE&quot;</span><span class="s3">)</span>
+
+        <span class="s4"># Filter images by selected layers if provided</span>
+        <span class="s1">images_to_export </span><span class="s3">= </span><span class="s1">self</span><span class="s3">.</span><span class="s1">images</span>
+        <span class="s2">if </span><span class="s1">selected_layers </span><span class="s2">is not None</span><span class="s3">:</span>
+            <span class="s4"># Validate that all selected layers exist</span>
+            <span class="s1">missing_layers </span><span class="s3">= [</span><span class="s1">layer </span><span class="s2">for </span><span class="s1">layer </span><span class="s2">in </span><span class="s1">selected_layers </span><span class="s2">if </span><span class="s1">layer </span><span class="s2">not in </span><span class="s1">self</span><span class="s3">.</span><span class="s1">images</span><span class="s3">]</span>
+            <span class="s2">if </span><span class="s1">missing_layers</span><span class="s3">:</span>
+                <span class="s2">raise </span><span class="s1">ValueError</span><span class="s3">(</span><span class="s5">f&quot;Selected layers not found in loaded images: </span><span class="s2">{</span><span class="s1">missing_layers</span><span class="s2">}</span><span class="s5">&quot;</span><span class="s3">)</span>
+            
+            <span class="s1">images_to_export </span><span class="s3">= {</span><span class="s1">name</span><span class="s3">: </span><span class="s1">image </span><span class="s2">for </span><span class="s1">name</span><span class="s3">, </span><span class="s1">image </span><span class="s2">in </span><span class="s1">self</span><span class="s3">.</span><span class="s1">images</span><span class="s3">.</span><span class="s1">items</span><span class="s3">() </span><span class="s2">if </span><span class="s1">name </span><span class="s2">in </span><span class="s1">selected_layers</span><span class="s3">}</span>
+            <span class="s1">print</span><span class="s3">(</span><span class="s5">f&quot;</span><span class="s2">\n</span><span class="s5">Exporting </span><span class="s2">{</span><span class="s1">len</span><span class="s3">(</span><span class="s1">images_to_export</span><span class="s3">)</span><span class="s2">} </span><span class="s5">of </span><span class="s2">{</span><span class="s1">len</span><span class="s3">(</span><span class="s1">self</span><span class="s3">.</span><span class="s1">images</span><span class="s3">)</span><span class="s2">} </span><span class="s5">available layer(s)&quot;</span><span class="s3">)</span>
+
+        <span class="s4"># Get region geometry</span>
+        <span class="s1">region </span><span class="s3">= </span><span class="s1">self</span><span class="s3">.</span><span class="s1">get_region_geometry</span><span class="s3">()</span>
+        
+        <span class="s1">print</span><span class="s3">(</span><span class="s5">f&quot;</span><span class="s2">\n</span><span class="s5">Creating export tasks for </span><span class="s2">{</span><span class="s1">len</span><span class="s3">(</span><span class="s1">images_to_export</span><span class="s3">)</span><span class="s2">} </span><span class="s5">dataset(s)...&quot;</span><span class="s3">)</span>
+        <span class="s1">print</span><span class="s3">(</span><span class="s5">f&quot;Export folder ID: '</span><span class="s2">{</span><span class="s1">folder_name</span><span class="s2">}</span><span class="s5">'&quot;</span><span class="s3">)</span>
+        <span class="s1">print</span><span class="s3">(</span><span class="s5">f&quot;Export folder URL: https://drive.google.com/drive/folders/</span><span class="s2">{</span><span class="s1">folder_name</span><span class="s2">}</span><span class="s5">&quot;</span><span class="s3">)</span>
+        <span class="s1">print</span><span class="s3">(</span><span class="s5">f&quot;Selected layers: </span><span class="s2">{</span><span class="s1">list</span><span class="s3">(</span><span class="s1">images_to_export</span><span class="s3">.</span><span class="s1">keys</span><span class="s3">()) </span><span class="s2">if </span><span class="s1">images_to_export </span><span class="s2">else </span><span class="s5">'None'</span><span class="s2">}</span><span class="s5">&quot;</span><span class="s3">)</span>
+        
+        <span class="s1">self</span><span class="s3">.</span><span class="s1">tasks </span><span class="s3">= []</span>
+        <span class="s1">self</span><span class="s3">.</span><span class="s1">dataset_resolutions </span><span class="s3">= {}</span>
+        
+        <span class="s2">for </span><span class="s1">name</span><span class="s3">, </span><span class="s1">image </span><span class="s2">in </span><span class="s1">images_to_export</span><span class="s3">.</span><span class="s1">items</span><span class="s3">():</span>
+            <span class="s4"># Get export resolution for this dataset (250m default, or native if &gt; 250m)</span>
+            <span class="s1">export_res </span><span class="s3">= </span><span class="s1">get_export_resolution</span><span class="s3">(</span><span class="s1">name</span><span class="s3">)</span>
+            <span class="s1">self</span><span class="s3">.</span><span class="s1">dataset_resolutions</span><span class="s3">[</span><span class="s1">name</span><span class="s3">] = </span><span class="s1">export_res</span>
+            
+            <span class="s4"># Use simplified filename (matching biochar-brazil convention)</span>
+            <span class="s1">simplified_name </span><span class="s3">= </span><span class="s1">get_simplified_filename</span><span class="s3">(</span><span class="s1">name</span><span class="s3">)</span>
+            
+            <span class="s4"># Add resolution suffix to filename</span>
+            <span class="s1">filename </span><span class="s3">= </span><span class="s5">f&quot;</span><span class="s2">{</span><span class="s1">simplified_name</span><span class="s2">}</span><span class="s5">_res_</span><span class="s2">{</span><span class="s1">export_res</span><span class="s2">}</span><span class="s5">&quot;</span>
+            
+            <span class="s4"># Prepare image for export - ensure single band</span>
+            <span class="s1">export_image </span><span class="s3">= </span><span class="s1">image</span>
+            
+            <span class="s4"># Only unmask OpenLandMap images (single images) that might have NoData issues</span>
+            <span class="s4"># Don't unmask SMAP collections as they handle their own masking properly</span>
+            <span class="s2">if </span><span class="s1">name </span><span class="s2">in </span><span class="s3">[</span><span class="s5">'soil_organic_carbon'</span><span class="s3">, </span><span class="s5">'soil_pH'</span><span class="s3">, </span><span class="s5">'soil_type'</span><span class="s3">]:</span>
+                <span class="s4"># OpenLandMap images - unmask to handle potential NoData issues</span>
+                <span class="s1">export_image </span><span class="s3">= </span><span class="s1">export_image</span><span class="s3">.</span><span class="s1">unmask</span><span class="s3">()</span>
+            
+            <span class="s4"># Check if image has multiple bands and select first one if needed</span>
+            <span class="s2">try</span><span class="s3">:</span>
+                <span class="s1">band_names </span><span class="s3">= </span><span class="s1">export_image</span><span class="s3">.</span><span class="s1">bandNames</span><span class="s3">().</span><span class="s1">getInfo</span><span class="s3">()</span>
+                <span class="s2">if </span><span class="s1">len</span><span class="s3">(</span><span class="s1">band_names</span><span class="s3">) &gt; </span><span class="s6">1</span><span class="s3">:</span>
+                    <span class="s1">print</span><span class="s3">(</span><span class="s5">f&quot;  Warning: </span><span class="s2">{</span><span class="s1">name</span><span class="s2">} </span><span class="s5">has </span><span class="s2">{</span><span class="s1">len</span><span class="s3">(</span><span class="s1">band_names</span><span class="s3">)</span><span class="s2">} </span><span class="s5">bands, selecting first band: </span><span class="s2">{</span><span class="s1">band_names</span><span class="s3">[</span><span class="s6">0</span><span class="s3">]</span><span class="s2">}</span><span class="s5">&quot;</span><span class="s3">)</span>
+                    <span class="s1">export_image </span><span class="s3">= </span><span class="s1">export_image</span><span class="s3">.</span><span class="s1">select</span><span class="s3">(</span><span class="s1">band_names</span><span class="s3">[</span><span class="s6">0</span><span class="s3">])</span>
+            <span class="s2">except </span><span class="s1">Exception </span><span class="s2">as </span><span class="s1">e</span><span class="s3">:</span>
+                <span class="s1">print</span><span class="s3">(</span><span class="s5">f&quot;  Warning: Could not check bands for </span><span class="s2">{</span><span class="s1">name</span><span class="s2">}</span><span class="s5">: </span><span class="s2">{</span><span class="s1">e</span><span class="s2">}</span><span class="s5">&quot;</span><span class="s3">)</span>
+                <span class="s4"># Continue with export_image as-is</span>
+            
+            <span class="s4"># Create export task with proper parameters</span>
+            <span class="s1">print</span><span class="s3">(</span><span class="s5">f&quot;  Creating export task for </span><span class="s2">{</span><span class="s1">name</span><span class="s2">}</span><span class="s5">...&quot;</span><span class="s3">)</span>
+            <span class="s1">print</span><span class="s3">(</span><span class="s5">f&quot;    Folder ID: </span><span class="s2">{</span><span class="s1">folder_name</span><span class="s2">}</span><span class="s5">&quot;</span><span class="s3">)</span>
+            <span class="s1">print</span><span class="s3">(</span><span class="s5">f&quot;    Filename: </span><span class="s2">{</span><span class="s1">filename</span><span class="s2">}</span><span class="s5">.tif&quot;</span><span class="s3">)</span>
+            <span class="s1">print</span><span class="s3">(</span><span class="s5">f&quot;    Resolution: </span><span class="s2">{</span><span class="s1">export_res</span><span class="s2">}</span><span class="s5">m&quot;</span><span class="s3">)</span>
+            
+            <span class="s1">task </span><span class="s3">= </span><span class="s1">ee</span><span class="s3">.</span><span class="s1">batch</span><span class="s3">.</span><span class="s1">Export</span><span class="s3">.</span><span class="s1">image</span><span class="s3">.</span><span class="s1">toDrive</span><span class="s3">(</span>
+                <span class="s1">image</span><span class="s3">=</span><span class="s1">export_image</span><span class="s3">,</span>
+                <span class="s1">description</span><span class="s3">=</span><span class="s5">f&quot;</span><span class="s2">{</span><span class="s1">filename</span><span class="s2">}</span><span class="s5">&quot;</span><span class="s3">,</span>
+                <span class="s1">folder</span><span class="s3">=</span><span class="s1">folder_name</span><span class="s3">,</span>
+                <span class="s1">fileNamePrefix</span><span class="s3">=</span><span class="s5">f&quot;</span><span class="s2">{</span><span class="s1">filename</span><span class="s2">}</span><span class="s5">&quot;</span><span class="s3">,</span>
+                <span class="s1">scale</span><span class="s3">=</span><span class="s1">export_res</span><span class="s3">,</span>
+                <span class="s1">region</span><span class="s3">=</span><span class="s1">region</span><span class="s3">,</span>
+                <span class="s1">crs</span><span class="s3">=</span><span class="s5">'EPSG:4326'</span><span class="s3">,</span>
+                <span class="s1">fileFormat</span><span class="s3">=</span><span class="s5">'GeoTIFF'</span><span class="s3">,</span>
+                <span class="s1">maxPixels</span><span class="s3">=</span><span class="s6">1e13  </span><span class="s4"># Increase max pixels to avoid export limits for large regions</span>
+            <span class="s3">)</span>
+            <span class="s1">self</span><span class="s3">.</span><span class="s1">tasks</span><span class="s3">.</span><span class="s1">append</span><span class="s3">(</span><span class="s1">task</span><span class="s3">)</span>
+            <span class="s1">print</span><span class="s3">(</span><span class="s5">f&quot;  Created task for </span><span class="s2">{</span><span class="s1">name</span><span class="s2">} </span><span class="s5">-&gt; </span><span class="s2">{</span><span class="s1">filename</span><span class="s2">}</span><span class="s5">.tif (resolution: </span><span class="s2">{</span><span class="s1">export_res</span><span class="s2">}</span><span class="s5">m)&quot;</span><span class="s3">)</span>
+
+        <span class="s1">print</span><span class="s3">(</span><span class="s5">f&quot;</span><span class="s2">\n</span><span class="s5">Created </span><span class="s2">{</span><span class="s1">len</span><span class="s3">(</span><span class="s1">self</span><span class="s3">.</span><span class="s1">tasks</span><span class="s3">)</span><span class="s2">} </span><span class="s5">export task(s)&quot;</span><span class="s3">)</span>
+        <span class="s2">return </span><span class="s1">self</span><span class="s3">.</span><span class="s1">tasks</span>
+
+    <span class="s2">def </span><span class="s1">start_export_tasks</span><span class="s3">(</span><span class="s1">self</span><span class="s3">) </span><span class="s1">-&gt; List</span><span class="s3">[</span><span class="s1">str</span><span class="s3">]:</span>
+        <span class="s0">&quot;&quot;&quot; 
+        Start all export tasks. 
+ 
+        Returns 
+        ------- 
+        List[str] 
+            List of task IDs 
+        &quot;&quot;&quot;</span>
+        <span class="s2">if not </span><span class="s1">self</span><span class="s3">.</span><span class="s1">tasks</span><span class="s3">:</span>
+            <span class="s2">raise </span><span class="s1">ValueError</span><span class="s3">(</span><span class="s5">&quot;No tasks created. Call create_export_tasks() first.&quot;</span><span class="s3">)</span>
+
+        <span class="s1">print</span><span class="s3">(</span><span class="s5">f&quot;</span><span class="s2">\n</span><span class="s5">Starting </span><span class="s2">{</span><span class="s1">len</span><span class="s3">(</span><span class="s1">self</span><span class="s3">.</span><span class="s1">tasks</span><span class="s3">)</span><span class="s2">} </span><span class="s5">export task(s)...&quot;</span><span class="s3">)</span>
+        
+        <span class="s1">task_ids </span><span class="s3">= []</span>
+        <span class="s2">for </span><span class="s1">i</span><span class="s3">, </span><span class="s1">task </span><span class="s2">in </span><span class="s1">enumerate</span><span class="s3">(</span><span class="s1">self</span><span class="s3">.</span><span class="s1">tasks</span><span class="s3">, </span><span class="s6">1</span><span class="s3">):</span>
+            <span class="s2">try</span><span class="s3">:</span>
+                <span class="s1">print</span><span class="s3">(</span><span class="s5">f&quot;  Starting task </span><span class="s2">{</span><span class="s1">i</span><span class="s2">}</span><span class="s5">/</span><span class="s2">{</span><span class="s1">len</span><span class="s3">(</span><span class="s1">self</span><span class="s3">.</span><span class="s1">tasks</span><span class="s3">)</span><span class="s2">}</span><span class="s5">...&quot;</span><span class="s3">)</span>
+                <span class="s1">task</span><span class="s3">.</span><span class="s1">start</span><span class="s3">()</span>
+                <span class="s1">task_id </span><span class="s3">= </span><span class="s1">task</span><span class="s3">.</span><span class="s1">id</span>
+                <span class="s1">task_ids</span><span class="s3">.</span><span class="s1">append</span><span class="s3">(</span><span class="s1">task_id</span><span class="s3">)</span>
+                <span class="s1">print</span><span class="s3">(</span><span class="s5">f&quot;  Started task: </span><span class="s2">{</span><span class="s1">task_id</span><span class="s2">}</span><span class="s5">&quot;</span><span class="s3">)</span>
+            <span class="s2">except </span><span class="s1">Exception </span><span class="s2">as </span><span class="s1">e</span><span class="s3">:</span>
+                <span class="s1">print</span><span class="s3">(</span><span class="s5">f&quot;  Error starting task </span><span class="s2">{</span><span class="s1">i</span><span class="s2">}</span><span class="s5">: </span><span class="s2">{</span><span class="s1">e</span><span class="s2">}</span><span class="s5">&quot;</span><span class="s3">)</span>
+                <span class="s2">raise</span>
+
+        <span class="s1">print</span><span class="s3">(</span><span class="s5">f&quot;</span><span class="s2">\n</span><span class="s5">All </span><span class="s2">{</span><span class="s1">len</span><span class="s3">(</span><span class="s1">self</span><span class="s3">.</span><span class="s1">tasks</span><span class="s3">)</span><span class="s2">} </span><span class="s5">task(s) started successfully&quot;</span><span class="s3">)</span>
+        <span class="s1">print</span><span class="s3">(</span><span class="s5">&quot;</span><span class="s2">\n</span><span class="s5">Note: Exports may take time to complete.&quot;</span><span class="s3">)</span>
+        <span class="s1">print</span><span class="s3">(</span><span class="s5">&quot;You can check task status in Google Earth Engine Code Editor:&quot;</span><span class="s3">)</span>
+        <span class="s1">print</span><span class="s3">(</span><span class="s5">&quot;  https://code.earthengine.google.com/&quot;</span><span class="s3">)</span>
+        <span class="s1">print</span><span class="s3">(</span><span class="s5">f&quot;Or wait for automatic download (configured in STEP 4)&quot;</span><span class="s3">)</span>
+        
+        <span class="s2">return </span><span class="s1">task_ids</span>
+
+    <span class="s2">def </span><span class="s1">get_expected_file_names</span><span class="s3">(</span><span class="s1">self</span><span class="s3">) </span><span class="s1">-&gt; List</span><span class="s3">[</span><span class="s1">str</span><span class="s3">]:</span>
+        <span class="s0">&quot;&quot;&quot; 
+        Get list of expected file names for exports (simplified names with resolution suffix). 
+ 
+        Returns 
+        ------- 
+        List[str] 
+            List of expected file name prefixes (without extension, e.g., &quot;SOC_res_250&quot;) 
+        &quot;&quot;&quot;</span>
+        <span class="s2">if not </span><span class="s1">self</span><span class="s3">.</span><span class="s1">images_names</span><span class="s3">:</span>
+            <span class="s2">return </span><span class="s3">[]</span>
+        
+        <span class="s1">expected </span><span class="s3">= []</span>
+        
+        <span class="s2">for </span><span class="s1">name </span><span class="s2">in </span><span class="s1">self</span><span class="s3">.</span><span class="s1">images_names</span><span class="s3">:</span>
+            <span class="s4"># Get export resolution for this dataset</span>
+            <span class="s1">export_res </span><span class="s3">= </span><span class="s1">self</span><span class="s3">.</span><span class="s1">dataset_resolutions</span><span class="s3">.</span><span class="s1">get</span><span class="s3">(</span><span class="s1">name</span><span class="s3">, </span><span class="s1">get_export_resolution</span><span class="s3">(</span><span class="s1">name</span><span class="s3">))</span>
+            
+            <span class="s4"># Use simplified filename (matching biochar-brazil convention)</span>
+            <span class="s1">simplified_name </span><span class="s3">= </span><span class="s1">get_simplified_filename</span><span class="s3">(</span><span class="s1">name</span><span class="s3">)</span>
+            
+            <span class="s4"># Add resolution suffix</span>
+            <span class="s1">filename </span><span class="s3">= </span><span class="s5">f&quot;</span><span class="s2">{</span><span class="s1">simplified_name</span><span class="s2">}</span><span class="s5">_res_</span><span class="s2">{</span><span class="s1">export_res</span><span class="s2">}</span><span class="s5">&quot;</span>
+            <span class="s1">expected</span><span class="s3">.</span><span class="s1">append</span><span class="s3">(</span><span class="s1">filename</span><span class="s3">)</span>
+        
+        <span class="s2">return </span><span class="s1">expected</span>
+
+
+<span class="s2">if </span><span class="s1">__name__ </span><span class="s3">== </span><span class="s5">&quot;__main__&quot;</span><span class="s3">:</span>
+    <span class="s5">&quot;&quot;&quot;Debug and test GEE Data Loader functionality.&quot;&quot;&quot;</span>
+    <span class="s1">print</span><span class="s3">(</span><span class="s5">&quot;=&quot; </span><span class="s3">* </span><span class="s6">60</span><span class="s3">)</span>
+    <span class="s1">print</span><span class="s3">(</span><span class="s5">&quot;Google Earth Engine Data Loader - Debug Mode&quot;</span><span class="s3">)</span>
+    <span class="s1">print</span><span class="s3">(</span><span class="s5">&quot;=&quot; </span><span class="s3">* </span><span class="s6">60</span><span class="s3">)</span>
+    
+    <span class="s4"># Test utility functions (no GEE authentication required)</span>
+    <span class="s1">print</span><span class="s3">(</span><span class="s5">&quot;</span><span class="s2">\n</span><span class="s5">&quot; </span><span class="s3">+ </span><span class="s5">&quot;-&quot; </span><span class="s3">* </span><span class="s6">60</span><span class="s3">)</span>
+    <span class="s1">print</span><span class="s3">(</span><span class="s5">&quot;1. Testing utility functions (no GEE auth required):&quot;</span><span class="s3">)</span>
+    <span class="s1">print</span><span class="s3">(</span><span class="s5">&quot;-&quot; </span><span class="s3">* </span><span class="s6">60</span><span class="s3">)</span>
+    
+    <span class="s1">print</span><span class="s3">(</span><span class="s5">&quot;</span><span class="s2">\n</span><span class="s5">Testing get_simplified_filename():&quot;</span><span class="s3">)</span>
+    <span class="s1">test_names </span><span class="s3">= [</span>
+        <span class="s3">(</span><span class="s5">'soil_organic_carbon'</span><span class="s3">, </span><span class="s5">'SOC'</span><span class="s3">),</span>
+        <span class="s3">(</span><span class="s5">'soil_temperature'</span><span class="s3">, </span><span class="s5">'soil_temp'</span><span class="s3">),</span>
+        <span class="s3">(</span><span class="s5">'soil_moisture'</span><span class="s3">, </span><span class="s5">'soil_moisture'</span><span class="s3">),</span>
+        <span class="s3">(</span><span class="s5">'soil_pH'</span><span class="s3">, </span><span class="s5">'soil_pH'</span><span class="s3">),</span>
+        <span class="s3">(</span><span class="s5">'soil_type'</span><span class="s3">, </span><span class="s5">'soil_type'</span><span class="s3">),</span>
+        <span class="s3">(</span><span class="s5">'land_cover'</span><span class="s3">, </span><span class="s5">'land_cover'</span><span class="s3">),</span>
+        <span class="s3">(</span><span class="s5">'unknown_dataset'</span><span class="s3">, </span><span class="s5">'unknown_dataset'</span><span class="s3">),  </span><span class="s4"># Should return as-is</span>
+    <span class="s3">]</span>
+    
+    <span class="s2">for </span><span class="s1">dataset_name</span><span class="s3">, </span><span class="s1">expected </span><span class="s2">in </span><span class="s1">test_names</span><span class="s3">:</span>
+        <span class="s1">result </span><span class="s3">= </span><span class="s1">get_simplified_filename</span><span class="s3">(</span><span class="s1">dataset_name</span><span class="s3">)</span>
+        <span class="s1">status </span><span class="s3">= </span><span class="s5">&quot;PASS&quot; </span><span class="s2">if </span><span class="s1">result </span><span class="s3">== </span><span class="s1">expected </span><span class="s2">else </span><span class="s5">&quot;FAIL&quot;</span>
+        <span class="s1">print</span><span class="s3">(</span><span class="s5">f&quot;  </span><span class="s2">{</span><span class="s1">status</span><span class="s2">}</span><span class="s5">: </span><span class="s2">{</span><span class="s1">dataset_name</span><span class="s2">} </span><span class="s5">-&gt; </span><span class="s2">{</span><span class="s1">result</span><span class="s2">} </span><span class="s5">(expected </span><span class="s2">{</span><span class="s1">expected</span><span class="s2">}</span><span class="s5">)&quot;</span><span class="s3">)</span>
+    
+    <span class="s1">print</span><span class="s3">(</span><span class="s5">&quot;</span><span class="s2">\n</span><span class="s5">Testing get_export_resolution():&quot;</span><span class="s3">)</span>
+    <span class="s1">test_resolutions </span><span class="s3">= [</span>
+        <span class="s3">(</span><span class="s5">'soil_moisture'</span><span class="s3">, </span><span class="s6">3000</span><span class="s3">),  </span><span class="s4"># Native &gt; 250m</span>
+        <span class="s3">(</span><span class="s5">'soil_temperature'</span><span class="s3">, </span><span class="s6">3000</span><span class="s3">),  </span><span class="s4"># Native &gt; 250m</span>
+        <span class="s3">(</span><span class="s5">'soil_organic_carbon'</span><span class="s3">, </span><span class="s6">250</span><span class="s3">),  </span><span class="s4"># Native = 250m</span>
+        <span class="s3">(</span><span class="s5">'soil_pH'</span><span class="s3">, </span><span class="s6">250</span><span class="s3">),  </span><span class="s4"># Native = 250m</span>
+        <span class="s3">(</span><span class="s5">'soil_type'</span><span class="s3">, </span><span class="s6">250</span><span class="s3">),  </span><span class="s4"># Native = 250m</span>
+        <span class="s3">(</span><span class="s5">'land_cover'</span><span class="s3">, </span><span class="s6">250</span><span class="s3">),  </span><span class="s4"># Native &lt; 250m (10m), but exports at 250m</span>
+        <span class="s3">(</span><span class="s5">'unknown_dataset'</span><span class="s3">, </span><span class="s6">250</span><span class="s3">),  </span><span class="s4"># Default</span>
+    <span class="s3">]</span>
+    
+    <span class="s2">for </span><span class="s1">dataset_name</span><span class="s3">, </span><span class="s1">expected </span><span class="s2">in </span><span class="s1">test_resolutions</span><span class="s3">:</span>
+        <span class="s1">result </span><span class="s3">= </span><span class="s1">get_export_resolution</span><span class="s3">(</span><span class="s1">dataset_name</span><span class="s3">)</span>
+        <span class="s1">status </span><span class="s3">= </span><span class="s5">&quot;PASS&quot; </span><span class="s2">if </span><span class="s1">result </span><span class="s3">== </span><span class="s1">expected </span><span class="s2">else </span><span class="s5">&quot;FAIL&quot;</span>
+        <span class="s1">print</span><span class="s3">(</span><span class="s5">f&quot;  </span><span class="s2">{</span><span class="s1">status</span><span class="s2">}</span><span class="s5">: </span><span class="s2">{</span><span class="s1">dataset_name</span><span class="s2">} </span><span class="s5">-&gt; </span><span class="s2">{</span><span class="s1">result</span><span class="s2">}</span><span class="s5">m (expected </span><span class="s2">{</span><span class="s1">expected</span><span class="s2">}</span><span class="s5">m)&quot;</span><span class="s3">)</span>
+    
+    <span class="s4"># Show dataset mappings</span>
+    <span class="s1">print</span><span class="s3">(</span><span class="s5">&quot;</span><span class="s2">\n</span><span class="s5">&quot; </span><span class="s3">+ </span><span class="s5">&quot;-&quot; </span><span class="s3">* </span><span class="s6">60</span><span class="s3">)</span>
+    <span class="s1">print</span><span class="s3">(</span><span class="s5">&quot;2. Dataset Name Mappings:&quot;</span><span class="s3">)</span>
+    <span class="s1">print</span><span class="s3">(</span><span class="s5">&quot;-&quot; </span><span class="s3">* </span><span class="s6">60</span><span class="s3">)</span>
+    <span class="s2">from </span><span class="s1">src</span><span class="s3">.</span><span class="s1">data</span><span class="s3">.</span><span class="s1">gee_loader </span><span class="s2">import </span><span class="s1">DATASET_NAME_MAPPING</span><span class="s3">, </span><span class="s1">DATASET_NATIVE_RESOLUTIONS</span>
+    <span class="s1">print</span><span class="s3">(</span><span class="s5">&quot;</span><span class="s2">\n</span><span class="s5">Name Mappings:&quot;</span><span class="s3">)</span>
+    <span class="s2">for </span><span class="s1">key</span><span class="s3">, </span><span class="s1">value </span><span class="s2">in </span><span class="s1">DATASET_NAME_MAPPING</span><span class="s3">.</span><span class="s1">items</span><span class="s3">():</span>
+        <span class="s1">print</span><span class="s3">(</span><span class="s5">f&quot;  </span><span class="s2">{</span><span class="s1">key</span><span class="s2">} </span><span class="s5">-&gt; </span><span class="s2">{</span><span class="s1">value</span><span class="s2">}</span><span class="s5">&quot;</span><span class="s3">)</span>
+    
+    <span class="s1">print</span><span class="s3">(</span><span class="s5">&quot;</span><span class="s2">\n</span><span class="s5">Native Resolutions:&quot;</span><span class="s3">)</span>
+    <span class="s2">for </span><span class="s1">key</span><span class="s3">, </span><span class="s1">value </span><span class="s2">in </span><span class="s1">DATASET_NATIVE_RESOLUTIONS</span><span class="s3">.</span><span class="s1">items</span><span class="s3">():</span>
+        <span class="s1">export_res </span><span class="s3">= </span><span class="s1">get_export_resolution</span><span class="s3">(</span><span class="s1">key</span><span class="s3">)</span>
+        <span class="s1">print</span><span class="s3">(</span><span class="s5">f&quot;  </span><span class="s2">{</span><span class="s1">key</span><span class="s2">}</span><span class="s5">: </span><span class="s2">{</span><span class="s1">value</span><span class="s2">}</span><span class="s5">m native -&gt; </span><span class="s2">{</span><span class="s1">export_res</span><span class="s2">}</span><span class="s5">m export&quot;</span><span class="s3">)</span>
+    
+    <span class="s4"># Test config loading (if available)</span>
+    <span class="s1">print</span><span class="s3">(</span><span class="s5">&quot;</span><span class="s2">\n</span><span class="s5">&quot; </span><span class="s3">+ </span><span class="s5">&quot;-&quot; </span><span class="s3">* </span><span class="s6">60</span><span class="s3">)</span>
+    <span class="s1">print</span><span class="s3">(</span><span class="s5">&quot;3. Testing configuration loading:&quot;</span><span class="s3">)</span>
+    <span class="s1">print</span><span class="s3">(</span><span class="s5">&quot;-&quot; </span><span class="s3">* </span><span class="s6">60</span><span class="s3">)</span>
+    <span class="s2">try</span><span class="s3">:</span>
+        <span class="s1">loader </span><span class="s3">= </span><span class="s1">GEEDataLoader</span><span class="s3">()</span>
+        <span class="s1">print</span><span class="s3">(</span><span class="s5">&quot;  PASS: Successfully initialized GEEDataLoader&quot;</span><span class="s3">)</span>
+        <span class="s1">print</span><span class="s3">(</span><span class="s5">f&quot;    Project name: </span><span class="s2">{</span><span class="s1">loader</span><span class="s3">.</span><span class="s1">project_name</span><span class="s2">}</span><span class="s5">&quot;</span><span class="s3">)</span>
+        <span class="s1">print</span><span class="s3">(</span><span class="s5">f&quot;    Default scale: </span><span class="s2">{</span><span class="s1">loader</span><span class="s3">.</span><span class="s1">target_scale</span><span class="s2">}</span><span class="s5">m&quot;</span><span class="s3">)</span>
+        <span class="s1">print</span><span class="s3">(</span><span class="s5">f&quot;    Config path: </span><span class="s2">{</span><span class="s1">loader</span><span class="s3">.</span><span class="s1">config_path</span><span class="s2">}</span><span class="s5">&quot;</span><span class="s3">)</span>
+    <span class="s2">except </span><span class="s1">Exception </span><span class="s2">as </span><span class="s1">e</span><span class="s3">:</span>
+        <span class="s1">print</span><span class="s3">(</span><span class="s5">f&quot;  FAIL: Could not initialize GEEDataLoader: </span><span class="s2">{</span><span class="s1">e</span><span class="s2">}</span><span class="s5">&quot;</span><span class="s3">)</span>
+    
+    <span class="s1">print</span><span class="s3">(</span><span class="s5">&quot;</span><span class="s2">\n</span><span class="s5">&quot; </span><span class="s3">+ </span><span class="s5">&quot;-&quot; </span><span class="s3">* </span><span class="s6">60</span><span class="s3">)</span>
+    <span class="s1">print</span><span class="s3">(</span><span class="s5">&quot;Note: Full GEE functionality requires authentication.&quot;</span><span class="s3">)</span>
+    <span class="s1">print</span><span class="s3">(</span><span class="s5">&quot;To test GEE operations, run: python src/main.py&quot;</span><span class="s3">)</span>
+    <span class="s1">print</span><span class="s3">(</span><span class="s5">&quot;-&quot; </span><span class="s3">* </span><span class="s6">60</span><span class="s3">)</span>
+
+</pre>
+</body>
+</html>

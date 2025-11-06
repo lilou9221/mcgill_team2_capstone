@@ -1,0 +1,343 @@
+<html>
+<head>
+<title>coordinate_validator.py</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #5f826b; font-style: italic;}
+.s1 { color: #bcbec4;}
+.s2 { color: #cf8e6d;}
+.s3 { color: #bcbec4;}
+.s4 { color: #7a7e85;}
+.s5 { color: #6aab73;}
+.s6 { color: #2aacb8;}
+</style>
+</head>
+<body bgcolor="#1e1f22">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+coordinate_validator.py</font>
+</center></td></tr></table>
+<pre><span class="s0">&quot;&quot;&quot; 
+Coordinate Validation Module 
+ 
+Validates user-provided coordinates for the biochar suitability mapping tool. 
+Ensures coordinates are within valid ranges and within Mato Grosso state boundaries. 
+&quot;&quot;&quot;</span>
+
+<span class="s2">from </span><span class="s1">typing </span><span class="s2">import </span><span class="s1">Tuple</span><span class="s3">, </span><span class="s1">Optional</span>
+<span class="s2">from </span><span class="s1">dataclasses </span><span class="s2">import </span><span class="s1">dataclass</span>
+
+
+<span class="s4"># Mato Grosso state approximate boundaries (WGS84)</span>
+<span class="s4"># These are approximate bounds - can be refined with actual state geometry</span>
+<span class="s1">MATO_GROSSO_BOUNDS </span><span class="s3">= {</span>
+    <span class="s5">'min_lat'</span><span class="s3">: -</span><span class="s6">18.0</span><span class="s3">,  </span><span class="s4"># Southern boundary</span>
+    <span class="s5">'max_lat'</span><span class="s3">: -</span><span class="s6">7.0</span><span class="s3">,   </span><span class="s4"># Northern boundary</span>
+    <span class="s5">'min_lon'</span><span class="s3">: -</span><span class="s6">65.0</span><span class="s3">,  </span><span class="s4"># Western boundary</span>
+    <span class="s5">'max_lon'</span><span class="s3">: -</span><span class="s6">50.0</span><span class="s3">,  </span><span class="s4"># Eastern boundary</span>
+<span class="s3">}</span>
+
+
+<span class="s3">@</span><span class="s1">dataclass</span>
+<span class="s2">class </span><span class="s1">AreaOfInterest</span><span class="s3">:</span>
+    <span class="s0">&quot;&quot;&quot;Represents a user-defined area of interest.&quot;&quot;&quot;</span>
+    <span class="s1">lat</span><span class="s3">: </span><span class="s1">Optional</span><span class="s3">[</span><span class="s1">float</span><span class="s3">]</span>
+    <span class="s1">lon</span><span class="s3">: </span><span class="s1">Optional</span><span class="s3">[</span><span class="s1">float</span><span class="s3">]</span>
+    <span class="s1">radius_km</span><span class="s3">: </span><span class="s1">float</span>
+    <span class="s1">use_full_state</span><span class="s3">: </span><span class="s1">bool</span>
+    
+    <span class="s2">def </span><span class="s1">__post_init__</span><span class="s3">(</span><span class="s1">self</span><span class="s3">):</span>
+        <span class="s0">&quot;&quot;&quot;Validate the area of interest after initialization.&quot;&quot;&quot;</span>
+        <span class="s2">if not </span><span class="s1">self</span><span class="s3">.</span><span class="s1">use_full_state</span><span class="s3">:</span>
+            <span class="s2">if </span><span class="s1">self</span><span class="s3">.</span><span class="s1">lat </span><span class="s2">is None or </span><span class="s1">self</span><span class="s3">.</span><span class="s1">lon </span><span class="s2">is None</span><span class="s3">:</span>
+                <span class="s2">raise </span><span class="s1">ValueError</span><span class="s3">(</span><span class="s5">&quot;Coordinates must be provided when not using full state&quot;</span><span class="s3">)</span>
+            <span class="s2">if not </span><span class="s1">validate_coordinates</span><span class="s3">(</span><span class="s1">self</span><span class="s3">.</span><span class="s1">lat</span><span class="s3">, </span><span class="s1">self</span><span class="s3">.</span><span class="s1">lon</span><span class="s3">):</span>
+                <span class="s2">raise </span><span class="s1">ValueError</span><span class="s3">(</span><span class="s5">f&quot;Invalid coordinates: (</span><span class="s2">{</span><span class="s1">self</span><span class="s3">.</span><span class="s1">lat</span><span class="s2">}</span><span class="s5">, </span><span class="s2">{</span><span class="s1">self</span><span class="s3">.</span><span class="s1">lon</span><span class="s2">}</span><span class="s5">)&quot;</span><span class="s3">)</span>
+            <span class="s2">if not </span><span class="s1">is_within_mato_grosso</span><span class="s3">(</span><span class="s1">self</span><span class="s3">.</span><span class="s1">lat</span><span class="s3">, </span><span class="s1">self</span><span class="s3">.</span><span class="s1">lon</span><span class="s3">):</span>
+                <span class="s2">raise </span><span class="s1">ValueError</span><span class="s3">(</span><span class="s5">f&quot;Coordinates (</span><span class="s2">{</span><span class="s1">self</span><span class="s3">.</span><span class="s1">lat</span><span class="s2">}</span><span class="s5">, </span><span class="s2">{</span><span class="s1">self</span><span class="s3">.</span><span class="s1">lon</span><span class="s2">}</span><span class="s5">) are outside Mato Grosso bounds&quot;</span><span class="s3">)</span>
+
+
+<span class="s2">def </span><span class="s1">validate_coordinates</span><span class="s3">(</span><span class="s1">lat</span><span class="s3">: </span><span class="s1">float</span><span class="s3">, </span><span class="s1">lon</span><span class="s3">: </span><span class="s1">float</span><span class="s3">) </span><span class="s1">-&gt; bool</span><span class="s3">:</span>
+    <span class="s0">&quot;&quot;&quot; 
+    Validate that coordinates are within valid ranges. 
+     
+    Parameters 
+    ---------- 
+    lat : float 
+        Latitude (-90 to 90) 
+    lon : float 
+        Longitude (-180 to 180) 
+     
+    Returns 
+    ------- 
+    bool 
+        True if coordinates are valid, False otherwise 
+    &quot;&quot;&quot;</span>
+    <span class="s2">if not </span><span class="s1">isinstance</span><span class="s3">(</span><span class="s1">lat</span><span class="s3">, (</span><span class="s1">int</span><span class="s3">, </span><span class="s1">float</span><span class="s3">)) </span><span class="s2">or not </span><span class="s1">isinstance</span><span class="s3">(</span><span class="s1">lon</span><span class="s3">, (</span><span class="s1">int</span><span class="s3">, </span><span class="s1">float</span><span class="s3">)):</span>
+        <span class="s2">return False</span>
+    
+    <span class="s4"># Check latitude range</span>
+    <span class="s2">if </span><span class="s1">lat </span><span class="s3">&lt; -</span><span class="s6">90.0 </span><span class="s2">or </span><span class="s1">lat </span><span class="s3">&gt; </span><span class="s6">90.0</span><span class="s3">:</span>
+        <span class="s2">return False</span>
+    
+    <span class="s4"># Check longitude range</span>
+    <span class="s2">if </span><span class="s1">lon </span><span class="s3">&lt; -</span><span class="s6">180.0 </span><span class="s2">or </span><span class="s1">lon </span><span class="s3">&gt; </span><span class="s6">180.0</span><span class="s3">:</span>
+        <span class="s2">return False</span>
+    
+    <span class="s2">return True</span>
+
+
+<span class="s2">def </span><span class="s1">is_within_mato_grosso</span><span class="s3">(</span><span class="s1">lat</span><span class="s3">: </span><span class="s1">float</span><span class="s3">, </span><span class="s1">lon</span><span class="s3">: </span><span class="s1">float</span><span class="s3">) </span><span class="s1">-&gt; bool</span><span class="s3">:</span>
+    <span class="s0">&quot;&quot;&quot; 
+    Check if coordinates are within Mato Grosso state boundaries. 
+     
+    Parameters 
+    ---------- 
+    lat : float 
+        Latitude 
+    lon : float 
+        Longitude 
+     
+    Returns 
+    ------- 
+    bool 
+        True if coordinates are within Mato Grosso bounds, False otherwise 
+    &quot;&quot;&quot;</span>
+    <span class="s2">if not </span><span class="s1">validate_coordinates</span><span class="s3">(</span><span class="s1">lat</span><span class="s3">, </span><span class="s1">lon</span><span class="s3">):</span>
+        <span class="s2">return False</span>
+    
+    <span class="s1">bounds </span><span class="s3">= </span><span class="s1">MATO_GROSSO_BOUNDS</span>
+    <span class="s2">return </span><span class="s3">(</span>
+        <span class="s1">bounds</span><span class="s3">[</span><span class="s5">'min_lat'</span><span class="s3">] &lt;= </span><span class="s1">lat </span><span class="s3">&lt;= </span><span class="s1">bounds</span><span class="s3">[</span><span class="s5">'max_lat'</span><span class="s3">] </span><span class="s2">and</span>
+        <span class="s1">bounds</span><span class="s3">[</span><span class="s5">'min_lon'</span><span class="s3">] &lt;= </span><span class="s1">lon </span><span class="s3">&lt;= </span><span class="s1">bounds</span><span class="s3">[</span><span class="s5">'max_lon'</span><span class="s3">]</span>
+    <span class="s3">)</span>
+
+
+<span class="s2">def </span><span class="s1">is_latitude_within_mato_grosso</span><span class="s3">(</span><span class="s1">lat</span><span class="s3">: </span><span class="s1">float</span><span class="s3">) </span><span class="s1">-&gt; bool</span><span class="s3">:</span>
+    <span class="s0">&quot;&quot;&quot; 
+    Check if latitude is within Mato Grosso state boundaries. 
+     
+    Parameters 
+    ---------- 
+    lat : float 
+        Latitude 
+     
+    Returns 
+    ------- 
+    bool 
+        True if latitude is within Mato Grosso bounds, False otherwise 
+    &quot;&quot;&quot;</span>
+    <span class="s2">if not </span><span class="s1">isinstance</span><span class="s3">(</span><span class="s1">lat</span><span class="s3">, (</span><span class="s1">int</span><span class="s3">, </span><span class="s1">float</span><span class="s3">)) </span><span class="s2">or </span><span class="s1">lat </span><span class="s3">&lt; -</span><span class="s6">90.0 </span><span class="s2">or </span><span class="s1">lat </span><span class="s3">&gt; </span><span class="s6">90.0</span><span class="s3">:</span>
+        <span class="s2">return False</span>
+    
+    <span class="s1">bounds </span><span class="s3">= </span><span class="s1">MATO_GROSSO_BOUNDS</span>
+    <span class="s2">return </span><span class="s1">bounds</span><span class="s3">[</span><span class="s5">'min_lat'</span><span class="s3">] &lt;= </span><span class="s1">lat </span><span class="s3">&lt;= </span><span class="s1">bounds</span><span class="s3">[</span><span class="s5">'max_lat'</span><span class="s3">]</span>
+
+
+<span class="s2">def </span><span class="s1">is_longitude_within_mato_grosso</span><span class="s3">(</span><span class="s1">lon</span><span class="s3">: </span><span class="s1">float</span><span class="s3">) </span><span class="s1">-&gt; bool</span><span class="s3">:</span>
+    <span class="s0">&quot;&quot;&quot; 
+    Check if longitude is within Mato Grosso state boundaries. 
+     
+    Parameters 
+    ---------- 
+    lon : float 
+        Longitude 
+     
+    Returns 
+    ------- 
+    bool 
+        True if longitude is within Mato Grosso bounds, False otherwise 
+    &quot;&quot;&quot;</span>
+    <span class="s2">if not </span><span class="s1">isinstance</span><span class="s3">(</span><span class="s1">lon</span><span class="s3">, (</span><span class="s1">int</span><span class="s3">, </span><span class="s1">float</span><span class="s3">)) </span><span class="s2">or </span><span class="s1">lon </span><span class="s3">&lt; -</span><span class="s6">180.0 </span><span class="s2">or </span><span class="s1">lon </span><span class="s3">&gt; </span><span class="s6">180.0</span><span class="s3">:</span>
+        <span class="s2">return False</span>
+    
+    <span class="s1">bounds </span><span class="s3">= </span><span class="s1">MATO_GROSSO_BOUNDS</span>
+    <span class="s2">return </span><span class="s1">bounds</span><span class="s3">[</span><span class="s5">'min_lon'</span><span class="s3">] &lt;= </span><span class="s1">lon </span><span class="s3">&lt;= </span><span class="s1">bounds</span><span class="s3">[</span><span class="s5">'max_lon'</span><span class="s3">]</span>
+
+
+<span class="s2">def </span><span class="s1">get_mato_grosso_bounds</span><span class="s3">() </span><span class="s1">-&gt; dict</span><span class="s3">:</span>
+    <span class="s0">&quot;&quot;&quot; 
+    Get Mato Grosso state boundaries. 
+     
+    Returns 
+    ------- 
+    dict 
+        Dictionary with min_lat, max_lat, min_lon, max_lon keys 
+    &quot;&quot;&quot;</span>
+    <span class="s2">return </span><span class="s1">MATO_GROSSO_BOUNDS</span><span class="s3">.</span><span class="s1">copy</span><span class="s3">()</span>
+
+
+<span class="s2">def </span><span class="s1">validate_radius</span><span class="s3">(</span><span class="s1">radius_km</span><span class="s3">: </span><span class="s1">float</span><span class="s3">, </span><span class="s1">min_radius</span><span class="s3">: </span><span class="s1">float </span><span class="s3">= </span><span class="s6">1.0</span><span class="s3">, </span><span class="s1">max_radius</span><span class="s3">: </span><span class="s1">float </span><span class="s3">= </span><span class="s6">500.0</span><span class="s3">) </span><span class="s1">-&gt; bool</span><span class="s3">:</span>
+    <span class="s0">&quot;&quot;&quot; 
+    Validate that radius is within acceptable range. 
+     
+    Parameters 
+    ---------- 
+    radius_km : float 
+        Radius in kilometers 
+    min_radius : float, optional 
+        Minimum allowed radius (default: 1.0 km) 
+    max_radius : float, optional 
+        Maximum allowed radius (default: 500.0 km) 
+     
+    Returns 
+    ------- 
+    bool 
+        True if radius is valid, False otherwise 
+    &quot;&quot;&quot;</span>
+    <span class="s2">if not </span><span class="s1">isinstance</span><span class="s3">(</span><span class="s1">radius_km</span><span class="s3">, (</span><span class="s1">int</span><span class="s3">, </span><span class="s1">float</span><span class="s3">)):</span>
+        <span class="s2">return False</span>
+    
+    <span class="s2">if </span><span class="s1">radius_km </span><span class="s3">&lt; </span><span class="s1">min_radius </span><span class="s2">or </span><span class="s1">radius_km </span><span class="s3">&gt; </span><span class="s1">max_radius</span><span class="s3">:</span>
+        <span class="s2">return False</span>
+    
+    <span class="s2">return True</span>
+
+
+<span class="s2">def </span><span class="s1">format_coordinates</span><span class="s3">(</span><span class="s1">lat</span><span class="s3">: </span><span class="s1">float</span><span class="s3">, </span><span class="s1">lon</span><span class="s3">: </span><span class="s1">float</span><span class="s3">, </span><span class="s1">decimals</span><span class="s3">: </span><span class="s1">int </span><span class="s3">= </span><span class="s6">6</span><span class="s3">) </span><span class="s1">-&gt; str</span><span class="s3">:</span>
+    <span class="s0">&quot;&quot;&quot; 
+    Format coordinates as a string. 
+     
+    Parameters 
+    ---------- 
+    lat : float 
+        Latitude 
+    lon : float 
+        Longitude 
+    decimals : int, optional 
+        Number of decimal places (default: 6) 
+     
+    Returns 
+    ------- 
+    str 
+        Formatted coordinate string 
+    &quot;&quot;&quot;</span>
+    <span class="s2">return </span><span class="s5">f&quot;(</span><span class="s2">{</span><span class="s1">lat</span><span class="s2">:</span><span class="s5">.</span><span class="s2">{</span><span class="s1">decimals</span><span class="s2">}</span><span class="s5">f</span><span class="s2">}</span><span class="s5">, </span><span class="s2">{</span><span class="s1">lon</span><span class="s2">:</span><span class="s5">.</span><span class="s2">{</span><span class="s1">decimals</span><span class="s2">}</span><span class="s5">f</span><span class="s2">}</span><span class="s5">)&quot;</span>
+
+
+<span class="s2">if </span><span class="s1">__name__ </span><span class="s3">== </span><span class="s5">&quot;__main__&quot;</span><span class="s3">:</span>
+    <span class="s5">&quot;&quot;&quot;Debug and test coordinate validation functions.&quot;&quot;&quot;</span>
+    <span class="s2">import </span><span class="s1">sys</span>
+    
+    <span class="s1">print</span><span class="s3">(</span><span class="s5">&quot;&quot;&quot;============================================================ 
+Coordinate Validator - Debug Mode 
+============================================================ 
+ 
+Mato Grosso State Bounds:&quot;&quot;&quot;</span><span class="s3">)</span>
+    <span class="s1">bounds </span><span class="s3">= </span><span class="s1">get_mato_grosso_bounds</span><span class="s3">()</span>
+    <span class="s1">print</span><span class="s3">(</span><span class="s5">f&quot;&quot;&quot;  Latitude: </span><span class="s2">{</span><span class="s1">bounds</span><span class="s3">[</span><span class="s5">'min_lat'</span><span class="s3">]</span><span class="s2">} </span><span class="s5">to </span><span class="s2">{</span><span class="s1">bounds</span><span class="s3">[</span><span class="s5">'max_lat'</span><span class="s3">]</span><span class="s2">}</span>
+  <span class="s5">Longitude: </span><span class="s2">{</span><span class="s1">bounds</span><span class="s3">[</span><span class="s5">'min_lon'</span><span class="s3">]</span><span class="s2">} </span><span class="s5">to </span><span class="s2">{</span><span class="s1">bounds</span><span class="s3">[</span><span class="s5">'max_lon'</span><span class="s3">]</span><span class="s2">}</span>
+
+<span class="s5">------------------------------------------------------------</span>
+<span class="s5">1. Testing validate_coordinates():</span>
+<span class="s5">------------------------------------------------------------&quot;&quot;&quot;</span><span class="s3">)</span>
+    <span class="s1">test_coords </span><span class="s3">= [</span>
+        <span class="s3">(-</span><span class="s6">12.0</span><span class="s3">, -</span><span class="s6">55.0</span><span class="s3">, </span><span class="s2">True</span><span class="s3">, </span><span class="s5">&quot;Valid coordinates in Mato Grosso&quot;</span><span class="s3">),</span>
+        <span class="s3">(</span><span class="s6">0.0</span><span class="s3">, </span><span class="s6">0.0</span><span class="s3">, </span><span class="s2">True</span><span class="s3">, </span><span class="s5">&quot;Valid coordinates (equator)&quot;</span><span class="s3">),</span>
+        <span class="s3">(</span><span class="s6">90.0</span><span class="s3">, </span><span class="s6">180.0</span><span class="s3">, </span><span class="s2">True</span><span class="s3">, </span><span class="s5">&quot;Valid edge case (max lat/lon)&quot;</span><span class="s3">),</span>
+        <span class="s3">(-</span><span class="s6">90.0</span><span class="s3">, -</span><span class="s6">180.0</span><span class="s3">, </span><span class="s2">True</span><span class="s3">, </span><span class="s5">&quot;Valid edge case (min lat/lon)&quot;</span><span class="s3">),</span>
+        <span class="s3">(</span><span class="s6">91.0</span><span class="s3">, -</span><span class="s6">55.0</span><span class="s3">, </span><span class="s2">False</span><span class="s3">, </span><span class="s5">&quot;Invalid latitude (too high)&quot;</span><span class="s3">),</span>
+        <span class="s3">(-</span><span class="s6">91.0</span><span class="s3">, -</span><span class="s6">55.0</span><span class="s3">, </span><span class="s2">False</span><span class="s3">, </span><span class="s5">&quot;Invalid latitude (too low)&quot;</span><span class="s3">),</span>
+        <span class="s3">(-</span><span class="s6">12.0</span><span class="s3">, </span><span class="s6">181.0</span><span class="s3">, </span><span class="s2">False</span><span class="s3">, </span><span class="s5">&quot;Invalid longitude (too high)&quot;</span><span class="s3">),</span>
+        <span class="s3">(-</span><span class="s6">12.0</span><span class="s3">, -</span><span class="s6">181.0</span><span class="s3">, </span><span class="s2">False</span><span class="s3">, </span><span class="s5">&quot;Invalid longitude (too low)&quot;</span><span class="s3">),</span>
+        <span class="s3">(</span><span class="s5">&quot;invalid&quot;</span><span class="s3">, -</span><span class="s6">55.0</span><span class="s3">, </span><span class="s2">False</span><span class="s3">, </span><span class="s5">&quot;Invalid type (string)&quot;</span><span class="s3">),</span>
+    <span class="s3">]</span>
+    
+    <span class="s1">passed </span><span class="s3">= </span><span class="s6">0</span>
+    <span class="s1">failed </span><span class="s3">= </span><span class="s6">0</span>
+    <span class="s2">for </span><span class="s1">lat</span><span class="s3">, </span><span class="s1">lon</span><span class="s3">, </span><span class="s1">expected</span><span class="s3">, </span><span class="s1">description </span><span class="s2">in </span><span class="s1">test_coords</span><span class="s3">:</span>
+        <span class="s1">result </span><span class="s3">= </span><span class="s1">validate_coordinates</span><span class="s3">(</span><span class="s1">lat</span><span class="s3">, </span><span class="s1">lon</span><span class="s3">)</span>
+        <span class="s1">status </span><span class="s3">= </span><span class="s5">&quot;PASS&quot; </span><span class="s2">if </span><span class="s1">result </span><span class="s3">== </span><span class="s1">expected </span><span class="s2">else </span><span class="s5">&quot;FAIL&quot;</span>
+        <span class="s2">if </span><span class="s1">result </span><span class="s3">== </span><span class="s1">expected</span><span class="s3">:</span>
+            <span class="s1">passed </span><span class="s3">+= </span><span class="s6">1</span>
+        <span class="s2">else</span><span class="s3">:</span>
+            <span class="s1">failed </span><span class="s3">+= </span><span class="s6">1</span>
+        <span class="s1">print</span><span class="s3">(</span><span class="s5">f&quot;&quot;&quot;  </span><span class="s2">{</span><span class="s1">status</span><span class="s2">}</span><span class="s5">: </span><span class="s2">{</span><span class="s1">description</span><span class="s2">}</span>
+    <span class="s5">Input: (</span><span class="s2">{</span><span class="s1">lat</span><span class="s2">}</span><span class="s5">, </span><span class="s2">{</span><span class="s1">lon</span><span class="s2">}</span><span class="s5">) -&gt; Result: </span><span class="s2">{</span><span class="s1">result</span><span class="s2">} </span><span class="s5">(expected </span><span class="s2">{</span><span class="s1">expected</span><span class="s2">}</span><span class="s5">)&quot;&quot;&quot;</span><span class="s3">)</span>
+    
+    <span class="s4"># Test Mato Grosso bounds</span>
+    <span class="s1">print</span><span class="s3">(</span><span class="s5">&quot;&quot;&quot; 
+------------------------------------------------------------ 
+2. Testing is_within_mato_grosso(): 
+------------------------------------------------------------&quot;&quot;&quot;</span><span class="s3">)</span>
+    <span class="s1">test_bounds </span><span class="s3">= [</span>
+        <span class="s3">(-</span><span class="s6">12.0</span><span class="s3">, -</span><span class="s6">55.0</span><span class="s3">, </span><span class="s2">True</span><span class="s3">, </span><span class="s5">&quot;Cuiaba area (within bounds)&quot;</span><span class="s3">),</span>
+        <span class="s3">(-</span><span class="s6">15.0</span><span class="s3">, -</span><span class="s6">60.0</span><span class="s3">, </span><span class="s2">True</span><span class="s3">, </span><span class="s5">&quot;Central Mato Grosso&quot;</span><span class="s3">),</span>
+        <span class="s3">(-</span><span class="s6">10.0</span><span class="s3">, -</span><span class="s6">52.0</span><span class="s3">, </span><span class="s2">True</span><span class="s3">, </span><span class="s5">&quot;Northern Mato Grosso&quot;</span><span class="s3">),</span>
+        <span class="s3">(-</span><span class="s6">20.0</span><span class="s3">, -</span><span class="s6">50.0</span><span class="s3">, </span><span class="s2">False</span><span class="s3">, </span><span class="s5">&quot;South of Mato Grosso&quot;</span><span class="s3">),</span>
+        <span class="s3">(</span><span class="s6">0.0</span><span class="s3">, </span><span class="s6">0.0</span><span class="s3">, </span><span class="s2">False</span><span class="s3">, </span><span class="s5">&quot;Equator (outside bounds)&quot;</span><span class="s3">),</span>
+        <span class="s3">(-</span><span class="s6">12.0</span><span class="s3">, -</span><span class="s6">70.0</span><span class="s3">, </span><span class="s2">False</span><span class="s3">, </span><span class="s5">&quot;West of Mato Grosso&quot;</span><span class="s3">),</span>
+        <span class="s3">(-</span><span class="s6">12.0</span><span class="s3">, -</span><span class="s6">40.0</span><span class="s3">, </span><span class="s2">False</span><span class="s3">, </span><span class="s5">&quot;East of Mato Grosso&quot;</span><span class="s3">),</span>
+    <span class="s3">]</span>
+    
+    <span class="s2">for </span><span class="s1">lat</span><span class="s3">, </span><span class="s1">lon</span><span class="s3">, </span><span class="s1">expected</span><span class="s3">, </span><span class="s1">description </span><span class="s2">in </span><span class="s1">test_bounds</span><span class="s3">:</span>
+        <span class="s2">if </span><span class="s1">validate_coordinates</span><span class="s3">(</span><span class="s1">lat</span><span class="s3">, </span><span class="s1">lon</span><span class="s3">):</span>
+            <span class="s1">result </span><span class="s3">= </span><span class="s1">is_within_mato_grosso</span><span class="s3">(</span><span class="s1">lat</span><span class="s3">, </span><span class="s1">lon</span><span class="s3">)</span>
+            <span class="s1">status </span><span class="s3">= </span><span class="s5">&quot;PASS&quot; </span><span class="s2">if </span><span class="s1">result </span><span class="s3">== </span><span class="s1">expected </span><span class="s2">else </span><span class="s5">&quot;FAIL&quot;</span>
+            <span class="s2">if </span><span class="s1">result </span><span class="s3">== </span><span class="s1">expected</span><span class="s3">:</span>
+                <span class="s1">passed </span><span class="s3">+= </span><span class="s6">1</span>
+            <span class="s2">else</span><span class="s3">:</span>
+                <span class="s1">failed </span><span class="s3">+= </span><span class="s6">1</span>
+            <span class="s1">print</span><span class="s3">(</span><span class="s5">f&quot;&quot;&quot;  </span><span class="s2">{</span><span class="s1">status</span><span class="s2">}</span><span class="s5">: </span><span class="s2">{</span><span class="s1">description</span><span class="s2">}</span>
+    <span class="s5">Input: (</span><span class="s2">{</span><span class="s1">lat</span><span class="s2">}</span><span class="s5">, </span><span class="s2">{</span><span class="s1">lon</span><span class="s2">}</span><span class="s5">) -&gt; Result: </span><span class="s2">{</span><span class="s1">result</span><span class="s2">} </span><span class="s5">(expected </span><span class="s2">{</span><span class="s1">expected</span><span class="s2">}</span><span class="s5">)&quot;&quot;&quot;</span><span class="s3">)</span>
+    
+    <span class="s4"># Test radius validation</span>
+    <span class="s1">print</span><span class="s3">(</span><span class="s5">&quot;&quot;&quot; 
+------------------------------------------------------------ 
+3. Testing validate_radius(): 
+------------------------------------------------------------&quot;&quot;&quot;</span><span class="s3">)</span>
+    <span class="s1">test_radii </span><span class="s3">= [</span>
+        <span class="s3">(</span><span class="s6">1.0</span><span class="s3">, </span><span class="s2">True</span><span class="s3">, </span><span class="s5">&quot;Minimum valid radius&quot;</span><span class="s3">),</span>
+        <span class="s3">(</span><span class="s6">50.0</span><span class="s3">, </span><span class="s2">True</span><span class="s3">, </span><span class="s5">&quot;Valid radius&quot;</span><span class="s3">),</span>
+        <span class="s3">(</span><span class="s6">100.0</span><span class="s3">, </span><span class="s2">True</span><span class="s3">, </span><span class="s5">&quot;Default radius&quot;</span><span class="s3">),</span>
+        <span class="s3">(</span><span class="s6">250.0</span><span class="s3">, </span><span class="s2">True</span><span class="s3">, </span><span class="s5">&quot;Valid radius&quot;</span><span class="s3">),</span>
+        <span class="s3">(</span><span class="s6">500.0</span><span class="s3">, </span><span class="s2">True</span><span class="s3">, </span><span class="s5">&quot;Maximum valid radius&quot;</span><span class="s3">),</span>
+        <span class="s3">(</span><span class="s6">0.5</span><span class="s3">, </span><span class="s2">False</span><span class="s3">, </span><span class="s5">&quot;Too small&quot;</span><span class="s3">),</span>
+        <span class="s3">(</span><span class="s6">600.0</span><span class="s3">, </span><span class="s2">False</span><span class="s3">, </span><span class="s5">&quot;Too large&quot;</span><span class="s3">),</span>
+        <span class="s3">(-</span><span class="s6">10.0</span><span class="s3">, </span><span class="s2">False</span><span class="s3">, </span><span class="s5">&quot;Negative radius&quot;</span><span class="s3">),</span>
+        <span class="s3">(</span><span class="s6">0.0</span><span class="s3">, </span><span class="s2">False</span><span class="s3">, </span><span class="s5">&quot;Zero radius&quot;</span><span class="s3">),</span>
+    <span class="s3">]</span>
+    
+    <span class="s2">for </span><span class="s1">radius</span><span class="s3">, </span><span class="s1">expected</span><span class="s3">, </span><span class="s1">description </span><span class="s2">in </span><span class="s1">test_radii</span><span class="s3">:</span>
+        <span class="s1">result </span><span class="s3">= </span><span class="s1">validate_radius</span><span class="s3">(</span><span class="s1">radius</span><span class="s3">)</span>
+        <span class="s1">status </span><span class="s3">= </span><span class="s5">&quot;PASS&quot; </span><span class="s2">if </span><span class="s1">result </span><span class="s3">== </span><span class="s1">expected </span><span class="s2">else </span><span class="s5">&quot;FAIL&quot;</span>
+        <span class="s2">if </span><span class="s1">result </span><span class="s3">== </span><span class="s1">expected</span><span class="s3">:</span>
+            <span class="s1">passed </span><span class="s3">+= </span><span class="s6">1</span>
+        <span class="s2">else</span><span class="s3">:</span>
+            <span class="s1">failed </span><span class="s3">+= </span><span class="s6">1</span>
+        <span class="s1">print</span><span class="s3">(</span><span class="s5">f&quot;&quot;&quot;  </span><span class="s2">{</span><span class="s1">status</span><span class="s2">}</span><span class="s5">: </span><span class="s2">{</span><span class="s1">description</span><span class="s2">}</span>
+    <span class="s5">Input: </span><span class="s2">{</span><span class="s1">radius</span><span class="s2">} </span><span class="s5">km -&gt; Result: </span><span class="s2">{</span><span class="s1">result</span><span class="s2">} </span><span class="s5">(expected </span><span class="s2">{</span><span class="s1">expected</span><span class="s2">}</span><span class="s5">)&quot;&quot;&quot;</span><span class="s3">)</span>
+    
+    <span class="s4"># Test format_coordinates</span>
+    <span class="s1">print</span><span class="s3">(</span><span class="s5">&quot;&quot;&quot; 
+------------------------------------------------------------ 
+4. Testing format_coordinates(): 
+------------------------------------------------------------&quot;&quot;&quot;</span><span class="s3">)</span>
+    <span class="s1">test_format </span><span class="s3">= [</span>
+        <span class="s3">(-</span><span class="s6">12.0</span><span class="s3">, -</span><span class="s6">55.0</span><span class="s3">, </span><span class="s5">&quot;(-12.000000, -55.000000)&quot;</span><span class="s3">),</span>
+        <span class="s3">(-</span><span class="s6">12.123456</span><span class="s3">, -</span><span class="s6">55.654321</span><span class="s3">, </span><span class="s5">&quot;(-12.123456, -55.654321)&quot;</span><span class="s3">),</span>
+    <span class="s3">]</span>
+    
+    <span class="s2">for </span><span class="s1">lat</span><span class="s3">, </span><span class="s1">lon</span><span class="s3">, </span><span class="s1">expected </span><span class="s2">in </span><span class="s1">test_format</span><span class="s3">:</span>
+        <span class="s1">result </span><span class="s3">= </span><span class="s1">format_coordinates</span><span class="s3">(</span><span class="s1">lat</span><span class="s3">, </span><span class="s1">lon</span><span class="s3">)</span>
+        <span class="s1">status </span><span class="s3">= </span><span class="s5">&quot;PASS&quot; </span><span class="s2">if </span><span class="s1">result </span><span class="s3">== </span><span class="s1">expected </span><span class="s2">else </span><span class="s5">&quot;FAIL&quot;</span>
+        <span class="s2">if </span><span class="s1">result </span><span class="s3">== </span><span class="s1">expected</span><span class="s3">:</span>
+            <span class="s1">passed </span><span class="s3">+= </span><span class="s6">1</span>
+        <span class="s2">else</span><span class="s3">:</span>
+            <span class="s1">failed </span><span class="s3">+= </span><span class="s6">1</span>
+        <span class="s1">print</span><span class="s3">(</span><span class="s5">f&quot;&quot;&quot;  </span><span class="s2">{</span><span class="s1">status</span><span class="s2">}</span><span class="s5">: (</span><span class="s2">{</span><span class="s1">lat</span><span class="s2">}</span><span class="s5">, </span><span class="s2">{</span><span class="s1">lon</span><span class="s2">}</span><span class="s5">) -&gt; </span><span class="s2">{</span><span class="s1">result</span><span class="s2">}</span>
+    <span class="s5">Expected: </span><span class="s2">{</span><span class="s1">expected</span><span class="s2">}</span><span class="s5">&quot;&quot;&quot;</span><span class="s3">)</span>
+    
+    <span class="s4"># Summary</span>
+    <span class="s1">print</span><span class="s3">(</span><span class="s5">f&quot;&quot;&quot;</span>
+<span class="s5">============================================================</span>
+<span class="s5">Test Summary: </span><span class="s2">{</span><span class="s1">passed</span><span class="s2">} </span><span class="s5">passed, </span><span class="s2">{</span><span class="s1">failed</span><span class="s2">} </span><span class="s5">failed</span>
+<span class="s5">============================================================&quot;&quot;&quot;</span><span class="s3">)</span>
+    
+    <span class="s2">if </span><span class="s1">failed </span><span class="s3">&gt; </span><span class="s6">0</span><span class="s3">:</span>
+        <span class="s1">sys</span><span class="s3">.</span><span class="s1">exit</span><span class="s3">(</span><span class="s6">1</span><span class="s3">)</span>
+
+</pre>
+</body>
+</html>

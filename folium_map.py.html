@@ -1,0 +1,246 @@
+<html>
+<head>
+<title>folium_map.py</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #5f826b; font-style: italic;}
+.s1 { color: #bcbec4;}
+.s2 { color: #cf8e6d;}
+.s3 { color: #bcbec4;}
+.s4 { color: #2aacb8;}
+.s5 { color: #7a7e85;}
+.s6 { color: #6aab73;}
+</style>
+</head>
+<body bgcolor="#1e1f22">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+folium_map.py</font>
+</center></td></tr></table>
+<pre><span class="s0">&quot;&quot;&quot; 
+Folium Map Module 
+ 
+Creates interactive maps using Folium. 
+&quot;&quot;&quot;</span>
+
+<span class="s2">from </span><span class="s1">pathlib </span><span class="s2">import </span><span class="s1">Path</span>
+<span class="s2">from </span><span class="s1">typing </span><span class="s2">import </span><span class="s1">Optional</span>
+<span class="s2">import </span><span class="s1">pandas </span><span class="s2">as </span><span class="s1">pd</span>
+<span class="s2">import </span><span class="s1">numpy </span><span class="s2">as </span><span class="s1">np</span>
+<span class="s2">import </span><span class="s1">folium</span>
+<span class="s2">from </span><span class="s1">folium </span><span class="s2">import </span><span class="s1">plugins</span>
+<span class="s2">import </span><span class="s1">h3</span>
+
+<span class="s2">from </span><span class="s1">src</span><span class="s3">.</span><span class="s1">visualization</span><span class="s3">.</span><span class="s1">color_scheme </span><span class="s2">import </span><span class="s1">get_color_for_score</span><span class="s3">, </span><span class="s1">get_color_scheme_info</span>
+
+
+<span class="s2">def </span><span class="s1">create_folium_map</span><span class="s3">(</span>
+    <span class="s1">df</span><span class="s3">: </span><span class="s1">pd</span><span class="s3">.</span><span class="s1">DataFrame</span><span class="s3">,</span>
+    <span class="s1">output_path</span><span class="s3">: </span><span class="s1">Path</span><span class="s3">,</span>
+    <span class="s1">use_h3</span><span class="s3">: </span><span class="s1">bool </span><span class="s3">= </span><span class="s2">True</span><span class="s3">,</span>
+    <span class="s1">center_lat</span><span class="s3">: </span><span class="s1">Optional</span><span class="s3">[</span><span class="s1">float</span><span class="s3">] = </span><span class="s2">None</span><span class="s3">,</span>
+    <span class="s1">center_lon</span><span class="s3">: </span><span class="s1">Optional</span><span class="s3">[</span><span class="s1">float</span><span class="s3">] = </span><span class="s2">None</span><span class="s3">,</span>
+    <span class="s1">zoom_start</span><span class="s3">: </span><span class="s1">int </span><span class="s3">= </span><span class="s4">6</span>
+<span class="s3">) </span><span class="s1">-&gt; </span><span class="s2">None</span><span class="s3">:</span>
+    <span class="s0">&quot;&quot;&quot; 
+    Create interactive Folium map with suitability scores. 
+     
+    Parameters 
+    ---------- 
+    df : pd.DataFrame 
+        DataFrame with suitability scores (must have 'lon', 'lat', 'suitability_score') 
+    output_path : Path 
+        Path to save HTML file 
+    use_h3 : bool, optional 
+        Use H3 hexagons if available (default: True) 
+    center_lat : float, optional 
+        Center latitude for map (default: None, auto-calculated) 
+    center_lon : float, optional 
+        Center longitude for map (default: None, auto-calculated) 
+    zoom_start : int, optional 
+        Initial zoom level (default: 6) 
+    &quot;&quot;&quot;</span>
+    <span class="s5"># Calculate center if not provided</span>
+    <span class="s2">if </span><span class="s1">center_lat </span><span class="s2">is None</span><span class="s3">:</span>
+        <span class="s1">center_lat </span><span class="s3">= </span><span class="s1">df</span><span class="s3">[</span><span class="s6">'lat'</span><span class="s3">].</span><span class="s1">mean</span><span class="s3">()</span>
+    <span class="s2">if </span><span class="s1">center_lon </span><span class="s2">is None</span><span class="s3">:</span>
+        <span class="s1">center_lon </span><span class="s3">= </span><span class="s1">df</span><span class="s3">[</span><span class="s6">'lon'</span><span class="s3">].</span><span class="s1">mean</span><span class="s3">()</span>
+    
+    <span class="s5"># Create base map</span>
+    <span class="s1">m </span><span class="s3">= </span><span class="s1">folium</span><span class="s3">.</span><span class="s1">Map</span><span class="s3">(</span>
+        <span class="s1">location</span><span class="s3">=[</span><span class="s1">center_lat</span><span class="s3">, </span><span class="s1">center_lon</span><span class="s3">],</span>
+        <span class="s1">zoom_start</span><span class="s3">=</span><span class="s1">zoom_start</span><span class="s3">,</span>
+        <span class="s1">tiles</span><span class="s3">=</span><span class="s6">'OpenStreetMap'</span>
+    <span class="s3">)</span>
+    
+    <span class="s5"># Add tile layers</span>
+    <span class="s1">folium</span><span class="s3">.</span><span class="s1">TileLayer</span><span class="s3">(</span><span class="s6">'CartoDB positron'</span><span class="s3">, </span><span class="s1">name</span><span class="s3">=</span><span class="s6">'CartoDB Positron'</span><span class="s3">).</span><span class="s1">add_to</span><span class="s3">(</span><span class="s1">m</span><span class="s3">)</span>
+    <span class="s1">folium</span><span class="s3">.</span><span class="s1">TileLayer</span><span class="s3">(</span><span class="s6">'CartoDB dark_matter'</span><span class="s3">, </span><span class="s1">name</span><span class="s3">=</span><span class="s6">'CartoDB Dark Matter'</span><span class="s3">).</span><span class="s1">add_to</span><span class="s3">(</span><span class="s1">m</span><span class="s3">)</span>
+    
+    <span class="s5"># Check if H3 indexes are available</span>
+    <span class="s1">has_h3 </span><span class="s3">= </span><span class="s1">use_h3 </span><span class="s2">and </span><span class="s6">'h3_index' </span><span class="s2">in </span><span class="s1">df</span><span class="s3">.</span><span class="s1">columns</span>
+    
+    <span class="s2">if </span><span class="s1">has_h3</span><span class="s3">:</span>
+        <span class="s5"># Create H3 hexagon layer</span>
+        <span class="s1">_add_h3_hexagons</span><span class="s3">(</span><span class="s1">m</span><span class="s3">, </span><span class="s1">df</span><span class="s3">)</span>
+    <span class="s2">else</span><span class="s3">:</span>
+        <span class="s5"># Create point markers</span>
+        <span class="s1">_add_point_markers</span><span class="s3">(</span><span class="s1">m</span><span class="s3">, </span><span class="s1">df</span><span class="s3">)</span>
+    
+    <span class="s5"># Add legend</span>
+    <span class="s1">_add_legend</span><span class="s3">(</span><span class="s1">m</span><span class="s3">)</span>
+    
+    <span class="s5"># Add layer control</span>
+    <span class="s1">folium</span><span class="s3">.</span><span class="s1">LayerControl</span><span class="s3">().</span><span class="s1">add_to</span><span class="s3">(</span><span class="s1">m</span><span class="s3">)</span>
+    
+    <span class="s5"># Add fullscreen button</span>
+    <span class="s1">plugins</span><span class="s3">.</span><span class="s1">Fullscreen</span><span class="s3">().</span><span class="s1">add_to</span><span class="s3">(</span><span class="s1">m</span><span class="s3">)</span>
+    
+    <span class="s5"># Save map</span>
+    <span class="s1">output_path</span><span class="s3">.</span><span class="s1">parent</span><span class="s3">.</span><span class="s1">mkdir</span><span class="s3">(</span><span class="s1">parents</span><span class="s3">=</span><span class="s2">True</span><span class="s3">, </span><span class="s1">exist_ok</span><span class="s3">=</span><span class="s2">True</span><span class="s3">)</span>
+    <span class="s1">m</span><span class="s3">.</span><span class="s1">save</span><span class="s3">(</span><span class="s1">str</span><span class="s3">(</span><span class="s1">output_path</span><span class="s3">))</span>
+
+
+<span class="s2">def </span><span class="s1">_add_h3_hexagons</span><span class="s3">(</span><span class="s1">m</span><span class="s3">: </span><span class="s1">folium</span><span class="s3">.</span><span class="s1">Map</span><span class="s3">, </span><span class="s1">df</span><span class="s3">: </span><span class="s1">pd</span><span class="s3">.</span><span class="s1">DataFrame</span><span class="s3">) </span><span class="s1">-&gt; </span><span class="s2">None</span><span class="s3">:</span>
+    <span class="s0">&quot;&quot;&quot; 
+    Add H3 hexagons to Folium map. 
+     
+    Parameters 
+    ---------- 
+    m : folium.Map 
+        Folium map object 
+    df : pd.DataFrame 
+        DataFrame with H3 indexes and suitability scores 
+    &quot;&quot;&quot;</span>
+    <span class="s5"># Group by H3 index and get mean score</span>
+    <span class="s1">h3_groups </span><span class="s3">= </span><span class="s1">df</span><span class="s3">.</span><span class="s1">groupby</span><span class="s3">(</span><span class="s6">'h3_index'</span><span class="s3">).</span><span class="s1">agg</span><span class="s3">({</span>
+        <span class="s6">'suitability_score'</span><span class="s3">: </span><span class="s6">'mean'</span><span class="s3">,</span>
+        <span class="s6">'lat'</span><span class="s3">: </span><span class="s6">'first'</span><span class="s3">,</span>
+        <span class="s6">'lon'</span><span class="s3">: </span><span class="s6">'first'</span>
+    <span class="s3">}).</span><span class="s1">reset_index</span><span class="s3">()</span>
+    
+    <span class="s1">print</span><span class="s3">(</span><span class="s6">f&quot;  Adding </span><span class="s2">{</span><span class="s1">len</span><span class="s3">(</span><span class="s1">h3_groups</span><span class="s3">)</span><span class="s2">:</span><span class="s6">,</span><span class="s2">} </span><span class="s6">H3 hexagons...&quot;</span><span class="s3">)</span>
+    
+    <span class="s2">for </span><span class="s1">idx</span><span class="s3">, </span><span class="s1">row </span><span class="s2">in </span><span class="s1">h3_groups</span><span class="s3">.</span><span class="s1">iterrows</span><span class="s3">():</span>
+        <span class="s1">h3_index </span><span class="s3">= </span><span class="s1">row</span><span class="s3">[</span><span class="s6">'h3_index'</span><span class="s3">]</span>
+        <span class="s1">score </span><span class="s3">= </span><span class="s1">row</span><span class="s3">[</span><span class="s6">'suitability_score'</span><span class="s3">]</span>
+        <span class="s1">lat </span><span class="s3">= </span><span class="s1">row</span><span class="s3">[</span><span class="s6">'lat'</span><span class="s3">]</span>
+        <span class="s1">lon </span><span class="s3">= </span><span class="s1">row</span><span class="s3">[</span><span class="s6">'lon'</span><span class="s3">]</span>
+        
+        <span class="s5"># Get hexagon boundary</span>
+        <span class="s2">try</span><span class="s3">:</span>
+            <span class="s1">hex_boundary </span><span class="s3">= </span><span class="s1">h3</span><span class="s3">.</span><span class="s1">cell_to_boundary</span><span class="s3">(</span><span class="s1">h3_index</span><span class="s3">, </span><span class="s1">geo_json</span><span class="s3">=</span><span class="s2">True</span><span class="s3">)</span>
+            <span class="s5"># h3.cell_to_boundary returns (lat, lon) pairs when geo_json=True</span>
+            <span class="s5"># Convert to list of [lat, lon] pairs for Folium</span>
+            <span class="s1">hex_coords </span><span class="s3">= [[</span><span class="s1">lat</span><span class="s3">, </span><span class="s1">lon</span><span class="s3">] </span><span class="s2">for </span><span class="s1">lat</span><span class="s3">, </span><span class="s1">lon </span><span class="s2">in </span><span class="s1">hex_boundary</span><span class="s3">]</span>
+            
+            <span class="s5"># Get color for score</span>
+            <span class="s1">color </span><span class="s3">= </span><span class="s1">get_color_for_score</span><span class="s3">(</span><span class="s1">score</span><span class="s3">)</span>
+            
+            <span class="s5"># Create polygon</span>
+            <span class="s1">folium</span><span class="s3">.</span><span class="s1">Polygon</span><span class="s3">(</span>
+                <span class="s1">locations</span><span class="s3">=</span><span class="s1">hex_coords</span><span class="s3">,</span>
+                <span class="s1">color</span><span class="s3">=</span><span class="s1">color</span><span class="s3">,</span>
+                <span class="s1">fill</span><span class="s3">=</span><span class="s2">True</span><span class="s3">,</span>
+                <span class="s1">fillColor</span><span class="s3">=</span><span class="s1">color</span><span class="s3">,</span>
+                <span class="s1">fillOpacity</span><span class="s3">=</span><span class="s4">0.7</span><span class="s3">,</span>
+                <span class="s1">weight</span><span class="s3">=</span><span class="s4">1</span><span class="s3">,</span>
+                <span class="s1">popup</span><span class="s3">=</span><span class="s1">folium</span><span class="s3">.</span><span class="s1">Popup</span><span class="s3">(</span>
+                    <span class="s6">f&quot;&quot;&quot;</span>
+                    <span class="s6">&lt;b&gt;Suitability Score:&lt;/b&gt; </span><span class="s2">{</span><span class="s1">score</span><span class="s2">:</span><span class="s6">.2f</span><span class="s2">}</span><span class="s6">&lt;br&gt;</span>
+                    <span class="s6">&lt;b&gt;H3 Index:&lt;/b&gt; </span><span class="s2">{</span><span class="s1">h3_index</span><span class="s2">}</span><span class="s6">&lt;br&gt;</span>
+                    <span class="s6">&lt;b&gt;Location:&lt;/b&gt; </span><span class="s2">{</span><span class="s1">lat</span><span class="s2">:</span><span class="s6">.4f</span><span class="s2">}</span><span class="s6">, </span><span class="s2">{</span><span class="s1">lon</span><span class="s2">:</span><span class="s6">.4f</span><span class="s2">}</span>
+                    <span class="s6">&quot;&quot;&quot;</span><span class="s3">,</span>
+                    <span class="s1">max_width</span><span class="s3">=</span><span class="s4">200</span>
+                <span class="s3">),</span>
+                <span class="s1">tooltip</span><span class="s3">=</span><span class="s6">f&quot;Score: </span><span class="s2">{</span><span class="s1">score</span><span class="s2">:</span><span class="s6">.2f</span><span class="s2">}</span><span class="s6">&quot;</span>
+            <span class="s3">).</span><span class="s1">add_to</span><span class="s3">(</span><span class="s1">m</span><span class="s3">)</span>
+        <span class="s2">except </span><span class="s1">Exception </span><span class="s2">as </span><span class="s1">e</span><span class="s3">:</span>
+            <span class="s5"># Skip invalid H3 indexes</span>
+            <span class="s2">continue</span>
+
+
+<span class="s2">def </span><span class="s1">_add_point_markers</span><span class="s3">(</span><span class="s1">m</span><span class="s3">: </span><span class="s1">folium</span><span class="s3">.</span><span class="s1">Map</span><span class="s3">, </span><span class="s1">df</span><span class="s3">: </span><span class="s1">pd</span><span class="s3">.</span><span class="s1">DataFrame</span><span class="s3">) </span><span class="s1">-&gt; </span><span class="s2">None</span><span class="s3">:</span>
+    <span class="s0">&quot;&quot;&quot; 
+    Add point markers to Folium map. 
+     
+    Parameters 
+    ---------- 
+    m : folium.Map 
+        Folium map object 
+    df : pd.DataFrame 
+        DataFrame with coordinates and suitability scores 
+    &quot;&quot;&quot;</span>
+    <span class="s1">print</span><span class="s3">(</span><span class="s6">f&quot;  Adding </span><span class="s2">{</span><span class="s1">len</span><span class="s3">(</span><span class="s1">df</span><span class="s3">)</span><span class="s2">:</span><span class="s6">,</span><span class="s2">} </span><span class="s6">point markers...&quot;</span><span class="s3">)</span>
+    
+    <span class="s5"># Sample data if too large (Folium can be slow with many points)</span>
+    <span class="s1">max_points </span><span class="s3">= </span><span class="s4">100000</span>
+    <span class="s2">if </span><span class="s1">len</span><span class="s3">(</span><span class="s1">df</span><span class="s3">) &gt; </span><span class="s1">max_points</span><span class="s3">:</span>
+        <span class="s1">print</span><span class="s3">(</span><span class="s6">f&quot;  Sampling to </span><span class="s2">{</span><span class="s1">max_points</span><span class="s2">:</span><span class="s6">,</span><span class="s2">} </span><span class="s6">points for performance...&quot;</span><span class="s3">)</span>
+        <span class="s1">df </span><span class="s3">= </span><span class="s1">df</span><span class="s3">.</span><span class="s1">sample</span><span class="s3">(</span><span class="s1">n</span><span class="s3">=</span><span class="s1">max_points</span><span class="s3">, </span><span class="s1">random_state</span><span class="s3">=</span><span class="s4">42</span><span class="s3">)</span>
+    
+    <span class="s2">for </span><span class="s1">idx</span><span class="s3">, </span><span class="s1">row </span><span class="s2">in </span><span class="s1">df</span><span class="s3">.</span><span class="s1">iterrows</span><span class="s3">():</span>
+        <span class="s1">lat </span><span class="s3">= </span><span class="s1">row</span><span class="s3">[</span><span class="s6">'lat'</span><span class="s3">]</span>
+        <span class="s1">lon </span><span class="s3">= </span><span class="s1">row</span><span class="s3">[</span><span class="s6">'lon'</span><span class="s3">]</span>
+        <span class="s1">score </span><span class="s3">= </span><span class="s1">row</span><span class="s3">[</span><span class="s6">'suitability_score'</span><span class="s3">]</span>
+        
+        <span class="s5"># Get color for score</span>
+        <span class="s1">color </span><span class="s3">= </span><span class="s1">get_color_for_score</span><span class="s3">(</span><span class="s1">score</span><span class="s3">)</span>
+        
+        <span class="s5"># Create circle marker</span>
+        <span class="s1">folium</span><span class="s3">.</span><span class="s1">CircleMarker</span><span class="s3">(</span>
+            <span class="s1">location</span><span class="s3">=[</span><span class="s1">lat</span><span class="s3">, </span><span class="s1">lon</span><span class="s3">],</span>
+            <span class="s1">radius</span><span class="s3">=</span><span class="s4">3</span><span class="s3">,</span>
+            <span class="s1">color</span><span class="s3">=</span><span class="s1">color</span><span class="s3">,</span>
+            <span class="s1">fill</span><span class="s3">=</span><span class="s2">True</span><span class="s3">,</span>
+            <span class="s1">fillColor</span><span class="s3">=</span><span class="s1">color</span><span class="s3">,</span>
+            <span class="s1">fillOpacity</span><span class="s3">=</span><span class="s4">0.7</span><span class="s3">,</span>
+            <span class="s1">weight</span><span class="s3">=</span><span class="s4">1</span><span class="s3">,</span>
+            <span class="s1">popup</span><span class="s3">=</span><span class="s1">folium</span><span class="s3">.</span><span class="s1">Popup</span><span class="s3">(</span>
+                <span class="s6">f&quot;&quot;&quot;</span>
+                <span class="s6">&lt;b&gt;Suitability Score:&lt;/b&gt; </span><span class="s2">{</span><span class="s1">score</span><span class="s2">:</span><span class="s6">.2f</span><span class="s2">}</span><span class="s6">&lt;br&gt;</span>
+                <span class="s6">&lt;b&gt;Location:&lt;/b&gt; </span><span class="s2">{</span><span class="s1">lat</span><span class="s2">:</span><span class="s6">.4f</span><span class="s2">}</span><span class="s6">, </span><span class="s2">{</span><span class="s1">lon</span><span class="s2">:</span><span class="s6">.4f</span><span class="s2">}</span>
+                <span class="s6">&quot;&quot;&quot;</span><span class="s3">,</span>
+                <span class="s1">max_width</span><span class="s3">=</span><span class="s4">200</span>
+            <span class="s3">),</span>
+            <span class="s1">tooltip</span><span class="s3">=</span><span class="s6">f&quot;Score: </span><span class="s2">{</span><span class="s1">score</span><span class="s2">:</span><span class="s6">.2f</span><span class="s2">}</span><span class="s6">&quot;</span>
+        <span class="s3">).</span><span class="s1">add_to</span><span class="s3">(</span><span class="s1">m</span><span class="s3">)</span>
+
+
+<span class="s2">def </span><span class="s1">_add_legend</span><span class="s3">(</span><span class="s1">m</span><span class="s3">: </span><span class="s1">folium</span><span class="s3">.</span><span class="s1">Map</span><span class="s3">) </span><span class="s1">-&gt; </span><span class="s2">None</span><span class="s3">:</span>
+    <span class="s0">&quot;&quot;&quot; 
+    Add legend to Folium map. 
+     
+    Parameters 
+    ---------- 
+    m : folium.Map 
+        Folium map object 
+    &quot;&quot;&quot;</span>
+    <span class="s1">color_info </span><span class="s3">= </span><span class="s1">get_color_scheme_info</span><span class="s3">()</span>
+    
+    <span class="s1">legend_html </span><span class="s3">= </span><span class="s6">&quot;&quot;&quot; 
+    &lt;div style=&quot;position: fixed;  
+                bottom: 50px; right: 50px; width: 200px; height: auto;  
+                background-color: white; border:2px solid grey; z-index:9999;  
+                font-size:14px; padding: 10px&quot;&gt; 
+    &lt;h4 style=&quot;margin-top:0&quot;&gt;Suitability Score&lt;/h4&gt; 
+    &quot;&quot;&quot;</span>
+    
+    <span class="s2">for </span><span class="s1">range_info </span><span class="s2">in </span><span class="s1">color_info</span><span class="s3">[</span><span class="s6">'ranges'</span><span class="s3">]:</span>
+        <span class="s1">legend_html </span><span class="s3">+= </span><span class="s6">f&quot;&quot;&quot;</span>
+        <span class="s6">&lt;p style=&quot;margin: 5px 0;&quot;&gt;</span>
+            <span class="s6">&lt;i class=&quot;fa fa-square&quot; style=&quot;color:</span><span class="s2">{</span><span class="s1">range_info</span><span class="s3">[</span><span class="s6">'color'</span><span class="s3">]</span><span class="s2">}</span><span class="s6">&quot;&gt;&lt;/i&gt;</span>
+            <span class="s2">{</span><span class="s1">range_info</span><span class="s3">[</span><span class="s6">'label'</span><span class="s3">]</span><span class="s2">}</span>
+        <span class="s6">&lt;/p&gt;</span>
+        <span class="s6">&quot;&quot;&quot;</span>
+    
+    <span class="s1">legend_html </span><span class="s3">+= </span><span class="s6">&quot;&quot;&quot; 
+    &lt;/div&gt; 
+    &quot;&quot;&quot;</span>
+    
+    <span class="s1">m</span><span class="s3">.</span><span class="s1">get_root</span><span class="s3">().</span><span class="s1">html</span><span class="s3">.</span><span class="s1">add_child</span><span class="s3">(</span><span class="s1">folium</span><span class="s3">.</span><span class="s1">Element</span><span class="s3">(</span><span class="s1">legend_html</span><span class="s3">))</span>
+
+</pre>
+</body>
+</html>

@@ -1,0 +1,167 @@
+<html>
+<head>
+<title>main.py</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #5f826b; font-style: italic;}
+.s1 { color: #bcbec4;}
+.s2 { color: #cf8e6d;}
+.s3 { color: #bcbec4;}
+.s4 { color: #2aacb8;}
+.s5 { color: #6aab73;}
+.s6 { color: #7a7e85;}
+</style>
+</head>
+<body bgcolor="#1e1f22">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+main.py</font>
+</center></td></tr></table>
+<pre><span class="s0">&quot;&quot;&quot; 
+Residual_Carbon - Main Entry Point 
+Biochar Suitability Mapping Tool 
+ 
+Simple workflow: 
+1. Load .tif files -&gt; get coordinates and values 
+2. If coordinates provided -&gt; clip to 100km radius 
+3. Score each value based on thresholds 
+4. Get H3 index for each point 
+5. Aggregate within hexagons -&gt; final score per hexagon 
+6. Output HTML map (PyDeck format) 
+&quot;&quot;&quot;</span>
+
+<span class="s2">import </span><span class="s1">argparse</span>
+<span class="s2">import </span><span class="s1">sys</span>
+<span class="s2">from </span><span class="s1">pathlib </span><span class="s2">import </span><span class="s1">Path</span>
+<span class="s2">import </span><span class="s1">pandas </span><span class="s2">as </span><span class="s1">pd</span>
+<span class="s2">import </span><span class="s1">tempfile</span>
+<span class="s2">import </span><span class="s1">shutil</span>
+
+<span class="s1">sys</span><span class="s3">.</span><span class="s1">path</span><span class="s3">.</span><span class="s1">insert</span><span class="s3">(</span><span class="s4">0</span><span class="s3">, </span><span class="s1">str</span><span class="s3">(</span><span class="s1">Path</span><span class="s3">(</span><span class="s1">__file__</span><span class="s3">).</span><span class="s1">parent</span><span class="s3">.</span><span class="s1">parent</span><span class="s3">))</span>
+
+<span class="s2">from </span><span class="s1">src</span><span class="s3">.</span><span class="s1">utils</span><span class="s3">.</span><span class="s1">initialization </span><span class="s2">import </span><span class="s1">initialize_project</span>
+<span class="s2">from </span><span class="s1">src</span><span class="s3">.</span><span class="s1">data</span><span class="s3">.</span><span class="s1">processing</span><span class="s3">.</span><span class="s1">user_input </span><span class="s2">import </span><span class="s1">get_user_area_of_interest</span>
+<span class="s2">from </span><span class="s1">src</span><span class="s3">.</span><span class="s1">data</span><span class="s3">.</span><span class="s1">processing</span><span class="s3">.</span><span class="s1">raster_clip </span><span class="s2">import </span><span class="s1">clip_all_rasters_to_circle</span>
+<span class="s2">from </span><span class="s1">src</span><span class="s3">.</span><span class="s1">utils</span><span class="s3">.</span><span class="s1">geospatial </span><span class="s2">import </span><span class="s1">create_circle_buffer</span>
+<span class="s2">from </span><span class="s1">src</span><span class="s3">.</span><span class="s1">data</span><span class="s3">.</span><span class="s1">processing</span><span class="s3">.</span><span class="s1">raster_to_csv </span><span class="s2">import </span><span class="s1">convert_all_rasters_to_csv</span>
+<span class="s2">from </span><span class="s1">src</span><span class="s3">.</span><span class="s1">data</span><span class="s3">.</span><span class="s1">processing</span><span class="s3">.</span><span class="s1">h3_converter </span><span class="s2">import </span><span class="s1">process_all_csv_files_with_h3</span>
+<span class="s2">from </span><span class="s1">src</span><span class="s3">.</span><span class="s1">analysis</span><span class="s3">.</span><span class="s1">suitability </span><span class="s2">import </span><span class="s1">process_csv_files_with_suitability_scores</span>
+<span class="s2">from </span><span class="s1">src</span><span class="s3">.</span><span class="s1">visualization</span><span class="s3">.</span><span class="s1">map_generator </span><span class="s2">import </span><span class="s1">create_suitability_map</span>
+<span class="s2">from </span><span class="s1">src</span><span class="s3">.</span><span class="s1">utils</span><span class="s3">.</span><span class="s1">browser </span><span class="s2">import </span><span class="s1">open_html_in_browser</span>
+
+
+<span class="s2">def </span><span class="s1">main</span><span class="s3">():</span>
+    <span class="s0">&quot;&quot;&quot;Simple, streamlined workflow.&quot;&quot;&quot;</span>
+    <span class="s1">parser </span><span class="s3">= </span><span class="s1">argparse</span><span class="s3">.</span><span class="s1">ArgumentParser</span><span class="s3">(</span><span class="s1">description</span><span class="s3">=</span><span class="s5">&quot;Biochar Suitability Mapping Tool&quot;</span><span class="s3">)</span>
+    <span class="s1">parser</span><span class="s3">.</span><span class="s1">add_argument</span><span class="s3">(</span><span class="s5">&quot;--lat&quot;</span><span class="s3">, </span><span class="s1">type</span><span class="s3">=</span><span class="s1">float</span><span class="s3">, </span><span class="s1">default</span><span class="s3">=</span><span class="s2">None</span><span class="s3">, </span><span class="s1">help</span><span class="s3">=</span><span class="s5">&quot;Latitude (optional)&quot;</span><span class="s3">)</span>
+    <span class="s1">parser</span><span class="s3">.</span><span class="s1">add_argument</span><span class="s3">(</span><span class="s5">&quot;--lon&quot;</span><span class="s3">, </span><span class="s1">type</span><span class="s3">=</span><span class="s1">float</span><span class="s3">, </span><span class="s1">default</span><span class="s3">=</span><span class="s2">None</span><span class="s3">, </span><span class="s1">help</span><span class="s3">=</span><span class="s5">&quot;Longitude (optional)&quot;</span><span class="s3">)</span>
+    <span class="s1">parser</span><span class="s3">.</span><span class="s1">add_argument</span><span class="s3">(</span><span class="s5">&quot;--radius&quot;</span><span class="s3">, </span><span class="s1">type</span><span class="s3">=</span><span class="s1">float</span><span class="s3">, </span><span class="s1">default</span><span class="s3">=</span><span class="s4">100</span><span class="s3">, </span><span class="s1">help</span><span class="s3">=</span><span class="s5">&quot;Radius in km (default: 100)&quot;</span><span class="s3">)</span>
+    <span class="s1">parser</span><span class="s3">.</span><span class="s1">add_argument</span><span class="s3">(</span><span class="s5">&quot;--h3-resolution&quot;</span><span class="s3">, </span><span class="s1">type</span><span class="s3">=</span><span class="s1">int</span><span class="s3">, </span><span class="s1">default</span><span class="s3">=</span><span class="s4">7</span><span class="s3">, </span><span class="s1">help</span><span class="s3">=</span><span class="s5">&quot;H3 resolution (default: 7)&quot;</span><span class="s3">)</span>
+    <span class="s1">parser</span><span class="s3">.</span><span class="s1">add_argument</span><span class="s3">(</span><span class="s5">&quot;--config&quot;</span><span class="s3">, </span><span class="s1">type</span><span class="s3">=</span><span class="s1">str</span><span class="s3">, </span><span class="s1">default</span><span class="s3">=</span><span class="s5">&quot;configs/config.yaml&quot;</span><span class="s3">, </span><span class="s1">help</span><span class="s3">=</span><span class="s5">&quot;Config file&quot;</span><span class="s3">)</span>
+    
+    <span class="s1">args </span><span class="s3">= </span><span class="s1">parser</span><span class="s3">.</span><span class="s1">parse_args</span><span class="s3">()</span>
+    
+    <span class="s6"># Initialize</span>
+    <span class="s1">config</span><span class="s3">, </span><span class="s1">project_root</span><span class="s3">, </span><span class="s1">raw_dir</span><span class="s3">, </span><span class="s1">processed_dir </span><span class="s3">= </span><span class="s1">initialize_project</span><span class="s3">(</span><span class="s1">args</span><span class="s3">.</span><span class="s1">config</span><span class="s3">)</span>
+    <span class="s1">output_dir </span><span class="s3">= </span><span class="s1">project_root </span><span class="s3">/ </span><span class="s1">config</span><span class="s3">.</span><span class="s1">get</span><span class="s3">(</span><span class="s5">&quot;output&quot;</span><span class="s3">, {}).</span><span class="s1">get</span><span class="s3">(</span><span class="s5">&quot;html&quot;</span><span class="s3">, </span><span class="s5">&quot;output/html&quot;</span><span class="s3">)</span>
+    <span class="s1">output_dir</span><span class="s3">.</span><span class="s1">mkdir</span><span class="s3">(</span><span class="s1">parents</span><span class="s3">=</span><span class="s2">True</span><span class="s3">, </span><span class="s1">exist_ok</span><span class="s3">=</span><span class="s2">True</span><span class="s3">)</span>
+    
+    <span class="s6"># Get area of interest</span>
+    <span class="s1">area </span><span class="s3">= </span><span class="s1">get_user_area_of_interest</span><span class="s3">(</span>
+        <span class="s1">lat</span><span class="s3">=</span><span class="s1">args</span><span class="s3">.</span><span class="s1">lat</span><span class="s3">,</span>
+        <span class="s1">lon</span><span class="s3">=</span><span class="s1">args</span><span class="s3">.</span><span class="s1">lon</span><span class="s3">,</span>
+        <span class="s1">radius_km</span><span class="s3">=</span><span class="s1">args</span><span class="s3">.</span><span class="s1">radius</span><span class="s3">,</span>
+        <span class="s1">interactive</span><span class="s3">=(</span><span class="s1">args</span><span class="s3">.</span><span class="s1">lat </span><span class="s2">is None and </span><span class="s1">args</span><span class="s3">.</span><span class="s1">lon </span><span class="s2">is None</span><span class="s3">)</span>
+    <span class="s3">)</span>
+    
+    <span class="s6"># Step 1: Clip GeoTIFFs to circle (if coordinates provided)</span>
+    <span class="s2">if </span><span class="s1">area</span><span class="s3">.</span><span class="s1">use_full_state</span><span class="s3">:</span>
+        <span class="s6"># Use full state - no clipping needed</span>
+        <span class="s1">tif_dir </span><span class="s3">= </span><span class="s1">raw_dir</span>
+        <span class="s1">print</span><span class="s3">(</span><span class="s5">&quot;Using full Mato Grosso state data&quot;</span><span class="s3">)</span>
+    <span class="s2">else</span><span class="s3">:</span>
+        <span class="s6"># Clip to 100km radius</span>
+        <span class="s1">print</span><span class="s3">(</span><span class="s5">f&quot;Clipping to </span><span class="s2">{</span><span class="s1">area</span><span class="s3">.</span><span class="s1">radius_km</span><span class="s2">}</span><span class="s5">km radius around (</span><span class="s2">{</span><span class="s1">area</span><span class="s3">.</span><span class="s1">lat</span><span class="s2">}</span><span class="s5">, </span><span class="s2">{</span><span class="s1">area</span><span class="s3">.</span><span class="s1">lon</span><span class="s2">}</span><span class="s5">)&quot;</span><span class="s3">)</span>
+        <span class="s1">circle </span><span class="s3">= </span><span class="s1">create_circle_buffer</span><span class="s3">(</span><span class="s1">area</span><span class="s3">.</span><span class="s1">lat</span><span class="s3">, </span><span class="s1">area</span><span class="s3">.</span><span class="s1">lon</span><span class="s3">, </span><span class="s1">area</span><span class="s3">.</span><span class="s1">radius_km</span><span class="s3">)</span>
+        <span class="s1">tif_dir </span><span class="s3">= </span><span class="s1">Path</span><span class="s3">(</span><span class="s1">tempfile</span><span class="s3">.</span><span class="s1">mkdtemp</span><span class="s3">(</span><span class="s1">prefix</span><span class="s3">=</span><span class="s5">&quot;residual_carbon_clip_&quot;</span><span class="s3">))</span>
+        <span class="s1">clip_all_rasters_to_circle</span><span class="s3">(</span><span class="s1">raw_dir</span><span class="s3">, </span><span class="s1">tif_dir</span><span class="s3">, </span><span class="s1">circle</span><span class="s3">)</span>
+    
+    <span class="s6"># Step 2: Convert GeoTIFFs to CSV (get coordinates and values for each point)</span>
+    <span class="s1">print</span><span class="s3">(</span><span class="s5">&quot;Converting GeoTIFFs to CSV...&quot;</span><span class="s3">)</span>
+    <span class="s1">csv_files </span><span class="s3">= </span><span class="s1">convert_all_rasters_to_csv</span><span class="s3">(</span>
+        <span class="s1">input_dir</span><span class="s3">=</span><span class="s1">tif_dir</span><span class="s3">,</span>
+        <span class="s1">output_dir</span><span class="s3">=</span><span class="s1">processed_dir</span><span class="s3">,</span>
+        <span class="s1">band</span><span class="s3">=</span><span class="s4">1</span><span class="s3">,</span>
+        <span class="s1">nodata_handling</span><span class="s3">=</span><span class="s5">&quot;skip&quot;</span>
+    <span class="s3">)</span>
+    
+    <span class="s6"># Clean up temp directory</span>
+    <span class="s2">if </span><span class="s1">tif_dir </span><span class="s3">!= </span><span class="s1">raw_dir </span><span class="s2">and </span><span class="s1">tif_dir</span><span class="s3">.</span><span class="s1">exists</span><span class="s3">():</span>
+        <span class="s1">shutil</span><span class="s3">.</span><span class="s1">rmtree</span><span class="s3">(</span><span class="s1">tif_dir</span><span class="s3">, </span><span class="s1">ignore_errors</span><span class="s3">=</span><span class="s2">True</span><span class="s3">)</span>
+    
+    <span class="s6"># Step 3: Score each value based on thresholds</span>
+    <span class="s1">print</span><span class="s3">(</span><span class="s5">&quot;Calculating suitability scores...&quot;</span><span class="s3">)</span>
+    <span class="s1">scored_df </span><span class="s3">= </span><span class="s1">process_csv_files_with_suitability_scores</span><span class="s3">(</span>
+        <span class="s1">csv_dir</span><span class="s3">=</span><span class="s1">processed_dir</span><span class="s3">,</span>
+        <span class="s1">thresholds_path</span><span class="s3">=</span><span class="s1">config</span><span class="s3">.</span><span class="s1">get</span><span class="s3">(</span><span class="s5">&quot;thresholds&quot;</span><span class="s3">, {}).</span><span class="s1">get</span><span class="s3">(</span><span class="s5">&quot;path&quot;</span><span class="s3">),</span>
+        <span class="s1">output_csv</span><span class="s3">=</span><span class="s1">processed_dir </span><span class="s3">/ </span><span class="s5">&quot;suitability_scores.csv&quot;</span><span class="s3">,</span>
+        <span class="s1">property_weights</span><span class="s3">=</span><span class="s2">None</span><span class="s3">,</span>
+        <span class="s1">pattern</span><span class="s3">=</span><span class="s5">&quot;*.csv&quot;</span><span class="s3">,</span>
+        <span class="s1">lon_column</span><span class="s3">=</span><span class="s5">&quot;lon&quot;</span><span class="s3">,</span>
+        <span class="s1">lat_column</span><span class="s3">=</span><span class="s5">&quot;lat&quot;</span>
+    <span class="s3">)</span>
+    
+    <span class="s6"># Step 4: Get H3 index for each point and aggregate within hexagons</span>
+    <span class="s1">print</span><span class="s3">(</span><span class="s5">f&quot;Adding H3 indexes (resolution </span><span class="s2">{</span><span class="s1">args</span><span class="s3">.</span><span class="s1">h3_resolution</span><span class="s2">}</span><span class="s5">)...&quot;</span><span class="s3">)</span>
+    <span class="s1">process_all_csv_files_with_h3</span><span class="s3">(</span>
+        <span class="s1">csv_dir</span><span class="s3">=</span><span class="s1">processed_dir</span><span class="s3">,</span>
+        <span class="s1">resolution</span><span class="s3">=</span><span class="s1">args</span><span class="s3">.</span><span class="s1">h3_resolution</span><span class="s3">,</span>
+        <span class="s1">pattern</span><span class="s3">=</span><span class="s5">&quot;*.csv&quot;</span><span class="s3">,</span>
+        <span class="s1">lat_column</span><span class="s3">=</span><span class="s5">&quot;lat&quot;</span><span class="s3">,</span>
+        <span class="s1">lon_column</span><span class="s3">=</span><span class="s5">&quot;lon&quot;</span>
+    <span class="s3">)</span>
+    
+    <span class="s6"># Recalculate scores with H3 aggregation (aggregate points within hexagons)</span>
+    <span class="s1">print</span><span class="s3">(</span><span class="s5">&quot;Aggregating scores by hexagon...&quot;</span><span class="s3">)</span>
+    <span class="s1">scored_df </span><span class="s3">= </span><span class="s1">process_csv_files_with_suitability_scores</span><span class="s3">(</span>
+        <span class="s1">csv_dir</span><span class="s3">=</span><span class="s1">processed_dir</span><span class="s3">,</span>
+        <span class="s1">thresholds_path</span><span class="s3">=</span><span class="s1">config</span><span class="s3">.</span><span class="s1">get</span><span class="s3">(</span><span class="s5">&quot;thresholds&quot;</span><span class="s3">, {}).</span><span class="s1">get</span><span class="s3">(</span><span class="s5">&quot;path&quot;</span><span class="s3">),</span>
+        <span class="s1">output_csv</span><span class="s3">=</span><span class="s1">processed_dir </span><span class="s3">/ </span><span class="s5">&quot;suitability_scores.csv&quot;</span><span class="s3">,</span>
+        <span class="s1">property_weights</span><span class="s3">=</span><span class="s2">None</span><span class="s3">,</span>
+        <span class="s1">pattern</span><span class="s3">=</span><span class="s5">&quot;*.csv&quot;</span><span class="s3">,</span>
+        <span class="s1">lon_column</span><span class="s3">=</span><span class="s5">&quot;lon&quot;</span><span class="s3">,</span>
+        <span class="s1">lat_column</span><span class="s3">=</span><span class="s5">&quot;lat&quot;</span>
+    <span class="s3">)</span>
+    
+    <span class="s6"># Step 5: Output HTML map (PyDeck format)</span>
+    <span class="s1">print</span><span class="s3">(</span><span class="s5">&quot;Creating map...&quot;</span><span class="s3">)</span>
+    <span class="s1">output_path </span><span class="s3">= </span><span class="s1">output_dir </span><span class="s3">/ </span><span class="s5">&quot;suitability_map.html&quot;</span>
+    
+    <span class="s1">center_lat </span><span class="s3">= </span><span class="s1">area</span><span class="s3">.</span><span class="s1">lat </span><span class="s2">if not </span><span class="s1">area</span><span class="s3">.</span><span class="s1">use_full_state </span><span class="s2">else None</span>
+    <span class="s1">center_lon </span><span class="s3">= </span><span class="s1">area</span><span class="s3">.</span><span class="s1">lon </span><span class="s2">if not </span><span class="s1">area</span><span class="s3">.</span><span class="s1">use_full_state </span><span class="s2">else None</span>
+    <span class="s1">zoom </span><span class="s3">= </span><span class="s4">8 </span><span class="s2">if not </span><span class="s1">area</span><span class="s3">.</span><span class="s1">use_full_state </span><span class="s2">else </span><span class="s4">6</span>
+    
+    <span class="s1">create_suitability_map</span><span class="s3">(</span>
+        <span class="s1">df</span><span class="s3">=</span><span class="s1">scored_df</span><span class="s3">,</span>
+        <span class="s1">output_path</span><span class="s3">=</span><span class="s1">output_path</span><span class="s3">,</span>
+        <span class="s1">max_file_size_mb</span><span class="s3">=</span><span class="s4">100.0</span><span class="s3">,</span>
+        <span class="s1">use_h3</span><span class="s3">=</span><span class="s2">True</span><span class="s3">,</span>
+        <span class="s1">center_lat</span><span class="s3">=</span><span class="s1">center_lat</span><span class="s3">,</span>
+        <span class="s1">center_lon</span><span class="s3">=</span><span class="s1">center_lon</span><span class="s3">,</span>
+        <span class="s1">zoom_start</span><span class="s3">=</span><span class="s1">zoom</span>
+    <span class="s3">)</span>
+    
+    <span class="s6"># Auto-open in browser</span>
+    <span class="s2">if </span><span class="s1">config</span><span class="s3">.</span><span class="s1">get</span><span class="s3">(</span><span class="s5">&quot;visualization&quot;</span><span class="s3">, {}).</span><span class="s1">get</span><span class="s3">(</span><span class="s5">&quot;auto_open_html&quot;</span><span class="s3">, </span><span class="s2">True</span><span class="s3">):</span>
+        <span class="s1">open_html_in_browser</span><span class="s3">(</span><span class="s1">output_path</span><span class="s3">)</span>
+    
+    <span class="s1">print</span><span class="s3">(</span><span class="s5">f&quot;</span><span class="s2">\n</span><span class="s5">Map saved to: </span><span class="s2">{</span><span class="s1">output_path</span><span class="s2">}</span><span class="s5">&quot;</span><span class="s3">)</span>
+    <span class="s2">return </span><span class="s4">0</span>
+
+
+<span class="s2">if </span><span class="s1">__name__ </span><span class="s3">== </span><span class="s5">&quot;__main__&quot;</span><span class="s3">:</span>
+    <span class="s1">sys</span><span class="s3">.</span><span class="s1">exit</span><span class="s3">(</span><span class="s1">main</span><span class="s3">())</span>
+</pre>
+</body>
+</html>

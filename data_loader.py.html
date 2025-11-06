@@ -1,0 +1,256 @@
+<html>
+<head>
+<title>data_loader.py</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #5f826b; font-style: italic;}
+.s1 { color: #bcbec4;}
+.s2 { color: #cf8e6d;}
+.s3 { color: #7a7e85;}
+.s4 { color: #bcbec4;}
+.s5 { color: #2aacb8;}
+.s6 { color: #6aab73;}
+</style>
+</head>
+<body bgcolor="#1e1f22">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+data_loader.py</font>
+</center></td></tr></table>
+<pre><span class="s0">&quot;&quot;&quot; 
+Data Loader Script 
+ 
+Downloads and exports soil property datasets from Google Earth Engine. 
+This script handles Steps 2, 3, and 4 of the workflow. 
+ 
+Usage: 
+    python src/data_loader.py 
+    python src/data_loader.py --config configs/config.yaml 
+&quot;&quot;&quot;</span>
+
+<span class="s2">import </span><span class="s1">argparse</span>
+<span class="s2">import </span><span class="s1">sys</span>
+<span class="s2">from </span><span class="s1">pathlib </span><span class="s2">import </span><span class="s1">Path</span>
+
+<span class="s3"># Add src to path</span>
+<span class="s1">sys</span><span class="s4">.</span><span class="s1">path</span><span class="s4">.</span><span class="s1">insert</span><span class="s4">(</span><span class="s5">0</span><span class="s4">, </span><span class="s1">str</span><span class="s4">(</span><span class="s1">Path</span><span class="s4">(</span><span class="s1">__file__</span><span class="s4">).</span><span class="s1">parent</span><span class="s4">.</span><span class="s1">parent</span><span class="s4">))</span>
+
+<span class="s2">from </span><span class="s1">src</span><span class="s4">.</span><span class="s1">data</span><span class="s4">.</span><span class="s1">acquisition</span><span class="s4">.</span><span class="s1">gee_loader </span><span class="s2">import </span><span class="s1">GEEDataLoader</span>
+<span class="s2">from </span><span class="s1">src</span><span class="s4">.</span><span class="s1">utils</span><span class="s4">.</span><span class="s1">initialization </span><span class="s2">import </span><span class="s1">initialize_project</span>
+
+
+<span class="s2">def </span><span class="s1">main</span><span class="s4">():</span>
+    <span class="s0">&quot;&quot;&quot;Main entry point for data loading workflow.&quot;&quot;&quot;</span>
+    <span class="s1">parser </span><span class="s4">= </span><span class="s1">argparse</span><span class="s4">.</span><span class="s1">ArgumentParser</span><span class="s4">(</span>
+        <span class="s1">description</span><span class="s4">=</span><span class="s6">&quot;Download and export soil property datasets from Google Earth Engine&quot;</span>
+    <span class="s4">)</span>
+    
+    <span class="s1">parser</span><span class="s4">.</span><span class="s1">add_argument</span><span class="s4">(</span>
+        <span class="s6">&quot;--config&quot;</span><span class="s4">,</span>
+        <span class="s1">type</span><span class="s4">=</span><span class="s1">str</span><span class="s4">,</span>
+        <span class="s1">default</span><span class="s4">=</span><span class="s6">&quot;configs/config.yaml&quot;</span><span class="s4">,</span>
+        <span class="s1">help</span><span class="s4">=</span><span class="s6">&quot;Path to configuration file (default: configs/config.yaml)&quot;</span>
+    <span class="s4">)</span>
+    
+    <span class="s1">args </span><span class="s4">= </span><span class="s1">parser</span><span class="s4">.</span><span class="s1">parse_args</span><span class="s4">()</span>
+    
+    <span class="s1">print</span><span class="s4">(</span><span class="s6">&quot;&quot;&quot;============================================================ 
+Residual_Carbon - Data Loader 
+Google Earth Engine Data Acquisition 
+============================================================ 
+&quot;&quot;&quot;</span><span class="s4">)</span>
+    
+    <span class="s3"># STEP 1: Project Structure Setup (shared initialization)</span>
+    <span class="s1">print</span><span class="s4">(</span><span class="s6">&quot;&quot;&quot; 
+============================================================ 
+STEP 1: Project Structure Setup 
+============================================================&quot;&quot;&quot;</span><span class="s4">)</span>
+    
+    <span class="s2">try</span><span class="s4">:</span>
+        <span class="s1">config</span><span class="s4">, </span><span class="s1">project_root</span><span class="s4">, </span><span class="s1">raw_dir</span><span class="s4">, </span><span class="s1">processed_dir </span><span class="s4">= </span><span class="s1">initialize_project</span><span class="s4">(</span><span class="s1">args</span><span class="s4">.</span><span class="s1">config</span><span class="s4">)</span>
+        <span class="s1">print</span><span class="s4">(</span><span class="s6">f&quot;&quot;&quot;Configuration loaded successfully</span>
+<span class="s6">Project root: </span><span class="s2">{</span><span class="s1">project_root</span><span class="s2">}</span>
+<span class="s6">Raw data directory: </span><span class="s2">{</span><span class="s1">raw_dir</span><span class="s2">}</span>
+<span class="s6">Processed data directory: </span><span class="s2">{</span><span class="s1">processed_dir</span><span class="s2">}</span><span class="s6">&quot;&quot;&quot;</span><span class="s4">)</span>
+    <span class="s2">except </span><span class="s1">FileNotFoundError </span><span class="s2">as </span><span class="s1">e</span><span class="s4">:</span>
+        <span class="s1">print</span><span class="s4">(</span><span class="s6">f&quot;Error: </span><span class="s2">{</span><span class="s1">e</span><span class="s2">}</span><span class="s6">&quot;</span><span class="s4">)</span>
+        <span class="s2">return </span><span class="s5">1</span>
+    
+    <span class="s1">print</span><span class="s4">(</span><span class="s6">&quot;</span><span class="s2">\n</span><span class="s6">STEP 1 completed successfully!&quot;</span><span class="s4">)</span>
+    
+    <span class="s3"># STEP 2: Initialize Google Earth Engine and load datasets</span>
+    <span class="s1">print</span><span class="s4">(</span><span class="s6">&quot;&quot;&quot; 
+============================================================ 
+STEP 2: Google Earth Engine Data Retrieval 
+============================================================&quot;&quot;&quot;</span><span class="s4">)</span>
+    
+    <span class="s2">try</span><span class="s4">:</span>
+        <span class="s3"># Initialize GEE loader</span>
+        <span class="s1">loader </span><span class="s4">= </span><span class="s1">GEEDataLoader</span><span class="s4">(</span><span class="s1">config_path</span><span class="s4">=</span><span class="s1">args</span><span class="s4">.</span><span class="s1">config</span><span class="s4">)</span>
+        
+        <span class="s3"># Initialize GEE (will prompt for authentication if needed)</span>
+        <span class="s1">print</span><span class="s4">(</span><span class="s6">&quot;</span><span class="s2">\n</span><span class="s6">Initializing Google Earth Engine...&quot;</span><span class="s4">)</span>
+        <span class="s1">loader</span><span class="s4">.</span><span class="s1">initialize</span><span class="s4">()</span>
+        
+        <span class="s3"># Load datasets</span>
+        <span class="s1">print</span><span class="s4">(</span><span class="s6">&quot;</span><span class="s2">\n</span><span class="s6">Loading soil property datasets...&quot;</span><span class="s4">)</span>
+        <span class="s1">images </span><span class="s4">= </span><span class="s1">loader</span><span class="s4">.</span><span class="s1">load_datasets</span><span class="s4">()</span>
+        <span class="s1">print</span><span class="s4">(</span><span class="s6">f&quot;</span><span class="s2">\n</span><span class="s6">Loaded </span><span class="s2">{</span><span class="s1">len</span><span class="s4">(</span><span class="s1">images</span><span class="s4">)</span><span class="s2">} </span><span class="s6">datasets: </span><span class="s2">{</span><span class="s1">list</span><span class="s4">(</span><span class="s1">images</span><span class="s4">.</span><span class="s1">keys</span><span class="s4">())</span><span class="s2">}</span><span class="s6">&quot;</span><span class="s4">)</span>
+        
+        <span class="s3"># Clip to Mato Grosso</span>
+        <span class="s1">print</span><span class="s4">(</span><span class="s6">&quot;</span><span class="s2">\n</span><span class="s6">Clipping datasets to Mato Grosso...&quot;</span><span class="s4">)</span>
+        <span class="s1">clipped_images </span><span class="s4">= </span><span class="s1">loader</span><span class="s4">.</span><span class="s1">clip_to_mato_grosso</span><span class="s4">()</span>
+        <span class="s1">print</span><span class="s4">(</span><span class="s6">f&quot;</span><span class="s2">\n</span><span class="s6">Clipped </span><span class="s2">{</span><span class="s1">len</span><span class="s4">(</span><span class="s1">clipped_images</span><span class="s4">)</span><span class="s2">} </span><span class="s6">datasets to Mato Grosso boundaries&quot;</span><span class="s4">)</span>
+        
+        <span class="s1">print</span><span class="s4">(</span><span class="s6">&quot;</span><span class="s2">\n</span><span class="s6">STEP 2 completed successfully!&quot;</span><span class="s4">)</span>
+        
+        <span class="s3"># STEP 3: Clipping to Mato Grosso State (already done in Step 2)</span>
+        <span class="s1">print</span><span class="s4">(</span><span class="s6">&quot;&quot;&quot; 
+============================================================ 
+STEP 3: Clipping to Mato Grosso State 
+============================================================ 
+ 
+Clipping already completed in Step 2 
+STEP 3 completed successfully!&quot;&quot;&quot;</span><span class="s4">)</span>
+        
+        <span class="s3"># STEP 4: Export to GeoTIFF Format</span>
+        <span class="s1">print</span><span class="s4">(</span><span class="s6">&quot;&quot;&quot; 
+============================================================ 
+STEP 4: Export to GeoTIFF Format 
+============================================================&quot;&quot;&quot;</span><span class="s4">)</span>
+        
+        <span class="s3"># Get available layers from config</span>
+        <span class="s1">available_layers </span><span class="s4">= </span><span class="s1">list</span><span class="s4">(</span><span class="s1">config</span><span class="s4">.</span><span class="s1">get</span><span class="s4">(</span><span class="s6">&quot;datasets&quot;</span><span class="s4">, {}).</span><span class="s1">keys</span><span class="s4">())</span>
+        
+        <span class="s3"># Interactive layer selection</span>
+        <span class="s1">print</span><span class="s4">(</span><span class="s6">&quot;&quot;&quot; 
+------------------------------------------------------------ 
+Layer Selection 
+------------------------------------------------------------&quot;&quot;&quot;</span><span class="s4">)</span>
+        
+        <span class="s3"># Show all available layers</span>
+        <span class="s1">print</span><span class="s4">(</span><span class="s6">&quot;</span><span class="s2">\n</span><span class="s6">Available layers:&quot;</span><span class="s4">)</span>
+        <span class="s2">for </span><span class="s1">idx</span><span class="s4">, </span><span class="s1">layer </span><span class="s2">in </span><span class="s1">enumerate</span><span class="s4">(</span><span class="s1">available_layers</span><span class="s4">, </span><span class="s5">1</span><span class="s4">):</span>
+            <span class="s1">print</span><span class="s4">(</span><span class="s6">f&quot;  </span><span class="s2">{</span><span class="s1">idx</span><span class="s2">}</span><span class="s6">. </span><span class="s2">{</span><span class="s1">layer</span><span class="s2">}</span><span class="s6">&quot;</span><span class="s4">)</span>
+        
+        <span class="s2">while True</span><span class="s4">:</span>
+            <span class="s1">choice </span><span class="s4">= </span><span class="s1">input</span><span class="s4">(</span><span class="s6">&quot;</span><span class="s2">\n</span><span class="s6">Do you want to export all layers, just some, or none? (all/some/none): &quot;</span><span class="s4">).</span><span class="s1">strip</span><span class="s4">().</span><span class="s1">lower</span><span class="s4">()</span>
+            <span class="s2">if </span><span class="s1">choice </span><span class="s2">in </span><span class="s4">[</span><span class="s6">'all'</span><span class="s4">, </span><span class="s6">'some'</span><span class="s4">, </span><span class="s6">'none'</span><span class="s4">]:</span>
+                <span class="s2">break</span>
+            <span class="s1">print</span><span class="s4">(</span><span class="s6">&quot;Please enter 'all', 'some', or 'none'&quot;</span><span class="s4">)</span>
+        
+        <span class="s1">selected_layers </span><span class="s4">= []</span>
+        <span class="s2">if </span><span class="s1">choice </span><span class="s4">== </span><span class="s6">'none'</span><span class="s4">:</span>
+            <span class="s1">print</span><span class="s4">(</span><span class="s6">&quot;</span><span class="s2">\n</span><span class="s6">Skipping export - no layers selected&quot;</span><span class="s4">)</span>
+            <span class="s1">selected_layers </span><span class="s4">= []</span>
+        <span class="s2">elif </span><span class="s1">choice </span><span class="s4">== </span><span class="s6">'all'</span><span class="s4">:</span>
+            <span class="s1">selected_layers </span><span class="s4">= </span><span class="s1">available_layers</span>
+            <span class="s1">print</span><span class="s4">(</span><span class="s6">f&quot;</span><span class="s2">\n</span><span class="s6">Selected all </span><span class="s2">{</span><span class="s1">len</span><span class="s4">(</span><span class="s1">selected_layers</span><span class="s4">)</span><span class="s2">} </span><span class="s6">layers&quot;</span><span class="s4">)</span>
+        <span class="s2">else</span><span class="s4">:</span>
+            <span class="s3"># Ask how many layers to select</span>
+            <span class="s2">while True</span><span class="s4">:</span>
+                <span class="s2">try</span><span class="s4">:</span>
+                    <span class="s1">num_layers </span><span class="s4">= </span><span class="s1">int</span><span class="s4">(</span><span class="s1">input</span><span class="s4">(</span><span class="s6">f&quot;</span><span class="s2">\n</span><span class="s6">How many layers do you want to export? (1-</span><span class="s2">{</span><span class="s1">len</span><span class="s4">(</span><span class="s1">available_layers</span><span class="s4">)</span><span class="s2">}</span><span class="s6">): &quot;</span><span class="s4">).</span><span class="s1">strip</span><span class="s4">())</span>
+                    <span class="s2">if </span><span class="s5">1 </span><span class="s4">&lt;= </span><span class="s1">num_layers </span><span class="s4">&lt;= </span><span class="s1">len</span><span class="s4">(</span><span class="s1">available_layers</span><span class="s4">):</span>
+                        <span class="s2">break</span>
+                    <span class="s1">print</span><span class="s4">(</span><span class="s6">f&quot;Please enter a number between 1 and </span><span class="s2">{</span><span class="s1">len</span><span class="s4">(</span><span class="s1">available_layers</span><span class="s4">)</span><span class="s2">}</span><span class="s6">&quot;</span><span class="s4">)</span>
+                <span class="s2">except </span><span class="s1">ValueError</span><span class="s4">:</span>
+                    <span class="s1">print</span><span class="s4">(</span><span class="s6">&quot;Please enter a valid number&quot;</span><span class="s4">)</span>
+            
+            <span class="s3"># Create a copy of available layers for selection (remove as they're selected)</span>
+            <span class="s1">remaining_layers </span><span class="s4">= </span><span class="s1">available_layers</span><span class="s4">.</span><span class="s1">copy</span><span class="s4">()</span>
+            
+            <span class="s3"># Ask for each layer one by one</span>
+            <span class="s2">for </span><span class="s1">i </span><span class="s2">in </span><span class="s1">range</span><span class="s4">(</span><span class="s1">num_layers</span><span class="s4">):</span>
+                <span class="s1">print</span><span class="s4">(</span><span class="s6">f&quot;</span><span class="s2">\n</span><span class="s6">--- Selection </span><span class="s2">{</span><span class="s1">i</span><span class="s4">+</span><span class="s5">1</span><span class="s2">} </span><span class="s6">of </span><span class="s2">{</span><span class="s1">num_layers</span><span class="s2">} </span><span class="s6">---&quot;</span><span class="s4">)</span>
+                <span class="s1">print</span><span class="s4">(</span><span class="s6">&quot;</span><span class="s2">\n</span><span class="s6">Available layers:&quot;</span><span class="s4">)</span>
+                <span class="s2">for </span><span class="s1">idx</span><span class="s4">, </span><span class="s1">layer </span><span class="s2">in </span><span class="s1">enumerate</span><span class="s4">(</span><span class="s1">remaining_layers</span><span class="s4">, </span><span class="s5">1</span><span class="s4">):</span>
+                    <span class="s1">print</span><span class="s4">(</span><span class="s6">f&quot;  </span><span class="s2">{</span><span class="s1">idx</span><span class="s2">}</span><span class="s6">. </span><span class="s2">{</span><span class="s1">layer</span><span class="s2">}</span><span class="s6">&quot;</span><span class="s4">)</span>
+                
+                <span class="s2">while True</span><span class="s4">:</span>
+                    <span class="s2">try</span><span class="s4">:</span>
+                        <span class="s1">layer_idx </span><span class="s4">= </span><span class="s1">int</span><span class="s4">(</span><span class="s1">input</span><span class="s4">(</span><span class="s6">f&quot;</span><span class="s2">\n</span><span class="s6">Select a layer (1-</span><span class="s2">{</span><span class="s1">len</span><span class="s4">(</span><span class="s1">remaining_layers</span><span class="s4">)</span><span class="s2">}</span><span class="s6">): &quot;</span><span class="s4">).</span><span class="s1">strip</span><span class="s4">())</span>
+                        <span class="s2">if </span><span class="s5">1 </span><span class="s4">&lt;= </span><span class="s1">layer_idx </span><span class="s4">&lt;= </span><span class="s1">len</span><span class="s4">(</span><span class="s1">remaining_layers</span><span class="s4">):</span>
+                            <span class="s1">selected_layer </span><span class="s4">= </span><span class="s1">remaining_layers</span><span class="s4">[</span><span class="s1">layer_idx </span><span class="s4">- </span><span class="s5">1</span><span class="s4">]</span>
+                            <span class="s1">selected_layers</span><span class="s4">.</span><span class="s1">append</span><span class="s4">(</span><span class="s1">selected_layer</span><span class="s4">)</span>
+                            <span class="s1">remaining_layers</span><span class="s4">.</span><span class="s1">remove</span><span class="s4">(</span><span class="s1">selected_layer</span><span class="s4">)</span>
+                            <span class="s1">print</span><span class="s4">(</span><span class="s6">f&quot;Selected: </span><span class="s2">{</span><span class="s1">selected_layer</span><span class="s2">}</span><span class="s6">&quot;</span><span class="s4">)</span>
+                            <span class="s2">break</span>
+                        <span class="s2">else</span><span class="s4">:</span>
+                            <span class="s1">print</span><span class="s4">(</span><span class="s6">f&quot;Please enter a number between 1 and </span><span class="s2">{</span><span class="s1">len</span><span class="s4">(</span><span class="s1">remaining_layers</span><span class="s4">)</span><span class="s2">}</span><span class="s6">&quot;</span><span class="s4">)</span>
+                    <span class="s2">except </span><span class="s1">ValueError</span><span class="s4">:</span>
+                        <span class="s1">print</span><span class="s4">(</span><span class="s6">&quot;Please enter a valid number&quot;</span><span class="s4">)</span>
+            
+            <span class="s1">print</span><span class="s4">(</span><span class="s6">f&quot;</span><span class="s2">\n</span><span class="s6">Selected </span><span class="s2">{</span><span class="s1">len</span><span class="s4">(</span><span class="s1">selected_layers</span><span class="s4">)</span><span class="s2">} </span><span class="s6">layer(s): </span><span class="s2">{</span><span class="s6">', '</span><span class="s4">.</span><span class="s1">join</span><span class="s4">(</span><span class="s1">selected_layers</span><span class="s4">)</span><span class="s2">}</span><span class="s6">&quot;</span><span class="s4">)</span>
+        
+        <span class="s3"># Only export if layers were selected</span>
+        <span class="s2">if </span><span class="s1">selected_layers</span><span class="s4">:</span>
+            <span class="s2">try</span><span class="s4">:</span>
+                <span class="s3"># Create export tasks for selected layers only</span>
+                <span class="s1">print</span><span class="s4">(</span><span class="s6">&quot;</span><span class="s2">\n</span><span class="s6">Creating export tasks...&quot;</span><span class="s4">)</span>
+                <span class="s1">tasks </span><span class="s4">= </span><span class="s1">loader</span><span class="s4">.</span><span class="s1">create_export_tasks</span><span class="s4">(</span><span class="s1">selected_layers</span><span class="s4">=</span><span class="s1">selected_layers</span><span class="s4">)</span>
+                
+                <span class="s3"># Start export tasks</span>
+                <span class="s1">print</span><span class="s4">(</span><span class="s6">&quot;</span><span class="s2">\n</span><span class="s6">Starting export tasks...&quot;</span><span class="s4">)</span>
+                <span class="s1">task_ids </span><span class="s4">= </span><span class="s1">loader</span><span class="s4">.</span><span class="s1">start_export_tasks</span><span class="s4">()</span>
+                
+                <span class="s3"># Export tasks completed - user will download manually</span>
+                <span class="s1">print</span><span class="s4">(</span><span class="s6">&quot;&quot;&quot; 
+------------------------------------------------------------ 
+Export tasks started successfully! 
+Files will be exported to Google Drive folder: 
+  https://drive.google.com/drive/folders/1IIBYV68TBZ2evWnUYgBZY9mKI2PalciE 
+------------------------------------------------------------ 
+ 
+To download files manually: 
+  1. Wait for exports to complete in Google Earth Engine 
+  2. Check export status at: https://code.earthengine.google.com/ 
+  3. Download files manually from the Google Drive folder (link above) 
+  4. Place downloaded files in the 'data/raw/' folder&quot;&quot;&quot;</span><span class="s4">)</span>
+                
+                <span class="s1">print</span><span class="s4">(</span><span class="s6">&quot;</span><span class="s2">\n</span><span class="s6">STEP 4 completed successfully!&quot;</span><span class="s4">)</span>
+            <span class="s2">except </span><span class="s1">Exception </span><span class="s2">as </span><span class="s1">e</span><span class="s4">:</span>
+                <span class="s1">print</span><span class="s4">(</span><span class="s6">f&quot;&quot;&quot;Error during export: </span><span class="s2">{</span><span class="s1">e</span><span class="s2">}</span>
+
+<span class="s6">Troubleshooting:</span>
+  <span class="s6">1. Check that GEE export tasks are accessible</span>
+  <span class="s6">2. Verify Google Drive API is enabled</span>
+  <span class="s6">3. Check that you have sufficient Drive storage&quot;&quot;&quot;</span><span class="s4">)</span>
+                <span class="s2">return </span><span class="s5">1</span>
+        <span class="s2">else</span><span class="s4">:</span>
+            <span class="s1">print</span><span class="s4">(</span><span class="s6">&quot;</span><span class="s2">\n</span><span class="s6">STEP 4 skipped (no layers selected for export)&quot;</span><span class="s4">)</span>
+        
+        <span class="s1">print</span><span class="s4">(</span><span class="s6">&quot;&quot;&quot; 
+============================================================ 
+Data Loading Workflow Complete 
+============================================================ 
+ 
+Next steps: 
+  1. Wait for exports to complete in Google Earth Engine 
+  2. Download files from Google Drive to data/raw/ 
+  3. Run: python src/main.py to process the data 
+============================================================&quot;&quot;&quot;</span><span class="s4">)</span>
+        
+    <span class="s2">except </span><span class="s1">ValueError </span><span class="s2">as </span><span class="s1">e</span><span class="s4">:</span>
+        <span class="s1">print</span><span class="s4">(</span><span class="s6">f&quot;&quot;&quot;Error: </span><span class="s2">{</span><span class="s1">e</span><span class="s2">}</span>
+
+<span class="s6">Please set gee.project_name in configs/config.yaml&quot;&quot;&quot;</span><span class="s4">)</span>
+        <span class="s2">return </span><span class="s5">1</span>
+    <span class="s2">except </span><span class="s1">Exception </span><span class="s2">as </span><span class="s1">e</span><span class="s4">:</span>
+        <span class="s1">print</span><span class="s4">(</span><span class="s6">f&quot;&quot;&quot;Error during GEE initialization: </span><span class="s2">{</span><span class="s1">e</span><span class="s2">}</span>
+
+<span class="s6">Troubleshooting:</span>
+  <span class="s6">1. Make sure you have earthengine-api installed: pip install earthengine-api</span>
+  <span class="s6">2. Run: python -c 'import ee; ee.Authenticate()' to authenticate first&quot;&quot;&quot;</span><span class="s4">)</span>
+        <span class="s2">return </span><span class="s5">1</span>
+    
+    <span class="s2">return </span><span class="s5">0</span>
+
+
+<span class="s2">if </span><span class="s1">__name__ </span><span class="s4">== </span><span class="s6">&quot;__main__&quot;</span><span class="s4">:</span>
+    <span class="s1">sys</span><span class="s4">.</span><span class="s1">exit</span><span class="s4">(</span><span class="s1">main</span><span class="s4">())</span>
+
+</pre>
+</body>
+</html>

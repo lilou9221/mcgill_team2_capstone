@@ -1,0 +1,89 @@
+<html>
+<head>
+<title>.gitignore</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #7a7e85;}
+.s1 { color: #bcbec4;}
+</style>
+</head>
+<body bgcolor="#1e1f22">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+.gitignore</font>
+</center></td></tr></table>
+<pre><span class="s0"># Python</span>
+<span class="s1">__pycache__/</span>
+<span class="s1">*.py[cod]</span>
+<span class="s1">*$py.class</span>
+<span class="s1">*.so</span>
+<span class="s1">.Python</span>
+<span class="s1">build/</span>
+<span class="s1">develop-eggs/</span>
+<span class="s1">dist/</span>
+<span class="s1">downloads/</span>
+<span class="s1">eggs/</span>
+<span class="s1">.eggs/</span>
+<span class="s1">lib/</span>
+<span class="s1">lib64/</span>
+<span class="s1">parts/</span>
+<span class="s1">sdist/</span>
+<span class="s1">var/</span>
+<span class="s1">wheels/</span>
+<span class="s1">*.egg-info/</span>
+<span class="s1">.installed.cfg</span>
+<span class="s1">*.egg</span>
+
+<span class="s0"># Virtual environments</span>
+<span class="s1">venv/</span>
+<span class="s1">env/</span>
+<span class="s1">ENV/</span>
+<span class="s1">.venv</span>
+
+<span class="s0"># IDE</span>
+<span class="s1">.vscode/</span>
+<span class="s1">.idea/</span>
+<span class="s1">*.swp</span>
+<span class="s1">*.swo</span>
+<span class="s1">*~</span>
+
+<span class="s0"># Project specific</span>
+<span class="s1">data/raw/*.tif</span>
+<span class="s1">data/raw/*.tiff</span>
+<span class="s1">data/raw/*.geotiff</span>
+<span class="s1">data/processed/*.csv</span>
+<span class="s1">data/processed/*.pkl</span>
+<span class="s1">output/maps/*</span>
+<span class="s1">output/html/*</span>
+<span class="s1">!output/maps/.gitkeep</span>
+<span class="s1">!output/html/.gitkeep</span>
+
+<span class="s0"># Google Drive API credentials (DO NOT COMMIT)</span>
+<span class="s1">configs/credentials.json</span>
+<span class="s1">configs/client_secrets.json</span>
+<span class="s1">configs/settings.yaml</span>
+
+<span class="s0"># Logs</span>
+<span class="s1">logs/*.log</span>
+
+<span class="s0"># Environment variables</span>
+<span class="s1">.env</span>
+<span class="s1">.env.local</span>
+
+<span class="s0"># Jupyter Notebooks</span>
+<span class="s1">.ipynb_checkpoints</span>
+<span class="s1">*.ipynb</span>
+
+<span class="s0"># OS</span>
+<span class="s1">.DS_Store</span>
+<span class="s1">Thumbs.db</span>
+
+<span class="s0"># Temporary files</span>
+<span class="s1">*.tmp</span>
+<span class="s1">*.bak</span>
+<span class="s1">*.cache</span>
+
+</pre>
+</body>
+</html>

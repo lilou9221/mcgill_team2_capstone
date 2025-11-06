@@ -1,0 +1,252 @@
+<html>
+<head>
+<title>pydeck_map.py</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #5f826b; font-style: italic;}
+.s1 { color: #bcbec4;}
+.s2 { color: #cf8e6d;}
+.s3 { color: #bcbec4;}
+.s4 { color: #2aacb8;}
+.s5 { color: #7a7e85;}
+.s6 { color: #6aab73;}
+</style>
+</head>
+<body bgcolor="#1e1f22">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+pydeck_map.py</font>
+</center></td></tr></table>
+<pre><span class="s0">&quot;&quot;&quot; 
+PyDeck Map Module 
+ 
+Creates interactive maps using PyDeck with H3 hexagons. 
+Simple, human-readable code that matches the Capstone reference format. 
+&quot;&quot;&quot;</span>
+
+<span class="s2">from </span><span class="s1">pathlib </span><span class="s2">import </span><span class="s1">Path</span>
+<span class="s2">from </span><span class="s1">typing </span><span class="s2">import </span><span class="s1">Optional</span>
+<span class="s2">import </span><span class="s1">pandas </span><span class="s2">as </span><span class="s1">pd</span>
+<span class="s2">import </span><span class="s1">pydeck </span><span class="s2">as </span><span class="s1">pdk</span>
+
+<span class="s2">from </span><span class="s1">src</span><span class="s3">.</span><span class="s1">visualization</span><span class="s3">.</span><span class="s1">color_scheme </span><span class="s2">import </span><span class="s1">get_color_rgb</span>
+
+
+<span class="s2">def </span><span class="s1">create_pydeck_map</span><span class="s3">(</span>
+    <span class="s1">df</span><span class="s3">: </span><span class="s1">pd</span><span class="s3">.</span><span class="s1">DataFrame</span><span class="s3">,</span>
+    <span class="s1">output_path</span><span class="s3">: </span><span class="s1">Path</span><span class="s3">,</span>
+    <span class="s1">use_h3</span><span class="s3">: </span><span class="s1">bool </span><span class="s3">= </span><span class="s2">True</span><span class="s3">,</span>
+    <span class="s1">center_lat</span><span class="s3">: </span><span class="s1">Optional</span><span class="s3">[</span><span class="s1">float</span><span class="s3">] = </span><span class="s2">None</span><span class="s3">,</span>
+    <span class="s1">center_lon</span><span class="s3">: </span><span class="s1">Optional</span><span class="s3">[</span><span class="s1">float</span><span class="s3">] = </span><span class="s2">None</span><span class="s3">,</span>
+    <span class="s1">zoom_start</span><span class="s3">: </span><span class="s1">int </span><span class="s3">= </span><span class="s4">6</span>
+<span class="s3">) </span><span class="s1">-&gt; </span><span class="s2">None</span><span class="s3">:</span>
+    <span class="s0">&quot;&quot;&quot; 
+    Create interactive PyDeck map with suitability scores. 
+     
+    Simple, human-readable code that matches the Capstone reference format. 
+     
+    Parameters 
+    ---------- 
+    df : pd.DataFrame 
+        DataFrame with suitability scores (must have 'lon', 'lat', 'suitability_score') 
+    output_path : Path 
+        Path to save HTML file 
+    use_h3 : bool, optional 
+        Use H3 hexagons if available (default: True) 
+    center_lat : float, optional 
+        Center latitude for map (default: None, auto-calculated) 
+    center_lon : float, optional 
+        Center longitude for map (default: None, auto-calculated) 
+    zoom_start : int, optional 
+        Initial zoom level (default: 6) 
+    &quot;&quot;&quot;</span>
+    <span class="s5"># Calculate center if not provided</span>
+    <span class="s2">if </span><span class="s1">center_lat </span><span class="s2">is None</span><span class="s3">:</span>
+        <span class="s1">center_lat </span><span class="s3">= </span><span class="s1">df</span><span class="s3">[</span><span class="s6">'lat'</span><span class="s3">].</span><span class="s1">mean</span><span class="s3">()</span>
+    <span class="s2">if </span><span class="s1">center_lon </span><span class="s2">is None</span><span class="s3">:</span>
+        <span class="s1">center_lon </span><span class="s3">= </span><span class="s1">df</span><span class="s3">[</span><span class="s6">'lon'</span><span class="s3">].</span><span class="s1">mean</span><span class="s3">()</span>
+    
+    <span class="s5"># Check if H3 indexes are available</span>
+    <span class="s1">has_h3 </span><span class="s3">= </span><span class="s1">use_h3 </span><span class="s2">and </span><span class="s6">'h3_index' </span><span class="s2">in </span><span class="s1">df</span><span class="s3">.</span><span class="s1">columns</span>
+    
+    <span class="s2">if </span><span class="s1">has_h3</span><span class="s3">:</span>
+        <span class="s5"># Create H3 hexagon layer</span>
+        <span class="s1">hexagon_data </span><span class="s3">= </span><span class="s1">_prepare_hexagon_data</span><span class="s3">(</span><span class="s1">df</span><span class="s3">)</span>
+        <span class="s1">layer </span><span class="s3">= </span><span class="s1">_create_h3_hexagon_layer</span><span class="s3">(</span><span class="s1">hexagon_data</span><span class="s3">)</span>
+    <span class="s2">else</span><span class="s3">:</span>
+        <span class="s5"># Create point layer (fallback if no H3)</span>
+        <span class="s1">point_data </span><span class="s3">= </span><span class="s1">_prepare_point_data</span><span class="s3">(</span><span class="s1">df</span><span class="s3">)</span>
+        <span class="s1">layer </span><span class="s3">= </span><span class="s1">_create_point_layer</span><span class="s3">(</span><span class="s1">point_data</span><span class="s3">)</span>
+    
+    <span class="s5"># Create view state</span>
+    <span class="s1">view_state </span><span class="s3">= </span><span class="s1">pdk</span><span class="s3">.</span><span class="s1">ViewState</span><span class="s3">(</span>
+        <span class="s1">latitude</span><span class="s3">=</span><span class="s1">center_lat</span><span class="s3">,</span>
+        <span class="s1">longitude</span><span class="s3">=</span><span class="s1">center_lon</span><span class="s3">,</span>
+        <span class="s1">zoom</span><span class="s3">=</span><span class="s1">zoom_start</span><span class="s3">,</span>
+        <span class="s1">pitch</span><span class="s3">=</span><span class="s4">0</span><span class="s3">,  </span><span class="s5"># 2D map, no pitch</span>
+        <span class="s1">bearing</span><span class="s3">=</span><span class="s4">0</span>
+    <span class="s3">)</span>
+    
+    <span class="s5"># Create tooltip</span>
+    <span class="s1">tooltip </span><span class="s3">= {</span>
+        <span class="s6">'html'</span><span class="s3">: </span><span class="s6">''' 
+        &lt;b&gt;Suitability Score:&lt;/b&gt; {suitability_score:.2f}&lt;br&gt; 
+        &lt;b&gt;Location:&lt;/b&gt; {lat_formatted}, {lon_formatted}&lt;br&gt; 
+        &lt;b&gt;Points:&lt;/b&gt; {point_count} 
+        '''</span><span class="s3">,</span>
+        <span class="s6">'style'</span><span class="s3">: {</span>
+            <span class="s6">'backgroundColor'</span><span class="s3">: </span><span class="s6">'white'</span><span class="s3">,</span>
+            <span class="s6">'color'</span><span class="s3">: </span><span class="s6">'black'</span>
+        <span class="s3">}</span>
+    <span class="s3">}</span>
+    
+    <span class="s5"># Create deck</span>
+    <span class="s1">deck </span><span class="s3">= </span><span class="s1">pdk</span><span class="s3">.</span><span class="s1">Deck</span><span class="s3">(</span>
+        <span class="s1">layers</span><span class="s3">=[</span><span class="s1">layer</span><span class="s3">],</span>
+        <span class="s1">initial_view_state</span><span class="s3">=</span><span class="s1">view_state</span><span class="s3">,</span>
+        <span class="s1">map_style</span><span class="s3">=</span><span class="s6">'mapbox://styles/mapbox/light-v9'</span><span class="s3">,</span>
+        <span class="s1">tooltip</span><span class="s3">=</span><span class="s1">tooltip</span>
+    <span class="s3">)</span>
+    
+    <span class="s5"># Save map</span>
+    <span class="s1">output_path</span><span class="s3">.</span><span class="s1">parent</span><span class="s3">.</span><span class="s1">mkdir</span><span class="s3">(</span><span class="s1">parents</span><span class="s3">=</span><span class="s2">True</span><span class="s3">, </span><span class="s1">exist_ok</span><span class="s3">=</span><span class="s2">True</span><span class="s3">)</span>
+    <span class="s1">deck</span><span class="s3">.</span><span class="s1">to_html</span><span class="s3">(</span><span class="s1">str</span><span class="s3">(</span><span class="s1">output_path</span><span class="s3">))</span>
+
+
+<span class="s2">def </span><span class="s1">_prepare_hexagon_data</span><span class="s3">(</span><span class="s1">df</span><span class="s3">: </span><span class="s1">pd</span><span class="s3">.</span><span class="s1">DataFrame</span><span class="s3">) </span><span class="s1">-&gt; pd</span><span class="s3">.</span><span class="s1">DataFrame</span><span class="s3">:</span>
+    <span class="s0">&quot;&quot;&quot; 
+    Prepare hexagon data for PyDeck H3HexagonLayer. 
+     
+    Groups by H3 index and calculates aggregated values. 
+    Adds formatted coordinates and color information. 
+     
+    Parameters 
+    ---------- 
+    df : pd.DataFrame 
+        DataFrame with H3 indexes and suitability scores 
+     
+    Returns 
+    ------- 
+    pd.DataFrame 
+        Prepared hexagon data 
+    &quot;&quot;&quot;</span>
+    <span class="s5"># Group by H3 index and aggregate</span>
+    <span class="s1">hexagon_data </span><span class="s3">= </span><span class="s1">df</span><span class="s3">.</span><span class="s1">groupby</span><span class="s3">(</span><span class="s6">'h3_index'</span><span class="s3">).</span><span class="s1">agg</span><span class="s3">({</span>
+        <span class="s6">'suitability_score'</span><span class="s3">: </span><span class="s6">'mean'</span><span class="s3">,</span>
+        <span class="s6">'lat'</span><span class="s3">: </span><span class="s6">'first'</span><span class="s3">,</span>
+        <span class="s6">'lon'</span><span class="s3">: </span><span class="s6">'first'</span>
+    <span class="s3">}).</span><span class="s1">reset_index</span><span class="s3">()</span>
+    
+    <span class="s5"># Count points per hexagon</span>
+    <span class="s1">point_counts </span><span class="s3">= </span><span class="s1">df</span><span class="s3">.</span><span class="s1">groupby</span><span class="s3">(</span><span class="s6">'h3_index'</span><span class="s3">).</span><span class="s1">size</span><span class="s3">().</span><span class="s1">reset_index</span><span class="s3">(</span><span class="s1">name</span><span class="s3">=</span><span class="s6">'point_count'</span><span class="s3">)</span>
+    <span class="s1">hexagon_data </span><span class="s3">= </span><span class="s1">hexagon_data</span><span class="s3">.</span><span class="s1">merge</span><span class="s3">(</span><span class="s1">point_counts</span><span class="s3">, </span><span class="s1">on</span><span class="s3">=</span><span class="s6">'h3_index'</span><span class="s3">)</span>
+    
+    <span class="s5"># Format coordinates for display</span>
+    <span class="s1">hexagon_data</span><span class="s3">[</span><span class="s6">'lat_formatted'</span><span class="s3">] = </span><span class="s1">hexagon_data</span><span class="s3">[</span><span class="s6">'lat'</span><span class="s3">].</span><span class="s1">apply</span><span class="s3">(</span><span class="s2">lambda </span><span class="s1">x</span><span class="s3">: </span><span class="s6">f&quot;</span><span class="s2">{</span><span class="s1">x</span><span class="s2">:</span><span class="s6">.2f</span><span class="s2">}</span><span class="s6">&quot;</span><span class="s3">)</span>
+    <span class="s1">hexagon_data</span><span class="s3">[</span><span class="s6">'lon_formatted'</span><span class="s3">] = </span><span class="s1">hexagon_data</span><span class="s3">[</span><span class="s6">'lon'</span><span class="s3">].</span><span class="s1">apply</span><span class="s3">(</span><span class="s2">lambda </span><span class="s1">x</span><span class="s3">: </span><span class="s6">f&quot;</span><span class="s2">{</span><span class="s1">x</span><span class="s2">:</span><span class="s6">.2f</span><span class="s2">}</span><span class="s6">&quot;</span><span class="s3">)</span>
+    
+    <span class="s5"># Add color as RGBA array [R, G, B, A]</span>
+    <span class="s2">def </span><span class="s1">get_color_rgba</span><span class="s3">(</span><span class="s1">score</span><span class="s3">):</span>
+        <span class="s0">&quot;&quot;&quot;Get RGBA color array for a suitability score.&quot;&quot;&quot;</span>
+        <span class="s1">r</span><span class="s3">, </span><span class="s1">g</span><span class="s3">, </span><span class="s1">b </span><span class="s3">= </span><span class="s1">get_color_rgb</span><span class="s3">(</span><span class="s1">score</span><span class="s3">)</span>
+        <span class="s2">return </span><span class="s3">[</span><span class="s1">r</span><span class="s3">, </span><span class="s1">g</span><span class="s3">, </span><span class="s1">b</span><span class="s3">, </span><span class="s4">255</span><span class="s3">]  </span><span class="s5"># Full opacity</span>
+    
+    <span class="s1">hexagon_data</span><span class="s3">[</span><span class="s6">'color'</span><span class="s3">] = </span><span class="s1">hexagon_data</span><span class="s3">[</span><span class="s6">'suitability_score'</span><span class="s3">].</span><span class="s1">apply</span><span class="s3">(</span><span class="s1">get_color_rgba</span><span class="s3">)</span>
+    
+    <span class="s1">print</span><span class="s3">(</span><span class="s6">f&quot;  Prepared </span><span class="s2">{</span><span class="s1">len</span><span class="s3">(</span><span class="s1">hexagon_data</span><span class="s3">)</span><span class="s2">:</span><span class="s6">,</span><span class="s2">} </span><span class="s6">H3 hexagons&quot;</span><span class="s3">)</span>
+    
+    <span class="s2">return </span><span class="s1">hexagon_data</span>
+
+
+<span class="s2">def </span><span class="s1">_create_h3_hexagon_layer</span><span class="s3">(</span><span class="s1">hexagon_data</span><span class="s3">: </span><span class="s1">pd</span><span class="s3">.</span><span class="s1">DataFrame</span><span class="s3">) </span><span class="s1">-&gt; pdk</span><span class="s3">.</span><span class="s1">Layer</span><span class="s3">:</span>
+    <span class="s0">&quot;&quot;&quot; 
+    Create H3 hexagon layer for PyDeck. 
+     
+    Uses H3HexagonLayer (not PolygonLayer) for better performance. 
+     
+    Parameters 
+    ---------- 
+    hexagon_data : pd.DataFrame 
+        Prepared hexagon data with h3_index, color, etc. 
+     
+    Returns 
+    ------- 
+    pdk.Layer 
+        PyDeck H3HexagonLayer 
+    &quot;&quot;&quot;</span>
+    <span class="s2">return </span><span class="s1">pdk</span><span class="s3">.</span><span class="s1">Layer</span><span class="s3">(</span>
+        <span class="s6">'H3HexagonLayer'</span><span class="s3">,</span>
+        <span class="s1">data</span><span class="s3">=</span><span class="s1">hexagon_data</span><span class="s3">,</span>
+        <span class="s1">get_hexagon</span><span class="s3">=</span><span class="s6">'h3_index'</span><span class="s3">,</span>
+        <span class="s1">get_fill_color</span><span class="s3">=</span><span class="s6">'color'</span><span class="s3">,</span>
+        <span class="s1">stroked</span><span class="s3">=</span><span class="s2">True</span><span class="s3">,</span>
+        <span class="s1">get_line_color</span><span class="s3">=[</span><span class="s4">0</span><span class="s3">, </span><span class="s4">0</span><span class="s3">, </span><span class="s4">0</span><span class="s3">, </span><span class="s4">80</span><span class="s3">],  </span><span class="s5"># Black border with transparency</span>
+        <span class="s1">line_width_min_pixels</span><span class="s3">=</span><span class="s4">1</span><span class="s3">,</span>
+        <span class="s1">pickable</span><span class="s3">=</span><span class="s2">True</span>
+    <span class="s3">)</span>
+
+
+<span class="s2">def </span><span class="s1">_prepare_point_data</span><span class="s3">(</span><span class="s1">df</span><span class="s3">: </span><span class="s1">pd</span><span class="s3">.</span><span class="s1">DataFrame</span><span class="s3">) </span><span class="s1">-&gt; pd</span><span class="s3">.</span><span class="s1">DataFrame</span><span class="s3">:</span>
+    <span class="s0">&quot;&quot;&quot; 
+    Prepare point data for PyDeck (fallback if no H3). 
+     
+    Parameters 
+    ---------- 
+    df : pd.DataFrame 
+        DataFrame with coordinates and suitability scores 
+     
+    Returns 
+    ------- 
+    pd.DataFrame 
+        Prepared point data 
+    &quot;&quot;&quot;</span>
+    <span class="s1">point_data </span><span class="s3">= </span><span class="s1">df</span><span class="s3">.</span><span class="s1">copy</span><span class="s3">()</span>
+    
+    <span class="s5"># Format coordinates for display</span>
+    <span class="s1">point_data</span><span class="s3">[</span><span class="s6">'lat_formatted'</span><span class="s3">] = </span><span class="s1">point_data</span><span class="s3">[</span><span class="s6">'lat'</span><span class="s3">].</span><span class="s1">apply</span><span class="s3">(</span><span class="s2">lambda </span><span class="s1">x</span><span class="s3">: </span><span class="s6">f&quot;</span><span class="s2">{</span><span class="s1">x</span><span class="s2">:</span><span class="s6">.2f</span><span class="s2">}</span><span class="s6">&quot;</span><span class="s3">)</span>
+    <span class="s1">point_data</span><span class="s3">[</span><span class="s6">'lon_formatted'</span><span class="s3">] = </span><span class="s1">point_data</span><span class="s3">[</span><span class="s6">'lon'</span><span class="s3">].</span><span class="s1">apply</span><span class="s3">(</span><span class="s2">lambda </span><span class="s1">x</span><span class="s3">: </span><span class="s6">f&quot;</span><span class="s2">{</span><span class="s1">x</span><span class="s2">:</span><span class="s6">.2f</span><span class="s2">}</span><span class="s6">&quot;</span><span class="s3">)</span>
+    
+    <span class="s5"># Add point count (1 for each point)</span>
+    <span class="s1">point_data</span><span class="s3">[</span><span class="s6">'point_count'</span><span class="s3">] = </span><span class="s4">1</span>
+    
+    <span class="s5"># Add color as RGBA array [R, G, B, A]</span>
+    <span class="s2">def </span><span class="s1">get_color_rgba</span><span class="s3">(</span><span class="s1">score</span><span class="s3">):</span>
+        <span class="s0">&quot;&quot;&quot;Get RGBA color array for a suitability score.&quot;&quot;&quot;</span>
+        <span class="s1">r</span><span class="s3">, </span><span class="s1">g</span><span class="s3">, </span><span class="s1">b </span><span class="s3">= </span><span class="s1">get_color_rgb</span><span class="s3">(</span><span class="s1">score</span><span class="s3">)</span>
+        <span class="s2">return </span><span class="s3">[</span><span class="s1">r</span><span class="s3">, </span><span class="s1">g</span><span class="s3">, </span><span class="s1">b</span><span class="s3">, </span><span class="s4">255</span><span class="s3">]  </span><span class="s5"># Full opacity</span>
+    
+    <span class="s1">point_data</span><span class="s3">[</span><span class="s6">'color'</span><span class="s3">] = </span><span class="s1">point_data</span><span class="s3">[</span><span class="s6">'suitability_score'</span><span class="s3">].</span><span class="s1">apply</span><span class="s3">(</span><span class="s1">get_color_rgba</span><span class="s3">)</span>
+    
+    <span class="s1">print</span><span class="s3">(</span><span class="s6">f&quot;  Prepared </span><span class="s2">{</span><span class="s1">len</span><span class="s3">(</span><span class="s1">point_data</span><span class="s3">)</span><span class="s2">:</span><span class="s6">,</span><span class="s2">} </span><span class="s6">points&quot;</span><span class="s3">)</span>
+    
+    <span class="s2">return </span><span class="s1">point_data</span>
+
+
+<span class="s2">def </span><span class="s1">_create_point_layer</span><span class="s3">(</span><span class="s1">point_data</span><span class="s3">: </span><span class="s1">pd</span><span class="s3">.</span><span class="s1">DataFrame</span><span class="s3">) </span><span class="s1">-&gt; pdk</span><span class="s3">.</span><span class="s1">Layer</span><span class="s3">:</span>
+    <span class="s0">&quot;&quot;&quot; 
+    Create point layer for PyDeck (fallback if no H3). 
+     
+    Parameters 
+    ---------- 
+    point_data : pd.DataFrame 
+        Prepared point data with coordinates, color, etc. 
+     
+    Returns 
+    ------- 
+    pdk.Layer 
+        PyDeck ScatterplotLayer 
+    &quot;&quot;&quot;</span>
+    <span class="s2">return </span><span class="s1">pdk</span><span class="s3">.</span><span class="s1">Layer</span><span class="s3">(</span>
+        <span class="s6">'ScatterplotLayer'</span><span class="s3">,</span>
+        <span class="s1">data</span><span class="s3">=</span><span class="s1">point_data</span><span class="s3">,</span>
+        <span class="s1">get_position</span><span class="s3">=[</span><span class="s6">'lon'</span><span class="s3">, </span><span class="s6">'lat'</span><span class="s3">],</span>
+        <span class="s1">get_color</span><span class="s3">=</span><span class="s6">'color'</span><span class="s3">,</span>
+        <span class="s1">get_radius</span><span class="s3">=</span><span class="s4">100</span><span class="s3">,  </span><span class="s5"># Radius in meters</span>
+        <span class="s1">radius_min_pixels</span><span class="s3">=</span><span class="s4">2</span><span class="s3">,</span>
+        <span class="s1">radius_max_pixels</span><span class="s3">=</span><span class="s4">10</span><span class="s3">,</span>
+        <span class="s1">pickable</span><span class="s3">=</span><span class="s2">True</span>
+    <span class="s3">)</span>
+</pre>
+</body>
+</html>

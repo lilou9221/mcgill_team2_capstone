@@ -1,0 +1,231 @@
+<html>
+<head>
+<title>README.md</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cf8e6d;}
+.s1 { color: #bcbec4;}
+.s2 { color: #bcbec4;}
+.s3 { color: #c77dbb; font-style: italic;}
+.s4 { color: #6aab73;}
+.s5 { color: #56a8f5;}
+</style>
+</head>
+<body bgcolor="#1e1f22">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+README.md</font>
+</center></td></tr></table>
+<pre><span class="s0"># </span><span class="s2">Residual_Carbon - Biochar Suitability Mapping Tool</span>
+
+<span class="s2">A tool for mapping biochar application suitability in Mato Grosso, Brazil, based on soil properties and biochar outputs.</span>
+
+<span class="s0">## </span><span class="s2">Project Overview</span>
+
+<span class="s2">This tool analyzes soil properties </span><span class="s1">(</span><span class="s2">moisture, type, temperature, organic carbon, pH, and land cover</span><span class="s1">) </span><span class="s2">from Google Earth Engine to calculate suitability scores for biochar application across Mato Grosso state. The tool generates interactive maps with color-coded suitability scores </span><span class="s1">(</span><span class="s2">0-10 scale</span><span class="s1">) </span><span class="s2">where green indicates high suitability and red indicates low suitability.</span>
+
+<span class="s0">## </span><span class="s2">Features</span>
+
+<span class="s0">- </span><span class="s1">**</span><span class="s2">Automated Data Retrieval</span><span class="s1">**: </span><span class="s2">Retrieves soil property datasets from Google Earth Engine</span>
+<span class="s0">- </span><span class="s1">**</span><span class="s2">Spatial Analysis</span><span class="s1">**: </span><span class="s2">Supports analysis of entire Mato Grosso state or user-specified 100km radius circles</span>
+<span class="s0">- </span><span class="s1">**</span><span class="s2">GeoTIFF Processing</span><span class="s1">**: </span><span class="s2">Exports data to GeoTIFF format with automated download from Google Drive</span>
+<span class="s0">- </span><span class="s1">**</span><span class="s2">H3 Hexagonal Grid</span><span class="s1">**: </span><span class="s2">Converts spatial data to H3 hexagonal grid for efficient spatial indexing</span>
+<span class="s0">- </span><span class="s1">**</span><span class="s2">Suitability Scoring</span><span class="s1">**: </span><span class="s2">Calculates suitability scores </span><span class="s1">(</span><span class="s2">0-10</span><span class="s1">) </span><span class="s2">based on soil property thresholds</span>
+<span class="s0">- </span><span class="s1">**</span><span class="s2">Interactive Maps</span><span class="s1">**: </span><span class="s2">Generates color-coded HTML maps with automatic browser opening</span>
+<span class="s0">- </span><span class="s1">**</span><span class="s2">Automated Workflow</span><span class="s1">**: </span><span class="s2">End-to-end pipeline from data retrieval to visualization</span>
+
+<span class="s0">## </span><span class="s2">Installation</span>
+
+<span class="s0">### </span><span class="s2">Prerequisites</span>
+
+<span class="s0">- </span><span class="s2">Python 3.9 or higher</span>
+<span class="s0">- </span><span class="s2">Google Earth Engine account</span>
+<span class="s0">- </span><span class="s2">Google Cloud Project with Drive API enabled</span>
+<span class="s0">- </span><span class="s2">Git </span><span class="s1">(</span><span class="s2">optional</span><span class="s1">)</span>
+
+<span class="s0">### </span><span class="s2">Step 1</span><span class="s1">: </span><span class="s2">Clone or Navigate to Project</span>
+
+<span class="s0">```</span><span class="s3">bash</span>
+<span class="s4">cd Residual_Carbon</span>
+<span class="s0">```</span>
+
+<span class="s0">### </span><span class="s2">Step 2</span><span class="s1">: </span><span class="s2">Create Virtual Environment </span><span class="s1">(</span><span class="s2">Recommended</span><span class="s1">)</span>
+
+<span class="s0">```</span><span class="s3">bash</span>
+<span class="s4"># Windows</span>
+<span class="s4">python -m venv venv</span>
+<span class="s4">venv\Scripts\activate</span>
+
+<span class="s4"># Linux/Mac</span>
+<span class="s4">python -m venv venv</span>
+<span class="s4">source venv/bin/activate</span>
+<span class="s0">```</span>
+
+<span class="s0">### </span><span class="s2">Step 3</span><span class="s1">: </span><span class="s2">Install Dependencies</span>
+
+<span class="s1">**</span><span class="s2">Option A</span><span class="s1">: </span><span class="s2">Using pip </span><span class="s1">(</span><span class="s2">Linux/Mac</span><span class="s1">)**</span>
+
+<span class="s0">```</span><span class="s3">bash</span>
+<span class="s4">pip install -r requirements.txt</span>
+<span class="s0">```</span>
+
+<span class="s1">**</span><span class="s2">Option B</span><span class="s1">: </span><span class="s2">Using Conda </span><span class="s1">(</span><span class="s2">Recommended for Windows</span><span class="s1">)**</span>
+
+<span class="s0">```</span><span class="s3">bash</span>
+<span class="s4"># Install geospatial packages via Conda</span>
+<span class="s4">conda install -c conda-forge geopandas rasterio shapely fiona pyproj gdal</span>
+
+<span class="s4"># Then install remaining packages via pip</span>
+<span class="s4">pip install -r requirements.txt</span>
+<span class="s0">```</span>
+
+<span class="s0">### </span><span class="s2">Step 4</span><span class="s1">: </span><span class="s2">Google Earth Engine Setup</span>
+
+<span class="s0">1. </span><span class="s1">**</span><span class="s2">Authenticate with Google Earth Engine</span><span class="s1">:**</span>
+   <span class="s0">```</span><span class="s3">bash</span>
+   <span class="s4">python -c &quot;import ee; ee.Authenticate()&quot;</span>
+   <span class="s0">```</span>
+
+<span class="s0">2. </span><span class="s1">**</span><span class="s2">Set your GEE project name</span><span class="s1">** </span><span class="s2">in `configs/config.yaml`</span><span class="s1">:</span>
+   <span class="s0">```</span><span class="s3">yaml</span>
+   <span class="s4">gee:</span>
+     <span class="s4">project_name: &quot;your-project-name&quot;</span>
+   <span class="s0">```</span>
+
+<span class="s0">### </span><span class="s2">Step 5</span><span class="s1">: </span><span class="s2">Google Drive API Setup </span><span class="s1">(</span><span class="s2">for Automated Download</span><span class="s1">)</span>
+
+<span class="s0">1. </span><span class="s1">**</span><span class="s2">Enable Google Drive API</span><span class="s1">:**</span>
+   <span class="s0">- </span><span class="s2">Go to </span><span class="s1">[</span><span class="s2">Google Cloud Console</span><span class="s1">](</span><span class="s5">https://console.cloud.google.com/</span><span class="s1">)</span>
+   <span class="s0">- </span><span class="s2">Create a new project or select existing one</span>
+   <span class="s0">- </span><span class="s2">Enable Google Drive API</span>
+   <span class="s0">- </span><span class="s2">Create OAuth 2.0 credentials </span><span class="s1">(</span><span class="s2">Desktop application</span><span class="s1">)</span>
+
+<span class="s0">2. </span><span class="s1">**</span><span class="s2">Download credentials</span><span class="s1">:**</span>
+   <span class="s0">- </span><span class="s2">Download `client_secrets.json` from Google Cloud Console</span>
+   <span class="s0">- </span><span class="s2">Place it in `configs/client_secrets.json`</span>
+
+<span class="s0">3. </span><span class="s1">**</span><span class="s2">First-time authentication</span><span class="s1">:**</span>
+   <span class="s0">- </span><span class="s2">The first time you run the tool, it will open a browser for OAuth authentication</span>
+   <span class="s0">- </span><span class="s2">A `credentials.json` file will be created automatically in `configs/`</span>
+
+<span class="s0">## </span><span class="s2">Configuration</span>
+
+<span class="s2">Edit `configs/config.yaml` to customize</span><span class="s1">:</span>
+
+<span class="s0">- </span><span class="s2">Google Earth Engine project name</span>
+<span class="s0">- </span><span class="s2">Export resolution </span><span class="s1">(</span><span class="s2">default</span><span class="s1">: </span><span class="s2">1000m</span><span class="s1">)</span>
+<span class="s0">- </span><span class="s2">H3 resolution </span><span class="s1">(</span><span class="s2">default</span><span class="s1">: </span><span class="s2">6</span><span class="s1">)</span>
+<span class="s0">- </span><span class="s2">Output directories</span>
+<span class="s0">- </span><span class="s2">Suitability scoring parameters</span>
+
+<span class="s0">## </span><span class="s2">Usage</span>
+
+<span class="s0">### </span><span class="s2">Basic Usage </span><span class="s1">(</span><span class="s2">Full State Analysis</span><span class="s1">)</span>
+
+<span class="s0">```</span><span class="s3">bash</span>
+<span class="s4">python src/main.py</span>
+<span class="s0">```</span>
+
+<span class="s0">### </span><span class="s2">With User Coordinates </span><span class="s1">(</span><span class="s2">100km Radius</span><span class="s1">)</span>
+
+<span class="s0">```</span><span class="s3">bash</span>
+<span class="s4">python src/main.py --lat -15.5 --lon -56.0</span>
+<span class="s0">```</span>
+
+<span class="s0">### </span><span class="s2">CLI Options</span>
+
+<span class="s0">```</span><span class="s3">bash</span>
+<span class="s4">python src/main.py --help</span>
+<span class="s0">```</span>
+
+<span class="s0">## </span><span class="s2">Project Structure</span>
+
+<span class="s0">```</span>
+<span class="s4">Residual_Carbon/</span>
+<span class="s4">├── src/</span>
+<span class="s4">│   ├── data/           # Data retrieval and processing</span>
+<span class="s4">│   ├── analysis/       # Suitability scoring</span>
+<span class="s4">│   ├── visualization/  # Map generation</span>
+<span class="s4">│   └── utils/          # Utility functions</span>
+<span class="s4">├── configs/            # Configuration files</span>
+<span class="s4">├── data/</span>
+<span class="s4">│   ├── raw/            # GeoTIFF files from GEE</span>
+<span class="s4">│   └── processed/      # Processed CSV and H3 data</span>
+<span class="s4">├── output/</span>
+<span class="s4">│   ├── maps/           # Generated maps</span>
+<span class="s4">│   └── html/           # HTML map files</span>
+<span class="s4">├── logs/               # Application logs</span>
+<span class="s4">├── requirements.txt    # Python dependencies</span>
+<span class="s4">├── config.yaml         # Main configuration</span>
+<span class="s4">└── README.md           # This file</span>
+<span class="s0">```</span>
+
+<span class="s0">## </span><span class="s2">Workflow</span>
+
+<span class="s0">1. </span><span class="s1">**</span><span class="s2">Data Retrieval</span><span class="s1">**: </span><span class="s2">Retrieve soil property datasets from Google Earth Engine</span>
+<span class="s0">2. </span><span class="s1">**</span><span class="s2">Clipping</span><span class="s1">**: </span><span class="s2">Clip datasets to Mato Grosso state boundaries</span>
+<span class="s0">3. </span><span class="s1">**</span><span class="s2">Export</span><span class="s1">**: </span><span class="s2">Export to GeoTIFF format </span><span class="s1">(</span><span class="s2">uploaded to Google Drive</span><span class="s1">)</span>
+<span class="s0">4. </span><span class="s1">**</span><span class="s2">Download</span><span class="s1">**: </span><span class="s2">Automatically download GeoTIFF files from Google Drive</span>
+<span class="s0">5. </span><span class="s1">**</span><span class="s2">User Input</span><span class="s1">**: </span><span class="s2">Optionally specify coordinates for 100km radius analysis</span>
+<span class="s0">6. </span><span class="s1">**</span><span class="s2">Radius Clipping</span><span class="s1">**: </span><span class="s2">Clip GeoTIFFs to user-specified circles </span><span class="s1">(</span><span class="s2">if provided</span><span class="s1">)</span>
+<span class="s0">7. </span><span class="s1">**</span><span class="s2">CSV Conversion</span><span class="s1">**: </span><span class="s2">Convert clipped rasters to CSV format</span>
+<span class="s0">8. </span><span class="s1">**</span><span class="s2">H3 Indexing</span><span class="s1">**: </span><span class="s2">Convert coordinates to H3 hexagonal grid</span>
+<span class="s0">9. </span><span class="s1">**</span><span class="s2">Scoring</span><span class="s1">**: </span><span class="s2">Calculate suitability scores based on thresholds</span>
+<span class="s0">10. </span><span class="s1">**</span><span class="s2">Visualization</span><span class="s1">**: </span><span class="s2">Generate interactive HTML map with color-coded scores</span>
+<span class="s0">11. </span><span class="s1">**</span><span class="s2">Auto-Open</span><span class="s1">**: </span><span class="s2">Automatically open map in default browser</span>
+
+<span class="s0">## </span><span class="s2">Data Sources</span>
+
+<span class="s0">- </span><span class="s1">**</span><span class="s2">Soil Moisture</span><span class="s1">**: </span><span class="s2">NASA SMAP </span><span class="s1">(</span><span class="s2">NASA/SMAP/SPL4SMGP/008</span><span class="s1">)</span>
+<span class="s0">- </span><span class="s1">**</span><span class="s2">Soil Type</span><span class="s1">**: </span><span class="s2">OpenLandMap </span><span class="s1">(</span><span class="s2">OpenLandMap/SOL/SOL_TEXTURE-CLASS_USDA-TT_M/v02</span><span class="s1">)</span>
+<span class="s0">- </span><span class="s1">**</span><span class="s2">Soil Temperature</span><span class="s1">**: </span><span class="s2">NASA SMAP </span><span class="s1">(</span><span class="s2">NASA/SMAP/SPL4SMGP/008</span><span class="s1">)</span>
+<span class="s0">- </span><span class="s1">**</span><span class="s2">Soil Organic Carbon</span><span class="s1">**: </span><span class="s2">OpenLandMap </span><span class="s1">(</span><span class="s2">OpenLandMap/SOL/SOL_ORGANIC-CARBON_USDA-6A1C_M/v02</span><span class="s1">)</span>
+<span class="s0">- </span><span class="s1">**</span><span class="s2">Soil pH</span><span class="s1">**: </span><span class="s2">OpenLandMap </span><span class="s1">(</span><span class="s2">OpenLandMap/SOL/SOL_PH-H2O_USDA-4C1A2A_M/v02</span><span class="s1">)</span>
+<span class="s0">- </span><span class="s1">**</span><span class="s2">Land Cover</span><span class="s1">**: </span><span class="s2">ESA WorldCover </span><span class="s1">(</span><span class="s2">ESA/WorldCover/v100</span><span class="s1">)</span>
+
+<span class="s0">## </span><span class="s2">Output</span>
+
+<span class="s2">The tool generates</span><span class="s1">:</span>
+
+<span class="s0">- </span><span class="s1">**</span><span class="s2">GeoTIFF files</span><span class="s1">**: </span><span class="s2">Raw raster data in `data/raw/`</span>
+<span class="s0">- </span><span class="s1">**</span><span class="s2">CSV files</span><span class="s1">**: </span><span class="s2">Processed point data in `data/processed/`</span>
+<span class="s0">- </span><span class="s1">**</span><span class="s2">HTML map</span><span class="s1">**: </span><span class="s2">Interactive suitability map in `output/html/`</span>
+<span class="s0">- </span><span class="s1">**</span><span class="s2">Logs</span><span class="s1">**: </span><span class="s2">Application logs in `logs/`</span>
+
+<span class="s0">## </span><span class="s2">Troubleshooting</span>
+
+<span class="s0">### </span><span class="s2">Google Earth Engine Authentication Issues</span>
+
+<span class="s0">```</span><span class="s3">bash</span>
+<span class="s4"># Re-authenticate</span>
+<span class="s4">python -c &quot;import ee; ee.Authenticate()&quot;</span>
+<span class="s0">```</span>
+
+<span class="s0">### </span><span class="s2">Google Drive API Issues</span>
+
+<span class="s0">- </span><span class="s2">Ensure `client_secrets.json` is in `configs/` directory</span>
+<span class="s0">- </span><span class="s2">Check that Google Drive API is enabled in Google Cloud Console</span>
+<span class="s0">- </span><span class="s2">Delete `configs/credentials.json` and re-authenticate if needed</span>
+
+<span class="s0">### </span><span class="s2">GeoTIFF Export Issues</span>
+
+<span class="s0">- </span><span class="s2">Check export task status in Google Earth Engine Code Editor</span>
+<span class="s0">- </span><span class="s2">Verify you have sufficient Google Drive storage</span>
+<span class="s0">- </span><span class="s2">Ensure export folder name matches in `config.yaml`</span>
+
+<span class="s0">## </span><span class="s2">License</span>
+
+<span class="s1">[</span><span class="s2">Add your license here</span><span class="s1">]</span>
+
+<span class="s0">## </span><span class="s2">Contributing</span>
+
+<span class="s1">[</span><span class="s2">Add contribution guidelines here</span><span class="s1">]</span>
+
+<span class="s0">## </span><span class="s2">Contact</span>
+
+<span class="s1">[</span><span class="s2">Add contact information here</span><span class="s1">]</span>
+
+</pre>
+</body>
+</html>

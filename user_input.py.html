@@ -1,0 +1,381 @@
+<html>
+<head>
+<title>user_input.py</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #5f826b; font-style: italic;}
+.s1 { color: #bcbec4;}
+.s2 { color: #cf8e6d;}
+.s3 { color: #7a7e85;}
+.s4 { color: #bcbec4;}
+.s5 { color: #2aacb8;}
+.s6 { color: #6aab73;}
+</style>
+</head>
+<body bgcolor="#1e1f22">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+user_input.py</font>
+</center></td></tr></table>
+<pre><span class="s0">&quot;&quot;&quot; 
+User Input Processing Module 
+ 
+Handles user input for area of interest specification. 
+Processes coordinates and radius for biochar suitability analysis. 
+&quot;&quot;&quot;</span>
+
+<span class="s2">from </span><span class="s1">typing </span><span class="s2">import </span><span class="s1">Optional</span>
+<span class="s2">from </span><span class="s1">pathlib </span><span class="s2">import </span><span class="s1">Path</span>
+<span class="s2">import </span><span class="s1">sys</span>
+
+<span class="s3"># Add src to path</span>
+<span class="s1">sys</span><span class="s4">.</span><span class="s1">path</span><span class="s4">.</span><span class="s1">insert</span><span class="s4">(</span><span class="s5">0</span><span class="s4">, </span><span class="s1">str</span><span class="s4">(</span><span class="s1">Path</span><span class="s4">(</span><span class="s1">__file__</span><span class="s4">).</span><span class="s1">parent</span><span class="s4">.</span><span class="s1">parent</span><span class="s4">.</span><span class="s1">parent</span><span class="s4">.</span><span class="s1">parent</span><span class="s4">))</span>
+
+<span class="s2">from </span><span class="s1">src</span><span class="s4">.</span><span class="s1">utils</span><span class="s4">.</span><span class="s1">coordinate_validator </span><span class="s2">import </span><span class="s4">(</span>
+    <span class="s1">AreaOfInterest</span><span class="s4">,</span>
+    <span class="s1">validate_coordinates</span><span class="s4">,</span>
+    <span class="s1">is_within_mato_grosso</span><span class="s4">,</span>
+    <span class="s1">is_latitude_within_mato_grosso</span><span class="s4">,</span>
+    <span class="s1">is_longitude_within_mato_grosso</span><span class="s4">,</span>
+    <span class="s1">validate_radius</span><span class="s4">,</span>
+    <span class="s1">format_coordinates</span><span class="s4">,</span>
+    <span class="s1">get_mato_grosso_bounds</span>
+<span class="s4">)</span>
+
+
+<span class="s2">def </span><span class="s1">get_user_area_of_interest</span><span class="s4">(</span>
+    <span class="s1">lat</span><span class="s4">: </span><span class="s1">Optional</span><span class="s4">[</span><span class="s1">float</span><span class="s4">] = </span><span class="s2">None</span><span class="s4">,</span>
+    <span class="s1">lon</span><span class="s4">: </span><span class="s1">Optional</span><span class="s4">[</span><span class="s1">float</span><span class="s4">] = </span><span class="s2">None</span><span class="s4">,</span>
+    <span class="s1">radius_km</span><span class="s4">: </span><span class="s1">float </span><span class="s4">= </span><span class="s5">100.0</span><span class="s4">,</span>
+    <span class="s1">interactive</span><span class="s4">: </span><span class="s1">bool </span><span class="s4">= </span><span class="s2">False</span>
+<span class="s4">) </span><span class="s1">-&gt; AreaOfInterest</span><span class="s4">:</span>
+    <span class="s0">&quot;&quot;&quot; 
+    Get user-defined area of interest. 
+     
+    Parameters 
+    ---------- 
+    lat : float, optional 
+        Latitude (if provided via CLI) 
+    lon : float, optional 
+        Longitude (if provided via CLI) 
+    radius_km : float, optional 
+        Radius in kilometers (default: 100.0) 
+    interactive : bool, optional 
+        If True, prompt user for input interactively (default: False) 
+     
+    Returns 
+    ------- 
+    AreaOfInterest 
+        Area of interest object with coordinates and radius 
+     
+    Raises 
+    ------ 
+    ValueError 
+        If coordinates are invalid or outside Mato Grosso bounds 
+    &quot;&quot;&quot;</span>
+    <span class="s3"># If only one coordinate provided, warn and use full state</span>
+    <span class="s2">if </span><span class="s4">(</span><span class="s1">lat </span><span class="s2">is not None and </span><span class="s1">lon </span><span class="s2">is None</span><span class="s4">) </span><span class="s2">or </span><span class="s4">(</span><span class="s1">lat </span><span class="s2">is None and </span><span class="s1">lon </span><span class="s2">is not None</span><span class="s4">):</span>
+        <span class="s1">print</span><span class="s4">(</span><span class="s6">&quot;Warning: Only one coordinate provided. Using full Mato Grosso state.&quot;</span><span class="s4">)</span>
+        <span class="s2">return </span><span class="s1">AreaOfInterest</span><span class="s4">(</span>
+            <span class="s1">lat</span><span class="s4">=</span><span class="s2">None</span><span class="s4">,</span>
+            <span class="s1">lon</span><span class="s4">=</span><span class="s2">None</span><span class="s4">,</span>
+            <span class="s1">radius_km</span><span class="s4">=</span><span class="s1">radius_km</span><span class="s4">,</span>
+            <span class="s1">use_full_state</span><span class="s4">=</span><span class="s2">True</span>
+        <span class="s4">)</span>
+    
+    <span class="s3"># If both coordinates provided, validate them</span>
+    <span class="s2">if </span><span class="s1">lat </span><span class="s2">is not None and </span><span class="s1">lon </span><span class="s2">is not None</span><span class="s4">:</span>
+        <span class="s2">if not </span><span class="s1">validate_coordinates</span><span class="s4">(</span><span class="s1">lat</span><span class="s4">, </span><span class="s1">lon</span><span class="s4">):</span>
+            <span class="s2">raise </span><span class="s1">ValueError</span><span class="s4">(</span><span class="s6">f&quot;Invalid coordinates: (</span><span class="s2">{</span><span class="s1">lat</span><span class="s2">}</span><span class="s6">, </span><span class="s2">{</span><span class="s1">lon</span><span class="s2">}</span><span class="s6">). &quot;</span>
+                           <span class="s6">f&quot;Latitude must be between -90 and 90, &quot;</span>
+                           <span class="s6">f&quot;longitude must be between -180 and 180.&quot;</span><span class="s4">)</span>
+        
+        <span class="s2">if not </span><span class="s1">is_within_mato_grosso</span><span class="s4">(</span><span class="s1">lat</span><span class="s4">, </span><span class="s1">lon</span><span class="s4">):</span>
+            <span class="s1">bounds </span><span class="s4">= </span><span class="s1">get_mato_grosso_bounds</span><span class="s4">()</span>
+            <span class="s2">raise </span><span class="s1">ValueError</span><span class="s4">(</span>
+                <span class="s6">f&quot;Coordinates (</span><span class="s2">{</span><span class="s1">lat</span><span class="s2">}</span><span class="s6">, </span><span class="s2">{</span><span class="s1">lon</span><span class="s2">}</span><span class="s6">) are outside Mato Grosso bounds.</span><span class="s2">\n</span><span class="s6">&quot;</span>
+                <span class="s6">f&quot;Mato Grosso bounds: &quot;</span>
+                <span class="s6">f&quot;Latitude: </span><span class="s2">{</span><span class="s1">bounds</span><span class="s4">[</span><span class="s6">'min_lat'</span><span class="s4">]</span><span class="s2">} </span><span class="s6">to </span><span class="s2">{</span><span class="s1">bounds</span><span class="s4">[</span><span class="s6">'max_lat'</span><span class="s4">]</span><span class="s2">}</span><span class="s6">, &quot;</span>
+                <span class="s6">f&quot;Longitude: </span><span class="s2">{</span><span class="s1">bounds</span><span class="s4">[</span><span class="s6">'min_lon'</span><span class="s4">]</span><span class="s2">} </span><span class="s6">to </span><span class="s2">{</span><span class="s1">bounds</span><span class="s4">[</span><span class="s6">'max_lon'</span><span class="s4">]</span><span class="s2">}</span><span class="s6">&quot;</span>
+            <span class="s4">)</span>
+        
+        <span class="s3"># Validate radius</span>
+        <span class="s2">if not </span><span class="s1">validate_radius</span><span class="s4">(</span><span class="s1">radius_km</span><span class="s4">):</span>
+            <span class="s2">raise </span><span class="s1">ValueError</span><span class="s4">(</span><span class="s6">f&quot;Invalid radius: </span><span class="s2">{</span><span class="s1">radius_km</span><span class="s2">} </span><span class="s6">km. &quot;</span>
+                           <span class="s6">f&quot;Radius must be between 1 and 500 km.&quot;</span><span class="s4">)</span>
+        
+        <span class="s2">return </span><span class="s1">AreaOfInterest</span><span class="s4">(</span>
+            <span class="s1">lat</span><span class="s4">=</span><span class="s1">lat</span><span class="s4">,</span>
+            <span class="s1">lon</span><span class="s4">=</span><span class="s1">lon</span><span class="s4">,</span>
+            <span class="s1">radius_km</span><span class="s4">=</span><span class="s1">radius_km</span><span class="s4">,</span>
+            <span class="s1">use_full_state</span><span class="s4">=</span><span class="s2">False</span>
+        <span class="s4">)</span>
+    
+    <span class="s3"># If interactive mode, prompt user</span>
+    <span class="s2">if </span><span class="s1">interactive</span><span class="s4">:</span>
+        <span class="s2">return </span><span class="s1">_get_interactive_input</span><span class="s4">(</span><span class="s1">radius_km</span><span class="s4">)</span>
+    
+    <span class="s3"># If no coordinates provided, use full state (default behavior)</span>
+    <span class="s2">return </span><span class="s1">AreaOfInterest</span><span class="s4">(</span>
+        <span class="s1">lat</span><span class="s4">=</span><span class="s2">None</span><span class="s4">,</span>
+        <span class="s1">lon</span><span class="s4">=</span><span class="s2">None</span><span class="s4">,</span>
+        <span class="s1">radius_km</span><span class="s4">=</span><span class="s1">radius_km</span><span class="s4">,</span>
+        <span class="s1">use_full_state</span><span class="s4">=</span><span class="s2">True</span>
+    <span class="s4">)</span>
+
+
+<span class="s2">def </span><span class="s1">_get_interactive_input</span><span class="s4">(</span><span class="s1">default_radius</span><span class="s4">: </span><span class="s1">float </span><span class="s4">= </span><span class="s5">100.0</span><span class="s4">) </span><span class="s1">-&gt; AreaOfInterest</span><span class="s4">:</span>
+    <span class="s0">&quot;&quot;&quot; 
+    Get user input interactively. 
+     
+    Parameters 
+    ---------- 
+    default_radius : float, optional 
+        Default radius in kilometers (default: 100.0) 
+     
+    Returns 
+    ------- 
+    AreaOfInterest 
+        Area of interest object 
+    &quot;&quot;&quot;</span>
+    <span class="s1">print</span><span class="s4">(</span><span class="s6">&quot;</span><span class="s2">\n</span><span class="s6">&quot; </span><span class="s4">+ </span><span class="s6">&quot;=&quot; </span><span class="s4">* </span><span class="s5">60</span><span class="s4">)</span>
+    <span class="s1">print</span><span class="s4">(</span><span class="s6">&quot;Area of Interest Selection&quot;</span><span class="s4">)</span>
+    <span class="s1">print</span><span class="s4">(</span><span class="s6">&quot;=&quot; </span><span class="s4">* </span><span class="s5">60</span><span class="s4">)</span>
+    
+    <span class="s3"># Ask if user wants to specify coordinates</span>
+    <span class="s2">while True</span><span class="s4">:</span>
+        <span class="s1">choice </span><span class="s4">= </span><span class="s1">input</span><span class="s4">(</span><span class="s6">&quot;</span><span class="s2">\n</span><span class="s6">Do you want to specify coordinates for a 100km radius analysis? (y/n): &quot;</span><span class="s4">).</span><span class="s1">strip</span><span class="s4">().</span><span class="s1">lower</span><span class="s4">()</span>
+        <span class="s2">if </span><span class="s1">choice </span><span class="s2">in </span><span class="s4">[</span><span class="s6">'y'</span><span class="s4">, </span><span class="s6">'yes'</span><span class="s4">, </span><span class="s6">'n'</span><span class="s4">, </span><span class="s6">'no'</span><span class="s4">]:</span>
+            <span class="s2">break</span>
+        <span class="s1">print</span><span class="s4">(</span><span class="s6">&quot;Please enter 'y' or 'n'&quot;</span><span class="s4">)</span>
+    
+    <span class="s2">if </span><span class="s1">choice </span><span class="s2">in </span><span class="s4">[</span><span class="s6">'n'</span><span class="s4">, </span><span class="s6">'no'</span><span class="s4">]:</span>
+        <span class="s1">print</span><span class="s4">(</span><span class="s6">&quot;</span><span class="s2">\n</span><span class="s6">Using full Mato Grosso state for analysis&quot;</span><span class="s4">)</span>
+        <span class="s2">return </span><span class="s1">AreaOfInterest</span><span class="s4">(</span>
+            <span class="s1">lat</span><span class="s4">=</span><span class="s2">None</span><span class="s4">,</span>
+            <span class="s1">lon</span><span class="s4">=</span><span class="s2">None</span><span class="s4">,</span>
+            <span class="s1">radius_km</span><span class="s4">=</span><span class="s1">default_radius</span><span class="s4">,</span>
+            <span class="s1">use_full_state</span><span class="s4">=</span><span class="s2">True</span>
+        <span class="s4">)</span>
+    
+    <span class="s3"># Get coordinates</span>
+    <span class="s1">bounds </span><span class="s4">= </span><span class="s1">get_mato_grosso_bounds</span><span class="s4">()</span>
+    <span class="s1">print</span><span class="s4">(</span><span class="s6">f&quot;</span><span class="s2">\n</span><span class="s6">Mato Grosso bounds:&quot;</span><span class="s4">)</span>
+    <span class="s1">print</span><span class="s4">(</span><span class="s6">f&quot;  Latitude: </span><span class="s2">{</span><span class="s1">bounds</span><span class="s4">[</span><span class="s6">'min_lat'</span><span class="s4">]</span><span class="s2">} </span><span class="s6">to </span><span class="s2">{</span><span class="s1">bounds</span><span class="s4">[</span><span class="s6">'max_lat'</span><span class="s4">]</span><span class="s2">}</span><span class="s6">&quot;</span><span class="s4">)</span>
+    <span class="s1">print</span><span class="s4">(</span><span class="s6">f&quot;  Longitude: </span><span class="s2">{</span><span class="s1">bounds</span><span class="s4">[</span><span class="s6">'min_lon'</span><span class="s4">]</span><span class="s2">} </span><span class="s6">to </span><span class="s2">{</span><span class="s1">bounds</span><span class="s4">[</span><span class="s6">'max_lon'</span><span class="s4">]</span><span class="s2">}</span><span class="s6">&quot;</span><span class="s4">)</span>
+    
+    <span class="s3"># Get latitude</span>
+    <span class="s2">while True</span><span class="s4">:</span>
+        <span class="s2">try</span><span class="s4">:</span>
+            <span class="s1">lat_input </span><span class="s4">= </span><span class="s1">input</span><span class="s4">(</span><span class="s6">&quot;</span><span class="s2">\n</span><span class="s6">Enter latitude (-90 to 90): &quot;</span><span class="s4">).</span><span class="s1">strip</span><span class="s4">()</span>
+            <span class="s1">lat </span><span class="s4">= </span><span class="s1">float</span><span class="s4">(</span><span class="s1">lat_input</span><span class="s4">)</span>
+            
+            <span class="s2">if not </span><span class="s1">validate_coordinates</span><span class="s4">(</span><span class="s1">lat</span><span class="s4">, </span><span class="s5">0</span><span class="s4">):  </span><span class="s3"># Use 0 as placeholder for lon validation</span>
+                <span class="s1">print</span><span class="s4">(</span><span class="s6">&quot;Invalid latitude. Must be between -90 and 90.&quot;</span><span class="s4">)</span>
+                <span class="s2">continue</span>
+            
+            <span class="s2">if not </span><span class="s1">is_latitude_within_mato_grosso</span><span class="s4">(</span><span class="s1">lat</span><span class="s4">):  </span><span class="s3"># Check lat bounds only</span>
+                <span class="s1">print</span><span class="s4">(</span><span class="s6">f&quot;Latitude </span><span class="s2">{</span><span class="s1">lat</span><span class="s2">} </span><span class="s6">is outside Mato Grosso bounds &quot;</span>
+                      <span class="s6">f&quot;(</span><span class="s2">{</span><span class="s1">bounds</span><span class="s4">[</span><span class="s6">'min_lat'</span><span class="s4">]</span><span class="s2">} </span><span class="s6">to </span><span class="s2">{</span><span class="s1">bounds</span><span class="s4">[</span><span class="s6">'max_lat'</span><span class="s4">]</span><span class="s2">}</span><span class="s6">)&quot;</span><span class="s4">)</span>
+                <span class="s2">continue</span>
+            
+            <span class="s2">break</span>
+        <span class="s2">except </span><span class="s1">ValueError</span><span class="s4">:</span>
+            <span class="s1">print</span><span class="s4">(</span><span class="s6">&quot;Please enter a valid number.&quot;</span><span class="s4">)</span>
+    
+    <span class="s3"># Get longitude</span>
+    <span class="s2">while True</span><span class="s4">:</span>
+        <span class="s2">try</span><span class="s4">:</span>
+            <span class="s1">lon_input </span><span class="s4">= </span><span class="s1">input</span><span class="s4">(</span><span class="s6">&quot;Enter longitude (-180 to 180): &quot;</span><span class="s4">).</span><span class="s1">strip</span><span class="s4">()</span>
+            <span class="s1">lon </span><span class="s4">= </span><span class="s1">float</span><span class="s4">(</span><span class="s1">lon_input</span><span class="s4">)</span>
+            
+            <span class="s2">if not </span><span class="s1">validate_coordinates</span><span class="s4">(</span><span class="s5">0</span><span class="s4">, </span><span class="s1">lon</span><span class="s4">):  </span><span class="s3"># Use 0 as placeholder for lat validation</span>
+                <span class="s1">print</span><span class="s4">(</span><span class="s6">&quot;Invalid longitude. Must be between -180 and 180.&quot;</span><span class="s4">)</span>
+                <span class="s2">continue</span>
+            
+            <span class="s2">if not </span><span class="s1">is_longitude_within_mato_grosso</span><span class="s4">(</span><span class="s1">lon</span><span class="s4">):  </span><span class="s3"># Check lon bounds only</span>
+                <span class="s1">print</span><span class="s4">(</span><span class="s6">f&quot;Longitude </span><span class="s2">{</span><span class="s1">lon</span><span class="s2">} </span><span class="s6">is outside Mato Grosso bounds &quot;</span>
+                      <span class="s6">f&quot;(</span><span class="s2">{</span><span class="s1">bounds</span><span class="s4">[</span><span class="s6">'min_lon'</span><span class="s4">]</span><span class="s2">} </span><span class="s6">to </span><span class="s2">{</span><span class="s1">bounds</span><span class="s4">[</span><span class="s6">'max_lon'</span><span class="s4">]</span><span class="s2">}</span><span class="s6">)&quot;</span><span class="s4">)</span>
+                <span class="s2">continue</span>
+            
+            <span class="s3"># Final check: both coordinates together</span>
+            <span class="s2">if not </span><span class="s1">is_within_mato_grosso</span><span class="s4">(</span><span class="s1">lat</span><span class="s4">, </span><span class="s1">lon</span><span class="s4">):</span>
+                <span class="s1">print</span><span class="s4">(</span><span class="s6">f&quot;Coordinates (</span><span class="s2">{</span><span class="s1">lat</span><span class="s2">}</span><span class="s6">, </span><span class="s2">{</span><span class="s1">lon</span><span class="s2">}</span><span class="s6">) are outside Mato Grosso bounds.&quot;</span><span class="s4">)</span>
+                <span class="s2">continue</span>
+            
+            <span class="s2">break</span>
+        <span class="s2">except </span><span class="s1">ValueError</span><span class="s4">:</span>
+            <span class="s1">print</span><span class="s4">(</span><span class="s6">&quot;Please enter a valid number.&quot;</span><span class="s4">)</span>
+    
+    <span class="s3"># Get radius</span>
+    <span class="s2">while True</span><span class="s4">:</span>
+        <span class="s2">try</span><span class="s4">:</span>
+            <span class="s1">radius_input </span><span class="s4">= </span><span class="s1">input</span><span class="s4">(</span><span class="s6">f&quot;Enter radius in kilometers (default: </span><span class="s2">{</span><span class="s1">default_radius</span><span class="s2">}</span><span class="s6">): &quot;</span><span class="s4">).</span><span class="s1">strip</span><span class="s4">()</span>
+            <span class="s2">if not </span><span class="s1">radius_input</span><span class="s4">:</span>
+                <span class="s1">radius_km </span><span class="s4">= </span><span class="s1">default_radius</span>
+            <span class="s2">else</span><span class="s4">:</span>
+                <span class="s1">radius_km </span><span class="s4">= </span><span class="s1">float</span><span class="s4">(</span><span class="s1">radius_input</span><span class="s4">)</span>
+            
+            <span class="s2">if not </span><span class="s1">validate_radius</span><span class="s4">(</span><span class="s1">radius_km</span><span class="s4">):</span>
+                <span class="s1">print</span><span class="s4">(</span><span class="s6">f&quot;Invalid radius. Must be between 1 and 500 km.&quot;</span><span class="s4">)</span>
+                <span class="s2">continue</span>
+            
+            <span class="s2">break</span>
+        <span class="s2">except </span><span class="s1">ValueError</span><span class="s4">:</span>
+            <span class="s1">print</span><span class="s4">(</span><span class="s6">&quot;Please enter a valid number.&quot;</span><span class="s4">)</span>
+    
+    <span class="s1">print</span><span class="s4">(</span><span class="s6">f&quot;</span><span class="s2">\n</span><span class="s6">Selected area: </span><span class="s2">{</span><span class="s1">radius_km</span><span class="s2">}</span><span class="s6">km radius around </span><span class="s2">{</span><span class="s1">format_coordinates</span><span class="s4">(</span><span class="s1">lat</span><span class="s4">, </span><span class="s1">lon</span><span class="s4">)</span><span class="s2">}</span><span class="s6">&quot;</span><span class="s4">)</span>
+    
+    <span class="s2">return </span><span class="s1">AreaOfInterest</span><span class="s4">(</span>
+        <span class="s1">lat</span><span class="s4">=</span><span class="s1">lat</span><span class="s4">,</span>
+        <span class="s1">lon</span><span class="s4">=</span><span class="s1">lon</span><span class="s4">,</span>
+        <span class="s1">radius_km</span><span class="s4">=</span><span class="s1">radius_km</span><span class="s4">,</span>
+        <span class="s1">use_full_state</span><span class="s4">=</span><span class="s2">False</span>
+    <span class="s4">)</span>
+
+
+<span class="s2">def </span><span class="s1">print_area_summary</span><span class="s4">(</span><span class="s1">area</span><span class="s4">: </span><span class="s1">AreaOfInterest</span><span class="s4">) </span><span class="s1">-&gt; </span><span class="s2">None</span><span class="s4">:</span>
+    <span class="s0">&quot;&quot;&quot; 
+    Print a summary of the area of interest. 
+     
+    Parameters 
+    ---------- 
+    area : AreaOfInterest 
+        Area of interest to summarize 
+    &quot;&quot;&quot;</span>
+    <span class="s1">print</span><span class="s4">(</span><span class="s6">&quot;</span><span class="s2">\n</span><span class="s6">&quot; </span><span class="s4">+ </span><span class="s6">&quot;-&quot; </span><span class="s4">* </span><span class="s5">60</span><span class="s4">)</span>
+    <span class="s1">print</span><span class="s4">(</span><span class="s6">&quot;Area of Interest Summary&quot;</span><span class="s4">)</span>
+    <span class="s1">print</span><span class="s4">(</span><span class="s6">&quot;-&quot; </span><span class="s4">* </span><span class="s5">60</span><span class="s4">)</span>
+    
+    <span class="s2">if </span><span class="s1">area</span><span class="s4">.</span><span class="s1">use_full_state</span><span class="s4">:</span>
+        <span class="s1">print</span><span class="s4">(</span><span class="s6">&quot;Mode: Full Mato Grosso state&quot;</span><span class="s4">)</span>
+    <span class="s2">else</span><span class="s4">:</span>
+        <span class="s1">print</span><span class="s4">(</span><span class="s6">f&quot;Mode: </span><span class="s2">{</span><span class="s1">area</span><span class="s4">.</span><span class="s1">radius_km</span><span class="s2">}</span><span class="s6">km radius around point&quot;</span><span class="s4">)</span>
+        <span class="s1">print</span><span class="s4">(</span><span class="s6">f&quot;Coordinates: </span><span class="s2">{</span><span class="s1">format_coordinates</span><span class="s4">(</span><span class="s1">area</span><span class="s4">.</span><span class="s1">lat</span><span class="s4">, </span><span class="s1">area</span><span class="s4">.</span><span class="s1">lon</span><span class="s4">)</span><span class="s2">}</span><span class="s6">&quot;</span><span class="s4">)</span>
+        <span class="s1">print</span><span class="s4">(</span><span class="s6">f&quot;Radius: </span><span class="s2">{</span><span class="s1">area</span><span class="s4">.</span><span class="s1">radius_km</span><span class="s2">} </span><span class="s6">km&quot;</span><span class="s4">)</span>
+    
+    <span class="s1">print</span><span class="s4">(</span><span class="s6">&quot;-&quot; </span><span class="s4">* </span><span class="s5">60</span><span class="s4">)</span>
+
+
+<span class="s2">if </span><span class="s1">__name__ </span><span class="s4">== </span><span class="s6">&quot;__main__&quot;</span><span class="s4">:</span>
+    <span class="s6">&quot;&quot;&quot;Debug and test user input processing functions.&quot;&quot;&quot;</span>
+    <span class="s2">import </span><span class="s1">sys</span>
+    
+    <span class="s1">print</span><span class="s4">(</span><span class="s6">&quot;&quot;&quot;============================================================ 
+User Input Processing - Debug Mode 
+============================================================&quot;&quot;&quot;</span><span class="s4">)</span>
+    
+    <span class="s1">passed </span><span class="s4">= </span><span class="s5">0</span>
+    <span class="s1">failed </span><span class="s4">= </span><span class="s5">0</span>
+    
+    <span class="s3"># Test with valid coordinates</span>
+    <span class="s1">print</span><span class="s4">(</span><span class="s6">&quot;&quot;&quot; 
+------------------------------------------------------------ 
+1. Testing with valid coordinates in Mato Grosso: 
+------------------------------------------------------------&quot;&quot;&quot;</span><span class="s4">)</span>
+    <span class="s2">try</span><span class="s4">:</span>
+        <span class="s1">area </span><span class="s4">= </span><span class="s1">get_user_area_of_interest</span><span class="s4">(</span><span class="s1">lat</span><span class="s4">=-</span><span class="s5">12.0</span><span class="s4">, </span><span class="s1">lon</span><span class="s4">=-</span><span class="s5">55.0</span><span class="s4">, </span><span class="s1">radius_km</span><span class="s4">=</span><span class="s5">100.0</span><span class="s4">, </span><span class="s1">interactive</span><span class="s4">=</span><span class="s2">False</span><span class="s4">)</span>
+        <span class="s1">print</span><span class="s4">(</span><span class="s6">f&quot;&quot;&quot;  PASS: Successfully created AreaOfInterest</span>
+    <span class="s6">use_full_state: </span><span class="s2">{</span><span class="s1">area</span><span class="s4">.</span><span class="s1">use_full_state</span><span class="s2">}</span>
+    <span class="s6">lat: </span><span class="s2">{</span><span class="s1">area</span><span class="s4">.</span><span class="s1">lat</span><span class="s2">}</span><span class="s6">, lon: </span><span class="s2">{</span><span class="s1">area</span><span class="s4">.</span><span class="s1">lon</span><span class="s2">}</span>
+    <span class="s6">radius_km: </span><span class="s2">{</span><span class="s1">area</span><span class="s4">.</span><span class="s1">radius_km</span><span class="s2">}</span><span class="s6">&quot;&quot;&quot;</span><span class="s4">)</span>
+        <span class="s1">print_area_summary</span><span class="s4">(</span><span class="s1">area</span><span class="s4">)</span>
+        <span class="s1">passed </span><span class="s4">+= </span><span class="s5">1</span>
+    <span class="s2">except </span><span class="s1">Exception </span><span class="s2">as </span><span class="s1">e</span><span class="s4">:</span>
+        <span class="s1">print</span><span class="s4">(</span><span class="s6">f&quot;  FAIL: Unexpected error: </span><span class="s2">{</span><span class="s1">e</span><span class="s2">}</span><span class="s6">&quot;</span><span class="s4">)</span>
+        <span class="s1">failed </span><span class="s4">+= </span><span class="s5">1</span>
+    
+    <span class="s3"># Test with no coordinates (full state)</span>
+    <span class="s1">print</span><span class="s4">(</span><span class="s6">&quot;&quot;&quot; 
+------------------------------------------------------------ 
+2. Testing with no coordinates (full state): 
+------------------------------------------------------------&quot;&quot;&quot;</span><span class="s4">)</span>
+    <span class="s2">try</span><span class="s4">:</span>
+        <span class="s1">area </span><span class="s4">= </span><span class="s1">get_user_area_of_interest</span><span class="s4">(</span><span class="s1">lat</span><span class="s4">=</span><span class="s2">None</span><span class="s4">, </span><span class="s1">lon</span><span class="s4">=</span><span class="s2">None</span><span class="s4">, </span><span class="s1">radius_km</span><span class="s4">=</span><span class="s5">100.0</span><span class="s4">, </span><span class="s1">interactive</span><span class="s4">=</span><span class="s2">False</span><span class="s4">)</span>
+        <span class="s1">print</span><span class="s4">(</span><span class="s6">f&quot;&quot;&quot;  PASS: Successfully created AreaOfInterest for full state</span>
+    <span class="s6">use_full_state: </span><span class="s2">{</span><span class="s1">area</span><span class="s4">.</span><span class="s1">use_full_state</span><span class="s2">}</span>
+    <span class="s6">lat: </span><span class="s2">{</span><span class="s1">area</span><span class="s4">.</span><span class="s1">lat</span><span class="s2">}</span><span class="s6">, lon: </span><span class="s2">{</span><span class="s1">area</span><span class="s4">.</span><span class="s1">lon</span><span class="s2">}</span><span class="s6">&quot;&quot;&quot;</span><span class="s4">)</span>
+        <span class="s1">print_area_summary</span><span class="s4">(</span><span class="s1">area</span><span class="s4">)</span>
+        <span class="s1">passed </span><span class="s4">+= </span><span class="s5">1</span>
+    <span class="s2">except </span><span class="s1">Exception </span><span class="s2">as </span><span class="s1">e</span><span class="s4">:</span>
+        <span class="s1">print</span><span class="s4">(</span><span class="s6">f&quot;  FAIL: Unexpected error: </span><span class="s2">{</span><span class="s1">e</span><span class="s2">}</span><span class="s6">&quot;</span><span class="s4">)</span>
+        <span class="s1">failed </span><span class="s4">+= </span><span class="s5">1</span>
+    
+    <span class="s3"># Test with only latitude provided</span>
+    <span class="s1">print</span><span class="s4">(</span><span class="s6">&quot;&quot;&quot; 
+------------------------------------------------------------ 
+3. Testing with only latitude provided: 
+------------------------------------------------------------&quot;&quot;&quot;</span><span class="s4">)</span>
+    <span class="s2">try</span><span class="s4">:</span>
+        <span class="s1">area </span><span class="s4">= </span><span class="s1">get_user_area_of_interest</span><span class="s4">(</span><span class="s1">lat</span><span class="s4">=-</span><span class="s5">12.0</span><span class="s4">, </span><span class="s1">lon</span><span class="s4">=</span><span class="s2">None</span><span class="s4">, </span><span class="s1">radius_km</span><span class="s4">=</span><span class="s5">100.0</span><span class="s4">, </span><span class="s1">interactive</span><span class="s4">=</span><span class="s2">False</span><span class="s4">)</span>
+        <span class="s1">print</span><span class="s4">(</span><span class="s6">f&quot;&quot;&quot;  PASS: Correctly handled partial coordinates (should use full state)</span>
+    <span class="s6">use_full_state: </span><span class="s2">{</span><span class="s1">area</span><span class="s4">.</span><span class="s1">use_full_state</span><span class="s2">}</span><span class="s6">&quot;&quot;&quot;</span><span class="s4">)</span>
+        <span class="s1">passed </span><span class="s4">+= </span><span class="s5">1</span>
+    <span class="s2">except </span><span class="s1">Exception </span><span class="s2">as </span><span class="s1">e</span><span class="s4">:</span>
+        <span class="s1">print</span><span class="s4">(</span><span class="s6">f&quot;  FAIL: Unexpected error: </span><span class="s2">{</span><span class="s1">e</span><span class="s2">}</span><span class="s6">&quot;</span><span class="s4">)</span>
+        <span class="s1">failed </span><span class="s4">+= </span><span class="s5">1</span>
+    
+    <span class="s3"># Test with invalid coordinates</span>
+    <span class="s1">print</span><span class="s4">(</span><span class="s6">&quot;&quot;&quot; 
+------------------------------------------------------------ 
+4. Testing with invalid coordinates: 
+------------------------------------------------------------&quot;&quot;&quot;</span><span class="s4">)</span>
+    <span class="s2">try</span><span class="s4">:</span>
+        <span class="s1">area </span><span class="s4">= </span><span class="s1">get_user_area_of_interest</span><span class="s4">(</span><span class="s1">lat</span><span class="s4">=</span><span class="s5">91.0</span><span class="s4">, </span><span class="s1">lon</span><span class="s4">=-</span><span class="s5">55.0</span><span class="s4">, </span><span class="s1">radius_km</span><span class="s4">=</span><span class="s5">100.0</span><span class="s4">, </span><span class="s1">interactive</span><span class="s4">=</span><span class="s2">False</span><span class="s4">)</span>
+        <span class="s1">print</span><span class="s4">(</span><span class="s6">&quot;  FAIL: Should have raised ValueError for invalid coordinates&quot;</span><span class="s4">)</span>
+        <span class="s1">failed </span><span class="s4">+= </span><span class="s5">1</span>
+    <span class="s2">except </span><span class="s1">ValueError </span><span class="s2">as </span><span class="s1">e</span><span class="s4">:</span>
+        <span class="s1">print</span><span class="s4">(</span><span class="s6">f&quot;&quot;&quot;  PASS: Correctly raised ValueError for invalid coordinates</span>
+    <span class="s6">Error message: </span><span class="s2">{</span><span class="s1">e</span><span class="s2">}</span><span class="s6">&quot;&quot;&quot;</span><span class="s4">)</span>
+        <span class="s1">passed </span><span class="s4">+= </span><span class="s5">1</span>
+    <span class="s2">except </span><span class="s1">Exception </span><span class="s2">as </span><span class="s1">e</span><span class="s4">:</span>
+        <span class="s1">print</span><span class="s4">(</span><span class="s6">f&quot;  FAIL: Unexpected error type: </span><span class="s2">{</span><span class="s1">type</span><span class="s4">(</span><span class="s1">e</span><span class="s4">).</span><span class="s1">__name__</span><span class="s2">}</span><span class="s6">: </span><span class="s2">{</span><span class="s1">e</span><span class="s2">}</span><span class="s6">&quot;</span><span class="s4">)</span>
+        <span class="s1">failed </span><span class="s4">+= </span><span class="s5">1</span>
+    
+    <span class="s3"># Test with coordinates outside Mato Grosso</span>
+    <span class="s1">print</span><span class="s4">(</span><span class="s6">&quot;&quot;&quot; 
+------------------------------------------------------------ 
+5. Testing with coordinates outside Mato Grosso: 
+------------------------------------------------------------&quot;&quot;&quot;</span><span class="s4">)</span>
+    <span class="s2">try</span><span class="s4">:</span>
+        <span class="s1">area </span><span class="s4">= </span><span class="s1">get_user_area_of_interest</span><span class="s4">(</span><span class="s1">lat</span><span class="s4">=-</span><span class="s5">20.0</span><span class="s4">, </span><span class="s1">lon</span><span class="s4">=-</span><span class="s5">50.0</span><span class="s4">, </span><span class="s1">radius_km</span><span class="s4">=</span><span class="s5">100.0</span><span class="s4">, </span><span class="s1">interactive</span><span class="s4">=</span><span class="s2">False</span><span class="s4">)</span>
+        <span class="s1">print</span><span class="s4">(</span><span class="s6">&quot;  FAIL: Should have raised ValueError for coordinates outside bounds&quot;</span><span class="s4">)</span>
+        <span class="s1">failed </span><span class="s4">+= </span><span class="s5">1</span>
+    <span class="s2">except </span><span class="s1">ValueError </span><span class="s2">as </span><span class="s1">e</span><span class="s4">:</span>
+        <span class="s1">print</span><span class="s4">(</span><span class="s6">f&quot;&quot;&quot;  PASS: Correctly raised ValueError for coordinates outside Mato Grosso</span>
+    <span class="s6">Error message: </span><span class="s2">{</span><span class="s1">e</span><span class="s2">}</span><span class="s6">&quot;&quot;&quot;</span><span class="s4">)</span>
+        <span class="s1">passed </span><span class="s4">+= </span><span class="s5">1</span>
+    <span class="s2">except </span><span class="s1">Exception </span><span class="s2">as </span><span class="s1">e</span><span class="s4">:</span>
+        <span class="s1">print</span><span class="s4">(</span><span class="s6">f&quot;  FAIL: Unexpected error type: </span><span class="s2">{</span><span class="s1">type</span><span class="s4">(</span><span class="s1">e</span><span class="s4">).</span><span class="s1">__name__</span><span class="s2">}</span><span class="s6">: </span><span class="s2">{</span><span class="s1">e</span><span class="s2">}</span><span class="s6">&quot;</span><span class="s4">)</span>
+        <span class="s1">failed </span><span class="s4">+= </span><span class="s5">1</span>
+    
+    <span class="s3"># Test with invalid radius</span>
+    <span class="s1">print</span><span class="s4">(</span><span class="s6">&quot;&quot;&quot; 
+------------------------------------------------------------ 
+6. Testing with invalid radius: 
+------------------------------------------------------------&quot;&quot;&quot;</span><span class="s4">)</span>
+    <span class="s2">try</span><span class="s4">:</span>
+        <span class="s1">area </span><span class="s4">= </span><span class="s1">get_user_area_of_interest</span><span class="s4">(</span><span class="s1">lat</span><span class="s4">=-</span><span class="s5">12.0</span><span class="s4">, </span><span class="s1">lon</span><span class="s4">=-</span><span class="s5">55.0</span><span class="s4">, </span><span class="s1">radius_km</span><span class="s4">=</span><span class="s5">600.0</span><span class="s4">, </span><span class="s1">interactive</span><span class="s4">=</span><span class="s2">False</span><span class="s4">)</span>
+        <span class="s1">print</span><span class="s4">(</span><span class="s6">&quot;  FAIL: Should have raised ValueError for invalid radius&quot;</span><span class="s4">)</span>
+        <span class="s1">failed </span><span class="s4">+= </span><span class="s5">1</span>
+    <span class="s2">except </span><span class="s1">ValueError </span><span class="s2">as </span><span class="s1">e</span><span class="s4">:</span>
+        <span class="s1">print</span><span class="s4">(</span><span class="s6">f&quot;&quot;&quot;  PASS: Correctly raised ValueError for invalid radius</span>
+    <span class="s6">Error message: </span><span class="s2">{</span><span class="s1">e</span><span class="s2">}</span><span class="s6">&quot;&quot;&quot;</span><span class="s4">)</span>
+        <span class="s1">passed </span><span class="s4">+= </span><span class="s5">1</span>
+    <span class="s2">except </span><span class="s1">Exception </span><span class="s2">as </span><span class="s1">e</span><span class="s4">:</span>
+        <span class="s1">print</span><span class="s4">(</span><span class="s6">f&quot;  FAIL: Unexpected error type: </span><span class="s2">{</span><span class="s1">type</span><span class="s4">(</span><span class="s1">e</span><span class="s4">).</span><span class="s1">__name__</span><span class="s2">}</span><span class="s6">: </span><span class="s2">{</span><span class="s1">e</span><span class="s2">}</span><span class="s6">&quot;</span><span class="s4">)</span>
+        <span class="s1">failed </span><span class="s4">+= </span><span class="s5">1</span>
+    
+    <span class="s3"># Summary</span>
+    <span class="s1">print</span><span class="s4">(</span><span class="s6">f&quot;&quot;&quot;</span>
+<span class="s6">============================================================</span>
+<span class="s6">Test Summary: </span><span class="s2">{</span><span class="s1">passed</span><span class="s2">} </span><span class="s6">passed, </span><span class="s2">{</span><span class="s1">failed</span><span class="s2">} </span><span class="s6">failed</span>
+<span class="s6">============================================================&quot;&quot;&quot;</span><span class="s4">)</span>
+    
+    <span class="s2">if </span><span class="s1">failed </span><span class="s4">&gt; </span><span class="s5">0</span><span class="s4">:</span>
+        <span class="s1">sys</span><span class="s4">.</span><span class="s1">exit</span><span class="s4">(</span><span class="s5">1</span><span class="s4">)</span>
+
+</pre>
+</body>
+</html>

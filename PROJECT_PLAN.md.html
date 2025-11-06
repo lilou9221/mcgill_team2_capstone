@@ -1,0 +1,198 @@
+<html>
+<head>
+<title>PROJECT_PLAN.md</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cf8e6d;}
+.s1 { color: #bcbec4;}
+.s2 { color: #bcbec4;}
+</style>
+</head>
+<body bgcolor="#1e1f22">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+PROJECT_PLAN.md</font>
+</center></td></tr></table>
+<pre><span class="s0"># </span><span class="s2">Biochar Suitability Mapping Tool - Step-by-Step Plan</span>
+
+<span class="s0">## </span><span class="s2">Project Overview</span>
+<span class="s2">Tool for mapping biochar application suitability in Mato Grosso, Brazil, based on soil properties and biochar outputs.</span>
+
+<span class="s0">## </span><span class="s2">Data Inputs</span>
+<span class="s0">- </span><span class="s1">**</span><span class="s2">Soil Properties</span><span class="s1">** (</span><span class="s2">from Google Earth Engine</span><span class="s1">):</span>
+  <span class="s0">- </span><span class="s2">Soil moisture</span>
+  <span class="s0">- </span><span class="s2">Soil type</span>
+  <span class="s0">- </span><span class="s2">Soil temperature</span>
+  <span class="s0">- </span><span class="s2">Soil organic carbon </span><span class="s1">(</span><span class="s2">SOC</span><span class="s1">)</span>
+  <span class="s0">- </span><span class="s2">Soil pH</span>
+  <span class="s0">- </span><span class="s2">Land cover</span>
+<span class="s0">- </span><span class="s1">**</span><span class="s2">Biochar Outputs</span><span class="s1">**: </span><span class="s2">Feedstock-specific properties </span><span class="s1">(</span><span class="s2">database to be provided</span><span class="s1">)</span>
+
+<span class="s0">## </span><span class="s2">Geographic Focus</span>
+<span class="s0">- </span><span class="s2">Primary region</span><span class="s1">: </span><span class="s2">Mato Grosso state, Brazil</span>
+<span class="s0">- </span><span class="s2">User can specify coordinates for 100km radius analysis</span>
+<span class="s0">- </span><span class="s2">If no coordinates provided, analyze entire state</span>
+
+<span class="s0">---</span>
+
+<span class="s0">## </span><span class="s2">Step-by-Step Implementation Plan</span>
+
+<span class="s0">### </span><span class="s1">**</span><span class="s2">STEP 1</span><span class="s1">: </span><span class="s2">Project Structure Setup</span><span class="s1">**</span>
+<span class="s1">**</span><span class="s2">Goal</span><span class="s1">**: </span><span class="s2">Create the folder structure and basic configuration files</span>
+<span class="s0">- </span><span class="s2">Create directory structure </span><span class="s1">(</span><span class="s2">src, data, configs, output, etc.</span><span class="s1">)</span>
+<span class="s0">- </span><span class="s2">Create requirements.txt with dependencies</span>
+<span class="s0">- </span><span class="s2">Create config.yaml for settings</span>
+<span class="s0">- </span><span class="s2">Create README.md with project description</span>
+<span class="s0">- </span><span class="s2">Initialize git repository</span>
+
+<span class="s0">---</span>
+
+<span class="s0">### </span><span class="s1">**</span><span class="s2">STEP 2</span><span class="s1">: </span><span class="s2">Google Earth Engine Data Retrieval Module</span><span class="s1">**</span>
+<span class="s1">**</span><span class="s2">Goal</span><span class="s1">**: </span><span class="s2">Retrieve soil property datasets from GEE</span>
+<span class="s0">- </span><span class="s2">Create GEE authentication and initialization</span>
+<span class="s0">- </span><span class="s2">Define functions to retrieve each soil property</span><span class="s1">:</span>
+  <span class="s0">- </span><span class="s2">Soil moisture </span><span class="s1">(</span><span class="s2">NASA/SMAP</span><span class="s1">)</span>
+  <span class="s0">- </span><span class="s2">Soil type </span><span class="s1">(</span><span class="s2">OpenLandMap</span><span class="s1">)</span>
+  <span class="s0">- </span><span class="s2">Soil temperature </span><span class="s1">(</span><span class="s2">NASA/SMAP</span><span class="s1">)</span>
+  <span class="s0">- </span><span class="s2">Soil organic carbon </span><span class="s1">(</span><span class="s2">OpenLandMap</span><span class="s1">)</span>
+  <span class="s0">- </span><span class="s2">Soil pH </span><span class="s1">(</span><span class="s2">OpenLandMap</span><span class="s1">)</span>
+  <span class="s0">- </span><span class="s2">Land cover </span><span class="s1">(</span><span class="s2">ESA WorldCover</span><span class="s1">)</span>
+<span class="s0">- </span><span class="s2">Handle ImageCollections vs Images</span>
+<span class="s0">- </span><span class="s2">Standardize projections to EPSG</span><span class="s1">:</span><span class="s2">4326</span>
+<span class="s0">- </span><span class="s2">Cross examin the projections</span>
+
+<span class="s0">---</span>
+
+<span class="s0">### </span><span class="s1">**</span><span class="s2">STEP 3</span><span class="s1">: </span><span class="s2">Clipping to Mato Grosso State</span><span class="s1">**</span>
+<span class="s1">**</span><span class="s2">Goal</span><span class="s1">**: </span><span class="s2">Clip all retrieved datasets to Mato Grosso boundaries</span>
+<span class="s0">- </span><span class="s2">Load Mato Grosso administrative boundaries from GEE</span>
+<span class="s0">- </span><span class="s2">Clip all soil property images to state boundaries</span>
+<span class="s0">- </span><span class="s2">Verify clipping success</span>
+
+<span class="s0">---</span>
+
+<span class="s0">### </span><span class="s1">**</span><span class="s2">STEP 4</span><span class="s1">: </span><span class="s2">Export to GeoTIFF Format</span><span class="s1">** **</span><span class="s2">COMPLETED</span><span class="s1">** </span><span class="s2">- </span><span class="s1">**</span><span class="s2">Option B Selected</span><span class="s1">: </span><span class="s2">Automated Download</span><span class="s1">**</span>
+<span class="s1">**</span><span class="s2">Goal</span><span class="s1">**: </span><span class="s2">Export clipped datasets to GeoTIFF files with automated download</span>
+<span class="s0">- </span><span class="s2">Create export tasks for each dataset using `ee.batch.Export.image.toDrive</span><span class="s1">()</span><span class="s2">` </span><span class="s1">[</span><span class="s2">DONE</span><span class="s1">]</span>
+<span class="s0">- </span><span class="s1">**</span><span class="s2">Note</span><span class="s1">**: </span><span class="s2">GEE exports to Google Drive </span><span class="s1">(</span><span class="s2">not directly to local machine</span><span class="s1">) [</span><span class="s2">DONE</span><span class="s1">]</span>
+<span class="s0">- </span><span class="s1">**</span><span class="s2">Selected Approach</span><span class="s1">**: </span><span class="s2">Automate download from Drive using `pydrive2` </span><span class="s1">[</span><span class="s2">DONE</span><span class="s1">]</span>
+<span class="s0">- </span><span class="s2">Monitor export progress and task status </span><span class="s1">[</span><span class="s2">DONE</span><span class="s1">]</span>
+<span class="s0">- </span><span class="s2">Automatically download files from Drive to local `data/raw/` directory when complete </span><span class="s1">[</span><span class="s2">DONE</span><span class="s1">]</span>
+<span class="s0">- </span><span class="s2">Organize files by dataset name </span><span class="s1">[</span><span class="s2">DONE</span><span class="s1">]</span>
+<span class="s0">- </span><span class="s1">**</span><span class="s2">Setup Required</span><span class="s1">**: </span><span class="s2">Google Drive API credentials </span><span class="s1">(</span><span class="s2">OAuth2</span><span class="s1">) </span><span class="s2">- See SETUP_GUIDE.md</span>
+
+<span class="s0">---</span>
+
+<span class="s0">### </span><span class="s1">**</span><span class="s2">STEP 5</span><span class="s1">: </span><span class="s2">User Interface - Coordinate Input</span><span class="s1">**</span>
+<span class="s1">**</span><span class="s2">Goal</span><span class="s1">**: </span><span class="s2">Create interface for user to specify area of interest</span>
+<span class="s0">- </span><span class="s2">Create CLI or simple GUI for coordinate input</span>
+<span class="s0">- </span><span class="s2">Options</span><span class="s1">:</span>
+  <span class="s0">- </span><span class="s2">No input</span><span class="s1">: </span><span class="s2">Use entire Mato Grosso state</span>
+  <span class="s0">- </span><span class="s2">With coordinates</span><span class="s1">: </span><span class="s2">Create 100km radius circle</span>
+<span class="s0">- </span><span class="s2">Validate coordinate inputs</span>
+<span class="s0">- </span><span class="s2">Store user preferences</span>
+
+<span class="s0">---</span>
+
+<span class="s0">### </span><span class="s1">**</span><span class="s2">STEP 6</span><span class="s1">: </span><span class="s2">Radius Clipping </span><span class="s1">(</span><span class="s2">100km circles</span><span class="s1">)**</span>
+<span class="s1">**</span><span class="s2">Goal</span><span class="s1">**: </span><span class="s2">Clip GeoTIFFs to user-specified circles</span>
+<span class="s0">- </span><span class="s2">If coordinates provided</span><span class="s1">:</span>
+  <span class="s0">- </span><span class="s2">Create 100km radius buffer around point</span>
+  <span class="s0">- </span><span class="s2">Clip all GeoTIFF files to this circle</span>
+  <span class="s0">- </span><span class="s2">Save clipped versions</span>
+<span class="s0">- </span><span class="s2">If no coordinates</span><span class="s1">:</span>
+  <span class="s0">- </span><span class="s2">Use full state data</span>
+<span class="s0">- </span><span class="s2">Handle coordinate transformations</span>
+
+<span class="s0">---</span>
+
+<span class="s0">### </span><span class="s1">**</span><span class="s2">STEP 7</span><span class="s1">: </span><span class="s2">Convert Maps to CSV </span><span class="s1">(</span><span class="s2">within circles</span><span class="s1">)**</span>
+<span class="s1">**</span><span class="s2">Goal</span><span class="s1">**: </span><span class="s2">Convert clipped GeoTIFFs to CSV format</span>
+<span class="s0">- </span><span class="s2">Extract pixel values from clipped rasters</span>
+<span class="s0">- </span><span class="s2">Create CSV with columns</span><span class="s1">: </span><span class="s2">lon, lat, value for each soil property</span>
+<span class="s0">- </span><span class="s2">Handle nodata values</span>
+<span class="s0">- </span><span class="s2">Merge spatial coordinates across all datasets</span>
+
+<span class="s0">---</span>
+
+<span class="s0">### </span><span class="s1">**</span><span class="s2">STEP 8</span><span class="s1">: </span><span class="s2">H3 Index Conversion</span><span class="s1">**</span>
+<span class="s1">**</span><span class="s2">Goal</span><span class="s1">**: </span><span class="s2">Convert coordinates to H3 hexagonal grid</span>
+<span class="s0">- </span><span class="s2">Install and configure H3 library</span>
+<span class="s0">- </span><span class="s2">Convert lat/lon to H3 indexes</span>
+<span class="s0">- </span><span class="s2">Generate H3 polygons </span><span class="s1">(</span><span class="s2">hexagon boundaries</span><span class="s1">)</span>
+<span class="s0">- </span><span class="s2">Aggregate data by H3 hexagons if needed</span>
+<span class="s0">- </span><span class="s2">Store H3 index and polygon data in CSV</span>
+
+<span class="s0">---</span>
+
+<span class="s0">### </span><span class="s1">**</span><span class="s2">STEP 9</span><span class="s1">: </span><span class="s2">Biochar Thresholds Database</span><span class="s1">**</span>
+<span class="s1">**</span><span class="s2">Goal</span><span class="s1">**: </span><span class="s2">Create/load database with soil property thresholds</span>
+<span class="s0">- </span><span class="s2">Design database structure for thresholds</span>
+<span class="s0">- </span><span class="s2">Define optimal ranges for each soil property</span>
+<span class="s0">- </span><span class="s2">Create scoring system </span><span class="s1">(</span><span class="s2">0-10 scale</span><span class="s1">)</span>
+<span class="s0">- </span><span class="s2">Load biochar outputs database </span><span class="s1">(</span><span class="s2">feedstock properties</span><span class="s1">)</span>
+<span class="s0">- </span><span class="s2">Create configuration file for thresholds</span>
+
+<span class="s0">---</span>
+
+<span class="s0">### </span><span class="s1">**</span><span class="s2">STEP 10</span><span class="s1">: </span><span class="s2">Suitability Score Calculator</span><span class="s1">**</span>
+<span class="s1">**</span><span class="s2">Goal</span><span class="s1">**: </span><span class="s2">Calculate suitability scores based on thresholds</span>
+<span class="s0">- </span><span class="s2">Implement scoring algorithm</span><span class="s1">:</span>
+  <span class="s0">- </span><span class="s2">Compare soil properties to thresholds</span>
+  <span class="s0">- </span><span class="s2">Calculate individual scores for each property</span>
+  <span class="s0">- </span><span class="s2">Weight and combine scores</span>
+  <span class="s0">- </span><span class="s2">Generate final suitability score </span><span class="s1">(</span><span class="s2">0-10</span><span class="s1">)</span>
+<span class="s0">- </span><span class="s2">Handle multiple soil layers</span>
+<span class="s0">- </span><span class="s2">Incorporate biochar output data</span>
+
+<span class="s0">---</span>
+
+<span class="s0">### </span><span class="s1">**</span><span class="s2">STEP 11</span><span class="s1">: </span><span class="s2">Visualization - Color-Coded Map</span><span class="s1">**</span>
+<span class="s1">**</span><span class="s2">Goal</span><span class="s1">**: </span><span class="s2">Create interactive map with suitability scores</span>
+<span class="s0">- </span><span class="s2">Generate color scheme</span><span class="s1">:</span>
+  <span class="s0">- </span><span class="s2">Green = most suitable </span><span class="s1">(</span><span class="s2">score 8-10</span><span class="s1">)</span>
+  <span class="s0">- </span><span class="s2">Yellow = moderately suitable </span><span class="s1">(</span><span class="s2">score 5-7</span><span class="s1">)</span>
+  <span class="s0">- </span><span class="s2">Red = least suitable </span><span class="s1">(</span><span class="s2">score 0-4</span><span class="s1">)</span>
+<span class="s0">- </span><span class="s2">Create interactive HTML map </span><span class="s1">(</span><span class="s2">using Folium/Leaflet or PyDeck</span><span class="s1">)</span>
+<span class="s0">- </span><span class="s2">Display H3 hexagons colored by suitability score</span>
+<span class="s0">- </span><span class="s2">Add legend and grade scale </span><span class="s1">(</span><span class="s2">0-10</span><span class="s1">)</span>
+<span class="s0">- </span><span class="s2">Include tooltips with score details</span>
+
+<span class="s0">---</span>
+
+<span class="s0">### </span><span class="s1">**</span><span class="s2">STEP 12</span><span class="s1">: </span><span class="s2">HTML Output and Auto-Open</span><span class="s1">**</span>
+<span class="s1">**</span><span class="s2">Goal</span><span class="s1">**: </span><span class="s2">Generate HTML file and open it automatically</span>
+<span class="s0">- </span><span class="s2">Save map as HTML file</span>
+<span class="s0">- </span><span class="s2">Automatically open HTML in default browser</span>
+<span class="s0">- </span><span class="s2">Add styling and interactivity</span>
+<span class="s0">- </span><span class="s2">Include metadata </span><span class="s1">(</span><span class="s2">date, input parameters, etc.</span><span class="s1">)</span>
+
+<span class="s0">---</span>
+
+<span class="s0">### </span><span class="s1">**</span><span class="s2">STEP 13</span><span class="s1">: </span><span class="s2">Main Pipeline Integration</span><span class="s1">**</span>
+<span class="s1">**</span><span class="s2">Goal</span><span class="s1">**: </span><span class="s2">Connect all components into a single workflow</span>
+<span class="s0">- </span><span class="s2">Create main.py that orchestrates all steps</span>
+<span class="s0">- </span><span class="s2">Add error handling and logging</span>
+<span class="s0">- </span><span class="s2">Create CLI interface</span>
+<span class="s0">- </span><span class="s2">Add progress indicators</span>
+<span class="s0">- </span><span class="s2">Test end-to-end workflow</span>
+
+<span class="s0">---</span>
+
+<span class="s0">### </span><span class="s1">**</span><span class="s2">STEP 14</span><span class="s1">: </span><span class="s2">Testing and Documentation</span><span class="s1">**</span>
+<span class="s1">**</span><span class="s2">Goal</span><span class="s1">**: </span><span class="s2">Ensure tool works correctly and is documented</span>
+<span class="s0">- </span><span class="s2">Test with different coordinate inputs</span>
+<span class="s0">- </span><span class="s2">Test with no coordinates </span><span class="s1">(</span><span class="s2">full state</span><span class="s1">)</span>
+<span class="s0">- </span><span class="s2">Validate suitability scores</span>
+<span class="s0">- </span><span class="s2">Create user documentation</span>
+<span class="s0">- </span><span class="s2">Add code comments and docstrings</span>
+
+<span class="s0">---</span>
+
+<span class="s0">## </span><span class="s2">Next Steps</span>
+<span class="s2">We'll implement each step one at a time. Start with </span><span class="s1">**</span><span class="s2">STEP 1</span><span class="s1">: </span><span class="s2">Project Structure Setup</span><span class="s1">**</span><span class="s2">?</span>
+
+</pre>
+</body>
+</html>

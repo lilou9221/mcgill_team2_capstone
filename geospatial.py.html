@@ -1,0 +1,236 @@
+<html>
+<head>
+<title>geospatial.py</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #5f826b; font-style: italic;}
+.s1 { color: #bcbec4;}
+.s2 { color: #cf8e6d;}
+.s3 { color: #bcbec4;}
+.s4 { color: #7a7e85;}
+.s5 { color: #2aacb8;}
+.s6 { color: #6aab73;}
+</style>
+</head>
+<body bgcolor="#1e1f22">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+geospatial.py</font>
+</center></td></tr></table>
+<pre><span class="s0">&quot;&quot;&quot; 
+Geospatial Utility Functions 
+ 
+Helper functions for geometry operations, coordinate transformations, 
+and spatial calculations. 
+&quot;&quot;&quot;</span>
+
+<span class="s2">from </span><span class="s1">typing </span><span class="s2">import </span><span class="s1">Tuple</span>
+<span class="s2">from </span><span class="s1">shapely</span><span class="s3">.</span><span class="s1">geometry </span><span class="s2">import </span><span class="s1">Point</span>
+<span class="s2">from </span><span class="s1">shapely</span><span class="s3">.</span><span class="s1">ops </span><span class="s2">import </span><span class="s1">transform</span>
+<span class="s2">import </span><span class="s1">pyproj</span>
+<span class="s2">from </span><span class="s1">functools </span><span class="s2">import </span><span class="s1">partial</span>
+
+
+<span class="s2">def </span><span class="s1">create_circle_buffer</span><span class="s3">(</span><span class="s1">lat</span><span class="s3">: </span><span class="s1">float</span><span class="s3">, </span><span class="s1">lon</span><span class="s3">: </span><span class="s1">float</span><span class="s3">, </span><span class="s1">radius_km</span><span class="s3">: </span><span class="s1">float</span><span class="s3">):</span>
+    <span class="s0">&quot;&quot;&quot; 
+    Create a circular buffer around a point using WGS84 coordinates. 
+     
+    Parameters 
+    ---------- 
+    lat : float 
+        Latitude of the center point (WGS84) 
+    lon : float 
+        Longitude of the center point (WGS84) 
+    radius_km : float 
+        Radius in kilometers 
+     
+    Returns 
+    ------- 
+    shapely.geometry.Polygon 
+        Circular buffer polygon in WGS84 (EPSG:4326) 
+    &quot;&quot;&quot;</span>
+    <span class="s4"># Create center point in WGS84</span>
+    <span class="s1">center </span><span class="s3">= </span><span class="s1">Point</span><span class="s3">(</span><span class="s1">lon</span><span class="s3">, </span><span class="s1">lat</span><span class="s3">)</span>
+    
+    <span class="s4"># Convert radius from km to degrees (approximate)</span>
+    <span class="s4"># At the equator: 1 degree latitude ≈ 111 km</span>
+    <span class="s4"># For longitude, it varies by latitude: 1 degree ≈ 111 km * cos(latitude)</span>
+    <span class="s4"># We'll use an average approximation for the buffer</span>
+    <span class="s4"># For more accuracy, we could project to a local CRS, but for clipping purposes</span>
+    <span class="s4"># this approximation should work fine</span>
+    
+    <span class="s4"># Use a more accurate method: project to a local UTM zone, create buffer, then reproject back</span>
+    <span class="s4"># For Mato Grosso, we're around -12 to -15 latitude, which is in UTM Zone 21S (EPSG:32721)</span>
+    
+    <span class="s4"># Get approximate UTM zone for the latitude</span>
+    <span class="s1">utm_zone </span><span class="s3">= </span><span class="s1">int</span><span class="s3">((</span><span class="s1">lon </span><span class="s3">+ </span><span class="s5">180</span><span class="s3">) / </span><span class="s5">6</span><span class="s3">) + </span><span class="s5">1</span>
+    <span class="s4"># For southern hemisphere (negative latitude), use EPSG:32700 + zone</span>
+    <span class="s4"># For northern hemisphere, use EPSG:32600 + zone</span>
+    <span class="s2">if </span><span class="s1">lat </span><span class="s3">&lt; </span><span class="s5">0</span><span class="s3">:</span>
+        <span class="s1">utm_epsg </span><span class="s3">= </span><span class="s5">32700 </span><span class="s3">+ </span><span class="s1">utm_zone</span>
+    <span class="s2">else</span><span class="s3">:</span>
+        <span class="s1">utm_epsg </span><span class="s3">= </span><span class="s5">32600 </span><span class="s3">+ </span><span class="s1">utm_zone</span>
+    
+    <span class="s4"># Project to UTM for accurate buffer creation</span>
+    <span class="s1">wgs84 </span><span class="s3">= </span><span class="s1">pyproj</span><span class="s3">.</span><span class="s1">CRS</span><span class="s3">(</span><span class="s6">'EPSG:4326'</span><span class="s3">)</span>
+    <span class="s1">utm </span><span class="s3">= </span><span class="s1">pyproj</span><span class="s3">.</span><span class="s1">CRS</span><span class="s3">(</span><span class="s6">f'EPSG:</span><span class="s2">{</span><span class="s1">utm_epsg</span><span class="s2">}</span><span class="s6">'</span><span class="s3">)</span>
+    
+    <span class="s1">project_to_utm </span><span class="s3">= </span><span class="s1">pyproj</span><span class="s3">.</span><span class="s1">Transformer</span><span class="s3">.</span><span class="s1">from_crs</span><span class="s3">(</span><span class="s1">wgs84</span><span class="s3">, </span><span class="s1">utm</span><span class="s3">, </span><span class="s1">always_xy</span><span class="s3">=</span><span class="s2">True</span><span class="s3">).</span><span class="s1">transform</span>
+    <span class="s1">project_to_wgs84 </span><span class="s3">= </span><span class="s1">pyproj</span><span class="s3">.</span><span class="s1">Transformer</span><span class="s3">.</span><span class="s1">from_crs</span><span class="s3">(</span><span class="s1">utm</span><span class="s3">, </span><span class="s1">wgs84</span><span class="s3">, </span><span class="s1">always_xy</span><span class="s3">=</span><span class="s2">True</span><span class="s3">).</span><span class="s1">transform</span>
+    
+    <span class="s4"># Transform point to UTM</span>
+    <span class="s1">center_utm </span><span class="s3">= </span><span class="s1">transform</span><span class="s3">(</span><span class="s1">project_to_utm</span><span class="s3">, </span><span class="s1">center</span><span class="s3">)</span>
+    
+    <span class="s4"># Create buffer in meters (radius_km * 1000)</span>
+    <span class="s1">radius_m </span><span class="s3">= </span><span class="s1">radius_km </span><span class="s3">* </span><span class="s5">1000</span>
+    <span class="s1">buffer_utm </span><span class="s3">= </span><span class="s1">center_utm</span><span class="s3">.</span><span class="s1">buffer</span><span class="s3">(</span><span class="s1">radius_m</span><span class="s3">)</span>
+    
+    <span class="s4"># Transform back to WGS84</span>
+    <span class="s1">buffer_wgs84 </span><span class="s3">= </span><span class="s1">transform</span><span class="s3">(</span><span class="s1">project_to_wgs84</span><span class="s3">, </span><span class="s1">buffer_utm</span><span class="s3">)</span>
+    
+    <span class="s2">return </span><span class="s1">buffer_wgs84</span>
+
+
+<span class="s2">def </span><span class="s1">get_utm_zone</span><span class="s3">(</span><span class="s1">lon</span><span class="s3">: </span><span class="s1">float</span><span class="s3">, </span><span class="s1">lat</span><span class="s3">: </span><span class="s1">float</span><span class="s3">) </span><span class="s1">-&gt; int</span><span class="s3">:</span>
+    <span class="s0">&quot;&quot;&quot; 
+    Get UTM zone number for given coordinates. 
+     
+    Parameters 
+    ---------- 
+    lon : float 
+        Longitude 
+    lat : float 
+        Latitude 
+     
+    Returns 
+    ------- 
+    int 
+        UTM zone number 
+    &quot;&quot;&quot;</span>
+    <span class="s2">return </span><span class="s1">int</span><span class="s3">((</span><span class="s1">lon </span><span class="s3">+ </span><span class="s5">180</span><span class="s3">) / </span><span class="s5">6</span><span class="s3">) + </span><span class="s5">1</span>
+
+
+<span class="s2">def </span><span class="s1">get_utm_crs</span><span class="s3">(</span><span class="s1">lon</span><span class="s3">: </span><span class="s1">float</span><span class="s3">, </span><span class="s1">lat</span><span class="s3">: </span><span class="s1">float</span><span class="s3">) </span><span class="s1">-&gt; str</span><span class="s3">:</span>
+    <span class="s0">&quot;&quot;&quot; 
+    Get UTM CRS string for given coordinates. 
+     
+    Parameters 
+    ---------- 
+    lon : float 
+        Longitude 
+    lat : float 
+        Latitude 
+     
+    Returns 
+    ------- 
+    str 
+        UTM CRS string (e.g., 'EPSG:32721' for southern hemisphere) 
+    &quot;&quot;&quot;</span>
+    <span class="s1">utm_zone </span><span class="s3">= </span><span class="s1">get_utm_zone</span><span class="s3">(</span><span class="s1">lon</span><span class="s3">, </span><span class="s1">lat</span><span class="s3">)</span>
+    <span class="s2">if </span><span class="s1">lat </span><span class="s3">&lt; </span><span class="s5">0</span><span class="s3">:</span>
+        <span class="s4"># Southern hemisphere</span>
+        <span class="s2">return </span><span class="s6">f'EPSG:</span><span class="s2">{</span><span class="s5">32700 </span><span class="s3">+ </span><span class="s1">utm_zone</span><span class="s2">}</span><span class="s6">'</span>
+    <span class="s2">else</span><span class="s3">:</span>
+        <span class="s4"># Northern hemisphere</span>
+        <span class="s2">return </span><span class="s6">f'EPSG:</span><span class="s2">{</span><span class="s5">32600 </span><span class="s3">+ </span><span class="s1">utm_zone</span><span class="s2">}</span><span class="s6">'</span>
+
+
+<span class="s2">def </span><span class="s1">transform_geometry</span><span class="s3">(</span><span class="s1">geometry</span><span class="s3">, </span><span class="s1">from_crs</span><span class="s3">: </span><span class="s1">str</span><span class="s3">, </span><span class="s1">to_crs</span><span class="s3">: </span><span class="s1">str</span><span class="s3">):</span>
+    <span class="s0">&quot;&quot;&quot; 
+    Transform a geometry from one CRS to another. 
+     
+    Parameters 
+    ---------- 
+    geometry : shapely.geometry 
+        Geometry to transform 
+    from_crs : str 
+        Source CRS (e.g., 'EPSG:4326') 
+    to_crs : str 
+        Target CRS (e.g., 'EPSG:32721') 
+     
+    Returns 
+    ------- 
+    shapely.geometry 
+        Transformed geometry 
+    &quot;&quot;&quot;</span>
+    <span class="s1">from_crs_obj </span><span class="s3">= </span><span class="s1">pyproj</span><span class="s3">.</span><span class="s1">CRS</span><span class="s3">(</span><span class="s1">from_crs</span><span class="s3">)</span>
+    <span class="s1">to_crs_obj </span><span class="s3">= </span><span class="s1">pyproj</span><span class="s3">.</span><span class="s1">CRS</span><span class="s3">(</span><span class="s1">to_crs</span><span class="s3">)</span>
+    
+    <span class="s1">transformer </span><span class="s3">= </span><span class="s1">pyproj</span><span class="s3">.</span><span class="s1">Transformer</span><span class="s3">.</span><span class="s1">from_crs</span><span class="s3">(</span><span class="s1">from_crs_obj</span><span class="s3">, </span><span class="s1">to_crs_obj</span><span class="s3">, </span><span class="s1">always_xy</span><span class="s3">=</span><span class="s2">True</span><span class="s3">)</span>
+    <span class="s2">return </span><span class="s1">transform</span><span class="s3">(</span><span class="s1">transformer</span><span class="s3">.</span><span class="s1">transform</span><span class="s3">, </span><span class="s1">geometry</span><span class="s3">)</span>
+
+
+<span class="s2">if </span><span class="s1">__name__ </span><span class="s3">== </span><span class="s6">&quot;__main__&quot;</span><span class="s3">:</span>
+    <span class="s6">&quot;&quot;&quot;Debug and test geospatial functions.&quot;&quot;&quot;</span>
+    <span class="s2">import </span><span class="s1">sys</span>
+    
+    <span class="s1">print</span><span class="s3">(</span><span class="s6">&quot;&quot;&quot;============================================================ 
+Geospatial Utilities - Debug Mode 
+============================================================ 
+ 
+------------------------------------------------------------ 
+1. Testing create_circle_buffer(): 
+------------------------------------------------------------&quot;&quot;&quot;</span><span class="s3">)</span>
+    
+    <span class="s1">test_cases </span><span class="s3">= [</span>
+        <span class="s3">(-</span><span class="s5">12.0</span><span class="s3">, -</span><span class="s5">55.0</span><span class="s3">, </span><span class="s5">100.0</span><span class="s3">, </span><span class="s6">&quot;Cuiaba area, 100km radius&quot;</span><span class="s3">),</span>
+        <span class="s3">(-</span><span class="s5">15.0</span><span class="s3">, -</span><span class="s5">60.0</span><span class="s3">, </span><span class="s5">50.0</span><span class="s3">, </span><span class="s6">&quot;Central Mato Grosso, 50km radius&quot;</span><span class="s3">),</span>
+        <span class="s3">(-</span><span class="s5">10.0</span><span class="s3">, -</span><span class="s5">52.0</span><span class="s3">, </span><span class="s5">250.0</span><span class="s3">, </span><span class="s6">&quot;Northern Mato Grosso, 250km radius&quot;</span><span class="s3">),</span>
+    <span class="s3">]</span>
+    
+    <span class="s1">passed </span><span class="s3">= </span><span class="s5">0</span>
+    <span class="s1">failed </span><span class="s3">= </span><span class="s5">0</span>
+    
+    <span class="s2">for </span><span class="s1">lat</span><span class="s3">, </span><span class="s1">lon</span><span class="s3">, </span><span class="s1">radius_km</span><span class="s3">, </span><span class="s1">description </span><span class="s2">in </span><span class="s1">test_cases</span><span class="s3">:</span>
+        <span class="s2">try</span><span class="s3">:</span>
+            <span class="s1">circle </span><span class="s3">= </span><span class="s1">create_circle_buffer</span><span class="s3">(</span><span class="s1">lat</span><span class="s3">, </span><span class="s1">lon</span><span class="s3">, </span><span class="s1">radius_km</span><span class="s3">)</span>
+            <span class="s1">print</span><span class="s3">(</span><span class="s6">f&quot;&quot;&quot;  PASS: </span><span class="s2">{</span><span class="s1">description</span><span class="s2">}</span>
+    <span class="s6">Center: (</span><span class="s2">{</span><span class="s1">lat</span><span class="s2">}</span><span class="s6">, </span><span class="s2">{</span><span class="s1">lon</span><span class="s2">}</span><span class="s6">)</span>
+    <span class="s6">Radius: </span><span class="s2">{</span><span class="s1">radius_km</span><span class="s2">} </span><span class="s6">km</span>
+    <span class="s6">Circle type: </span><span class="s2">{</span><span class="s1">type</span><span class="s3">(</span><span class="s1">circle</span><span class="s3">).</span><span class="s1">__name__</span><span class="s2">}</span>
+    <span class="s6">Circle area (approx): </span><span class="s2">{</span><span class="s1">circle</span><span class="s3">.</span><span class="s1">area</span><span class="s2">:</span><span class="s6">.6f</span><span class="s2">} </span><span class="s6">square degrees</span>
+    <span class="s6">Bounds: </span><span class="s2">{</span><span class="s1">circle</span><span class="s3">.</span><span class="s1">bounds</span><span class="s2">}</span><span class="s6">&quot;&quot;&quot;</span><span class="s3">)</span>
+            <span class="s1">passed </span><span class="s3">+= </span><span class="s5">1</span>
+        <span class="s2">except </span><span class="s1">Exception </span><span class="s2">as </span><span class="s1">e</span><span class="s3">:</span>
+            <span class="s1">print</span><span class="s3">(</span><span class="s6">f&quot;&quot;&quot;  FAIL: </span><span class="s2">{</span><span class="s1">description</span><span class="s2">}</span>
+    <span class="s6">Error: </span><span class="s2">{</span><span class="s1">type</span><span class="s3">(</span><span class="s1">e</span><span class="s3">).</span><span class="s1">__name__</span><span class="s2">}</span><span class="s6">: </span><span class="s2">{</span><span class="s1">e</span><span class="s2">}</span><span class="s6">&quot;&quot;&quot;</span><span class="s3">)</span>
+            <span class="s1">failed </span><span class="s3">+= </span><span class="s5">1</span>
+    
+    <span class="s4"># Test UTM zone calculation</span>
+    <span class="s1">print</span><span class="s3">(</span><span class="s6">&quot;&quot;&quot; 
+------------------------------------------------------------ 
+2. Testing UTM zone functions: 
+------------------------------------------------------------&quot;&quot;&quot;</span><span class="s3">)</span>
+    
+    <span class="s1">test_coords </span><span class="s3">= [</span>
+        <span class="s3">(-</span><span class="s5">12.0</span><span class="s3">, -</span><span class="s5">55.0</span><span class="s3">, </span><span class="s6">&quot;Cuiaba area&quot;</span><span class="s3">),</span>
+        <span class="s3">(-</span><span class="s5">15.0</span><span class="s3">, -</span><span class="s5">60.0</span><span class="s3">, </span><span class="s6">&quot;Central Mato Grosso&quot;</span><span class="s3">),</span>
+        <span class="s3">(</span><span class="s5">0.0</span><span class="s3">, </span><span class="s5">0.0</span><span class="s3">, </span><span class="s6">&quot;Equator/Prime Meridian&quot;</span><span class="s3">),</span>
+    <span class="s3">]</span>
+    
+    <span class="s2">for </span><span class="s1">lat</span><span class="s3">, </span><span class="s1">lon</span><span class="s3">, </span><span class="s1">description </span><span class="s2">in </span><span class="s1">test_coords</span><span class="s3">:</span>
+        <span class="s2">try</span><span class="s3">:</span>
+            <span class="s1">utm_zone </span><span class="s3">= </span><span class="s1">get_utm_zone</span><span class="s3">(</span><span class="s1">lon</span><span class="s3">, </span><span class="s1">lat</span><span class="s3">)</span>
+            <span class="s1">utm_crs </span><span class="s3">= </span><span class="s1">get_utm_crs</span><span class="s3">(</span><span class="s1">lon</span><span class="s3">, </span><span class="s1">lat</span><span class="s3">)</span>
+            <span class="s1">print</span><span class="s3">(</span><span class="s6">f&quot;&quot;&quot;  </span><span class="s2">{</span><span class="s1">description</span><span class="s2">}</span><span class="s6">: (</span><span class="s2">{</span><span class="s1">lat</span><span class="s2">}</span><span class="s6">, </span><span class="s2">{</span><span class="s1">lon</span><span class="s2">}</span><span class="s6">)</span>
+    <span class="s6">UTM Zone: </span><span class="s2">{</span><span class="s1">utm_zone</span><span class="s2">}</span>
+    <span class="s6">UTM CRS: </span><span class="s2">{</span><span class="s1">utm_crs</span><span class="s2">}</span><span class="s6">&quot;&quot;&quot;</span><span class="s3">)</span>
+            <span class="s1">passed </span><span class="s3">+= </span><span class="s5">1</span>
+        <span class="s2">except </span><span class="s1">Exception </span><span class="s2">as </span><span class="s1">e</span><span class="s3">:</span>
+            <span class="s1">print</span><span class="s3">(</span><span class="s6">f&quot;&quot;&quot;  FAIL: </span><span class="s2">{</span><span class="s1">description</span><span class="s2">}</span>
+    <span class="s6">Error: </span><span class="s2">{</span><span class="s1">type</span><span class="s3">(</span><span class="s1">e</span><span class="s3">).</span><span class="s1">__name__</span><span class="s2">}</span><span class="s6">: </span><span class="s2">{</span><span class="s1">e</span><span class="s2">}</span><span class="s6">&quot;&quot;&quot;</span><span class="s3">)</span>
+            <span class="s1">failed </span><span class="s3">+= </span><span class="s5">1</span>
+    
+    <span class="s4"># Summary</span>
+    <span class="s1">print</span><span class="s3">(</span><span class="s6">f&quot;&quot;&quot;</span>
+<span class="s6">============================================================</span>
+<span class="s6">Test Summary: </span><span class="s2">{</span><span class="s1">passed</span><span class="s2">} </span><span class="s6">passed, </span><span class="s2">{</span><span class="s1">failed</span><span class="s2">} </span><span class="s6">failed</span>
+<span class="s6">============================================================&quot;&quot;&quot;</span><span class="s3">)</span>
+    
+    <span class="s2">if </span><span class="s1">failed </span><span class="s3">&gt; </span><span class="s5">0</span><span class="s3">:</span>
+        <span class="s1">sys</span><span class="s3">.</span><span class="s1">exit</span><span class="s3">(</span><span class="s5">1</span><span class="s3">)</span>
+
+</pre>
+</body>
+</html>
