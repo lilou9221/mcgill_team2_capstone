@@ -7,6 +7,8 @@ Handles coordinate transformations and saves clipped rasters.
 
 from pathlib import Path
 from typing import List, Optional
+
+import numpy as np
 import rasterio
 from rasterio.mask import mask
 from shapely.geometry import mapping
@@ -98,6 +100,74 @@ def clip_raster_to_circle(
         dest.write(out_image)
     
     return output_path
+
+
+def collect_geotiff_files(input_dir: Path, pattern: str = "*.tif") -> List[Path]:
+    """
+    Collect GeoTIFF files from a directory matching the given pattern.
+
+    Parameters
+    ----------
+    input_dir : Path
+        Directory containing GeoTIFF files.
+    pattern : str, optional
+        Glob pattern to match files (default: "*.tif").
+
+    Returns
+    -------
+    List[Path]
+        Sorted list of GeoTIFF file paths.
+    """
+    if not input_dir.exists():
+        raise FileNotFoundError(f"Input directory not found: {input_dir}")
+
+    tif_files = sorted(input_dir.glob(pattern))
+    return tif_files
+
+
+def process_single_raster(
+    tif_path: Path,
+    circle_geometry,
+    output_dir: Path,
+    nodata: Optional[float] = None
+) -> Optional[Path]:
+    """
+    Process a single GeoTIFF file by clipping it to the specified geometry.
+
+    Parameters
+    ----------
+    tif_path : Path
+        Path to the input GeoTIFF file.
+    circle_geometry : shapely.geometry.Polygon
+        Circular buffer polygon.
+    output_dir : Path
+        Directory where the clipped file will be stored.
+    nodata : float, optional
+        NoData value for the output file.
+
+    Returns
+    -------
+    Optional[Path]
+        Path to the clipped file, or None if processing failed.
+    """
+    try:
+        output_path = output_dir / tif_path.name
+        print(f"\nProcessing {tif_path.name}...")
+        clipped_path = clip_raster_to_circle(
+            tif_path=tif_path,
+            circle_geometry=circle_geometry,
+            output_path=output_path,
+            nodata=nodata
+        )
+
+        input_size = tif_path.stat().st_size / (1024 * 1024)  # MB
+        output_size = clipped_path.stat().st_size / (1024 * 1024)  # MB
+        print(f"  Saved to: {clipped_path}")
+        print(f"  Size: {input_size:.2f} MB -> {output_size:.2f} MB")
+        return clipped_path
+    except Exception as exc:  # pragma: no cover - runtime I/O guard
+        print(f"  Error clipping {tif_path.name}: {type(exc).__name__}: {exc}")
+        return None
 
 
 def clip_all_rasters_to_circle(
