@@ -1,152 +1,80 @@
-"""
-Biochar Thresholds Module
+# Biochar Suitability Thresholds
+# Derived from FAO Soil Diagnostic Guidelines (A0541E) and project analysis
 
-Loads and manages soil property thresholds for suitability scoring.
-"""
+soil_moisture:
+  # Water availability for crops and microbial life
+  optimal_min: 0.2            # Udic regime (>90 moist days/year)
+  optimal_max: 0.4
+  acceptable_min: 0.1
+  acceptable_max: 0.6
+  unit: "m3/m3"
+  notes: "Below 0.1 indicates aridic stress; above 0.6 may lead to waterlogging."
 
-from pathlib import Path
-from typing import Dict, Any, Optional
-import yaml
+soil_organic_carbon:
+  # Soil fertility, structure, and biodiversity indicator
+  optimal_min: 3.0            # % (approx. dark grey Munsell 4)
+  optimal_max: 9.0
+  acceptable_min: 1.0
+  acceptable_max: 12.0
+  unit: "%"
+  notes: "Values >12% (black Munsell 2–2.5) indicate highly fertile organic soils."
 
+soil_pH:
+  # Nutrient availability and microbial activity
+  optimal_min: 5.5
+  optimal_max: 7.5
+  acceptable_min: 4.2
+  acceptable_max: 8.5
+  unit: "pH"
+  notes: "Acidic below 4.2 (Dystric); alkaline above 8.5 may limit micronutrients."
 
-def load_thresholds(thresholds_path: Optional[str] = None) -> Dict[str, Any]:
-    """
-    Load thresholds from YAML file.
-    
-    Parameters
-    ----------
-    thresholds_path : str, optional
-        Path to thresholds file. Defaults to configs/thresholds.yaml relative to project root.
-        If a relative path is provided, it will be resolved relative to the project root.
-    
-    Returns
-    -------
-    Dict[str, Any]
-        Thresholds dictionary
-    """
-    # Get project root (parent of src directory)
-    project_root = Path(__file__).parent.parent.parent
-    
-    if thresholds_path is None:
-        thresholds_path = project_root / "configs" / "thresholds.yaml"
-    else:
-        thresholds_path = Path(thresholds_path)
-        # If it's a relative path, resolve it relative to project root
-        if not thresholds_path.is_absolute():
-            thresholds_path = project_root / thresholds_path
-    
-    if not thresholds_path.exists():
-        raise FileNotFoundError(
-            f"Thresholds file not found: {thresholds_path}\n"
-            f"Project root: {project_root}\n"
-            f"Current working directory: {Path.cwd()}"
-        )
-    
-    with open(thresholds_path, 'r') as f:
-        thresholds = yaml.safe_load(f)
-    
-    return thresholds
+soil_temperature:
+  # Root growth and biotic activity
+  optimal_min: 278.15         # Kelvin (5°C)
+  optimal_max: 308.15         # Kelvin (35°C)
+  acceptable_min: 273.15      # 0°C
+  acceptable_max: 313.15      # 40°C
+  unit: "K"
+  notes: "Below 278K limits germination; above 313K stresses microbial communities."
 
+electrical_conductivity:
+  # Salinity indicator (ECSE 25°C)
+  optimal_min: 0.0
+  optimal_max: 0.75
+  acceptable_min: 0.0
+  acceptable_max: 4.0
+  unit: "dS/m"
+  notes: "Values >4 dS/m cause salinity stress; >15 extremely saline."
 
-def get_property_thresholds(thresholds: Dict[str, Any], property_name: str) -> Dict[str, Any]:
-    """
-    Get thresholds for a specific soil property.
-    
-    Parameters
-    ----------
-    thresholds : Dict[str, Any]
-        Full thresholds dictionary
-    property_name : str
-        Name of soil property (e.g., 'soil_moisture', 'soil_temperature')
-    
-    Returns
-    -------
-    Dict[str, Any]
-        Thresholds for the specified property
-    
-    Raises
-    ------
-    KeyError
-        If property not found in thresholds
-    """
-    if property_name not in thresholds:
-        available = list(thresholds.keys())
-        raise KeyError(
-            f"Property '{property_name}' not found in thresholds. "
-            f"Available properties: {available}"
-        )
-    
-    return thresholds[property_name]
+soil_texture:
+  # Particle size distribution and aeration
+  optimal_classes: ["loam", "silt loam", "sandy loam"]
+  acceptable_classes: ["sandy clay loam", "clay loam", "silt clay loam"]
+  notes: "Extreme sands or clays have poor water retention or drainage."
 
+bulk_density:
+  # Soil compaction and porosity
+  optimal_max: 1.4             # g/cm3 (loam/clay)
+  acceptable_max: 1.6          # g/cm3 (sandy)
+  unit: "g/cm3"
+  notes: "Higher densities reduce root penetration and infiltration."
 
-if __name__ == "__main__":
-    """Debug and test thresholds loading."""
-    import sys
-    
-    print("""============================================================
-Biochar Thresholds - Debug Mode
-============================================================""")
-    
-    try:
-        thresholds = load_thresholds()
-        print(f"""
-PASS: Thresholds loaded successfully
-  Properties with thresholds: {list(thresholds.keys())}
-  Total properties: {len(thresholds)}""")
-        
-        # Display thresholds for each property
-        for prop_name, prop_thresholds in thresholds.items():
-            print(f"""
-  {prop_name}:""")
-            if 'optimal_min' in prop_thresholds:
-                print(f"    Optimal range: {prop_thresholds.get('optimal_min')} - {prop_thresholds.get('optimal_max')}")
-            if 'acceptable_min' in prop_thresholds:
-                print(f"    Acceptable range: {prop_thresholds.get('acceptable_min')} - {prop_thresholds.get('acceptable_max')}")
-            if 'scoring' in prop_thresholds:
-                scoring = prop_thresholds['scoring']
-                print(f"    Scoring ranges:")
-                if 'high' in scoring:
-                    print(f"      High (8-10): {scoring['high']}")
-                if 'medium' in scoring:
-                    print(f"      Medium (5-7): {scoring['medium']}")
-                if 'low' in scoring:
-                    print(f"      Low (0-4): {scoring['low']}")
-        
-        # Test getting individual property thresholds
-        print("""
-------------------------------------------------------------
-Testing get_property_thresholds():
-------------------------------------------------------------""")
-        
-        test_properties = ['soil_moisture', 'soil_temperature', 'soil_organic_carbon', 'soil_pH']
-        for prop in test_properties:
-            try:
-                prop_thresholds = get_property_thresholds(thresholds, prop)
-                print(f"  PASS: {prop} thresholds retrieved successfully")
-                print(f"    Optimal: {prop_thresholds.get('optimal_min')} - {prop_thresholds.get('optimal_max')}")
-            except KeyError as e:
-                print(f"  FAIL: {e}")
-        
-    except FileNotFoundError as e:
-        print(f"""
-FAIL: Thresholds file not found: {e}
+redox_potential:
+  # Aeration and nutrient redox balance
+  optimal_min: 20
+  acceptable_min: 13
+  unit: "rH"
+  notes: "rH < 13 indicates anaerobic conditions, possible sulfide formation."
 
-Please create configs/thresholds.yaml""")
-        sys.exit(1)
-    except Exception as e:
-        print(f"""
-FAIL: Error loading thresholds: {type(e).__name__}: {e}""")
-        import traceback
-        traceback.print_exc()
-        sys.exit(1)
-    
-    print("""
-------------------------------------------------------------
-Usage Example:
-------------------------------------------------------------
-  from src.analysis.thresholds import load_thresholds, get_property_thresholds
-  
-  thresholds = load_thresholds()
-  moisture_thresholds = get_property_thresholds(thresholds, 'soil_moisture')
-------------------------------------------------------------""")
+land_cover:
+  # Surface vegetation or land use suitability
+  optimal_classes: ["cropland", "grassland", "forest"]
+  acceptable_classes: ["shrubland", "mosaic"]
+  unsuitable_classes: ["urban", "bare", "water"]
+  notes: "Land cover impacts carbon sequestration potential and biochar application."
 
+surface_indicators:
+  # Qualitative visual indicators (for field surveys)
+  avoid_conditions: ["crusting", "massive structure", "wide deep cracks"]
+  preferred_conditions: ["granular structure", "visible pores"]
+  notes: "Crusting or massive structure indicates compaction and poor infiltration."
