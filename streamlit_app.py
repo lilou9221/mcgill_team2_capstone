@@ -120,6 +120,7 @@ if run_btn:
                 import json
                 import os
 
+                gauth = GoogleAuth()
                 if "google_drive" in st.secrets and "credentials" in st.secrets["google_drive"]:
                     creds_json = st.secrets["google_drive"]["credentials"]
                     creds_dict = json.loads(creds_json)
