@@ -10,11 +10,18 @@ from typing import List, Optional
 
 import numpy as np
 import rasterio
+from pyproj import Geod, Transformer
 from rasterio.mask import mask
 from shapely.geometry import mapping
-import numpy as np
 
-from src.utils.geospatial import create_circle_buffer
+try:  # pragma: no cover
+    from src.utils.geospatial import create_circle_buffer
+except ModuleNotFoundError:  # Fallback when running as script
+    import sys
+    SCRIPT_ROOT = Path(__file__).resolve().parents[3]
+    if str(SCRIPT_ROOT) not in sys.path:
+        sys.path.insert(0, str(SCRIPT_ROOT))
+    from src.utils.geospatial import create_circle_buffer
 
 
 def clip_raster_to_circle(
@@ -50,6 +57,18 @@ def clip_raster_to_circle(
     
     # Open input raster
     with rasterio.open(tif_path) as src:
+        effective_nodata = nodata if nodata is not None else src.nodata
+        if effective_nodata is None:
+            dtype_name = src.dtypes[0]
+            dtype = np.dtype(dtype_name)
+            if np.issubdtype(dtype, np.floating):
+                effective_nodata = np.nan
+            elif np.issubdtype(dtype, np.signedinteger):
+                effective_nodata = -9999
+            elif np.issubdtype(dtype, np.unsignedinteger):
+                effective_nodata = 0
+            else:
+                effective_nodata = 0
         # Get raster CRS
         raster_crs = src.crs
         
@@ -67,7 +86,7 @@ def clip_raster_to_circle(
         
         # Clip the raster
         try:
-            out_image, out_transform = mask(src, geojson_geom, crop=True, nodata=nodata)
+            out_image, out_transform = mask(src, geojson_geom, crop=True, nodata=effective_nodata)
         except Exception as e:
             raise ValueError(f"Failed to clip raster: {e}")
         
@@ -84,16 +103,7 @@ def clip_raster_to_circle(
         })
         
         # Set nodata value
-        if nodata is not None:
-            out_meta["nodata"] = nodata
-        elif out_meta.get("nodata") is None:
-            # If no nodata specified, use a default based on data type
-            if out_image.dtype == np.uint8:
-                out_meta["nodata"] = 0
-            elif out_image.dtype in [np.int16, np.int32]:
-                out_meta["nodata"] = -9999
-            else:
-                out_meta["nodata"] = np.nan
+        out_meta["nodata"] = effective_nodata
     
     # Write clipped raster
     with rasterio.open(output_path, "w", **out_meta) as dest:
@@ -125,51 +135,6 @@ def collect_geotiff_files(input_dir: Path, pattern: str = "*.tif") -> List[Path]
     return tif_files
 
 
-def process_single_raster(
-    tif_path: Path,
-    circle_geometry,
-    output_dir: Path,
-    nodata: Optional[float] = None
-) -> Optional[Path]:
-    """
-    Process a single GeoTIFF file by clipping it to the specified geometry.
-
-    Parameters
-    ----------
-    tif_path : Path
-        Path to the input GeoTIFF file.
-    circle_geometry : shapely.geometry.Polygon
-        Circular buffer polygon.
-    output_dir : Path
-        Directory where the clipped file will be stored.
-    nodata : float, optional
-        NoData value for the output file.
-
-    Returns
-    -------
-    Optional[Path]
-        Path to the clipped file, or None if processing failed.
-    """
-    try:
-        output_path = output_dir / tif_path.name
-        print(f"\nProcessing {tif_path.name}...")
-        clipped_path = clip_raster_to_circle(
-            tif_path=tif_path,
-            circle_geometry=circle_geometry,
-            output_path=output_path,
-            nodata=nodata
-        )
-
-        input_size = tif_path.stat().st_size / (1024 * 1024)  # MB
-        output_size = clipped_path.stat().st_size / (1024 * 1024)  # MB
-        print(f"  Saved to: {clipped_path}")
-        print(f"  Size: {input_size:.2f} MB -> {output_size:.2f} MB")
-        return clipped_path
-    except Exception as exc:  # pragma: no cover - runtime I/O guard
-        print(f"  Error clipping {tif_path.name}: {type(exc).__name__}: {exc}")
-        return None
-
-
 def clip_all_rasters_to_circle(
     input_dir: Path,
     output_dir: Path,
@@ -195,14 +160,11 @@ def clip_all_rasters_to_circle(
     List[Path]
         List of paths to clipped output files
     """
-    if not input_dir.exists():
-        raise FileNotFoundError(f"Input directory not found: {input_dir}")
-    
     # Ensure output directory exists
     output_dir.mkdir(parents=True, exist_ok=True)
     
-    # Find all GeoTIFF files
-    tif_files = list(input_dir.glob(pattern))
+    # Collect GeoTIFF files sequentially
+    tif_files = collect_geotiff_files(input_dir=input_dir, pattern=pattern)
     
     if not tif_files:
         print(f"No GeoTIFF files found in {input_dir} matching pattern {pattern}")
@@ -210,38 +172,36 @@ def clip_all_rasters_to_circle(
     
     print(f"\nFound {len(tif_files)} GeoTIFF file(s) to clip")
     
-    clipped_files = []
-    for tif_path in tif_files:
+    clipped_files: List[Path] = []
+    for index, tif_path in enumerate(tif_files, start=1):
+        print(f"\n--- File {index}/{len(tif_files)} ---")
+        output_path = output_dir / tif_path.name
+        print(f"Processing {tif_path.name}...")
         try:
-            # Create output filename (same name, in output directory)
-            output_path = output_dir / tif_path.name
-            
-            print(f"\nClipping {tif_path.name}...")
-            
-            # Clip the raster
             clipped_path = clip_raster_to_circle(
                 tif_path=tif_path,
                 circle_geometry=circle_geometry,
-                output_path=output_path
+                output_path=output_path,
+                nodata=None
             )
-            
-            clipped_files.append(clipped_path)
+            input_size_mb = tif_path.stat().st_size / (1024 * 1024)
+            output_size_mb = clipped_path.stat().st_size / (1024 * 1024)
             print(f"  Saved to: {clipped_path}")
-            
-            # Show file size comparison
-            input_size = tif_path.stat().st_size / (1024 * 1024)  # MB
-            output_size = clipped_path.stat().st_size / (1024 * 1024)  # MB
-            print(f"  Size: {input_size:.2f} MB -> {output_size:.2f} MB")
-            
-        except Exception as e:
-            print(f"  Error clipping {tif_path.name}: {type(e).__name__}: {e}")
-            continue
+            print(f"  Size: {input_size_mb:.2f} MB -> {output_size_mb:.2f} MB")
+            clipped_files.append(clipped_path)
+        except Exception as exc:  # pragma: no cover - runtime I/O guard
+            print(f"  Error clipping {tif_path.name}: {type(exc).__name__}: {exc}")
     
     print(f"\nSuccessfully clipped {len(clipped_files)} of {len(tif_files)} file(s)")
     return clipped_files
 
 
-def verify_clipping_success(clipped_files: List[Path]) -> bool:
+def verify_clipping_success(
+    clipped_files: List[Path],
+    circle_geometry,
+    expected_radius_km: float = 100.0,
+    edge_tolerance_km: float = 5.0
+) -> bool:
     """
     Verify that clipped files were created successfully.
     
@@ -249,6 +209,12 @@ def verify_clipping_success(clipped_files: List[Path]) -> bool:
     ----------
     clipped_files : List[Path]
         List of paths to clipped files
+    circle_geometry : shapely.geometry.Polygon
+        Circle used for clipping (must be in WGS84/EPSG:4326)
+    expected_radius_km : float, optional
+        Expected radius of the clipping circle in kilometers (default: 100 km)
+    edge_tolerance_km : float, optional
+        Allowed overshoot (km) for pixel centers relative to the circle radius
     
     Returns
     -------
@@ -257,7 +223,12 @@ def verify_clipping_success(clipped_files: List[Path]) -> bool:
     """
     if not clipped_files:
         return False
+    if circle_geometry is None:
+        raise ValueError("circle_geometry is required to verify clipping radius.")
     
+    geod = Geod(ellps="WGS84")
+    circle_centroid = circle_geometry.centroid
+    center_lon, center_lat = circle_centroid.x, circle_centroid.y
     all_valid = True
     for file_path in clipped_files:
         if not file_path.exists():
@@ -271,11 +242,234 @@ def verify_clipping_success(clipped_files: List[Path]) -> bool:
                 if src.width == 0 or src.height == 0:
                     print(f"  Warning: Clipped file has zero dimensions: {file_path}")
                     all_valid = False
+                    continue
+
+                raster_crs = src.crs if src.crs else "EPSG:4326"
+                to_wgs84 = None
+                if raster_crs != "EPSG:4326":
+                    to_wgs84 = Transformer.from_crs(raster_crs, "EPSG:4326", always_xy=True)
+
+                def _to_wgs84(x_coords, y_coords):
+                    if to_wgs84:
+                        transformed = to_wgs84.transform(x_coords, y_coords)
+                        if isinstance(transformed, tuple):
+                            if len(transformed) >= 2:
+                                return transformed[0], transformed[1]
+                            raise ValueError(
+                                "Transformer returned fewer than 2 values when converting to WGS84."
+                            )
+                        # Older pyproj versions may return numpy arrays directly
+                        return transformed
+                    return x_coords, y_coords
+
+                # Ensure all valid pixel centers lie within the circle (with tolerance)
+                mask_array = src.dataset_mask()
+                valid_rows, valid_cols = np.nonzero(mask_array)
+
+                if valid_rows.size == 0:
+                    print(f"  Warning: No valid pixels found in {file_path}")
+                    all_valid = False
+                    continue
+
+                xs, ys = rasterio.transform.xy(
+                    src.transform,
+                    valid_rows,
+                    valid_cols,
+                    offset="center"
+                )
+                xs = np.asarray(xs)
+                ys = np.asarray(ys)
+                lons_arr, lats_arr = _to_wgs84(xs, ys)
+                lons = np.asarray(lons_arr)
+                lats = np.asarray(lats_arr)
+
+                center_lon_arr = np.full_like(lons, center_lon, dtype=float)
+                center_lat_arr = np.full_like(lats, center_lat, dtype=float)
+                _, _, distances_m = geod.inv(center_lon_arr, center_lat_arr, lons, lats)
+                max_distance_km = np.max(distances_m) / 1000.0
+
+                if max_distance_km > (expected_radius_km + edge_tolerance_km):
+                    print(
+                        "  Warning: Valid pixels extend beyond expected radius "
+                        f"(max distance = {max_distance_km:.2f} km, "
+                        f"allowed <= {expected_radius_km + edge_tolerance_km:.2f} km)"
+                    )
+                    all_valid = False
         except Exception as e:
             print(f"  Warning: Clipped file is invalid: {file_path} ({e})")
             all_valid = False
     
     return all_valid
+
+
+UNIFORMITY_THRESHOLDS = {
+    "soil_organic_carbon": {"type": "continuous", "std": 0.1},
+    "soil_type": {"type": "categorical"},
+    "soil_temperature": {"type": "continuous", "std": 0.2},
+    "soil_moisture": {"type": "continuous", "std": 0.005},
+    "soil_pH": {"type": "continuous", "std": 0.02},
+    "land_cover": {"type": "categorical"},
+}
+
+
+def verify_clipped_data_integrity(
+    clipped_files: List[Path],
+    circle_geometry,
+    expected_radius_km: float = 100.0,
+    edge_tolerance_km: float = 5.0,
+    thresholds: Optional[dict] = None
+) -> bool:
+    """
+    Ensure clipped rasters contain meaningful variation and non-empty data.
+    
+    Parameters
+    ----------
+    clipped_files : List[Path]
+        Paths to clipped rasters to inspect.
+    circle_geometry : shapely.geometry.Polygon
+        Circle used for clipping (must be in WGS84/EPSG:4326)
+    expected_radius_km : float, optional
+        Expected radius of the clipping circle in kilometers (default: 100 km)
+    edge_tolerance_km : float, optional
+        Allowed overshoot (km) for pixel centers relative to the circle radius
+    thresholds : dict, optional
+        Override of per-variable thresholds. Defaults to UNIFORMITY_THRESHOLDS.
+    
+    Returns
+    -------
+    bool
+        True if all rasters meet integrity checks, False otherwise.
+    """
+    if not clipped_files:
+        return False
+    if circle_geometry is None:
+        raise ValueError("circle_geometry is required to verify data integrity.")
+
+    geod = Geod(ellps="WGS84")
+    circle_centroid = circle_geometry.centroid
+    center_lon, center_lat = circle_centroid.x, circle_centroid.y
+    
+    active_thresholds = thresholds or UNIFORMITY_THRESHOLDS
+    all_valid = True
+    for file_path in clipped_files:
+        if not file_path.exists():
+            print(f"  Warning: Clipped file not found: {file_path}")
+            all_valid = False
+            continue
+        
+        dataset_key = _infer_dataset_key(file_path)
+        threshold_info = active_thresholds.get(dataset_key)
+        if threshold_info is None:
+            # No guidance for this dataset; skip uniformity check
+            continue
+        
+        try:
+            with rasterio.open(file_path) as src:
+                data = src.read(1)
+                nodata = src.nodata
+                raster_crs = src.crs if src.crs else "EPSG:4326"
+
+                to_wgs84 = None
+                if raster_crs != "EPSG:4326":
+                    to_wgs84 = Transformer.from_crs(raster_crs, "EPSG:4326", always_xy=True)
+
+                def _to_wgs84(x_coords, y_coords):
+                    if to_wgs84:
+                        transformed = to_wgs84.transform(x_coords, y_coords)
+                        if isinstance(transformed, tuple):
+                            if len(transformed) >= 2:
+                                return transformed[0], transformed[1]
+                            raise ValueError(
+                                "Transformer returned fewer than 2 values when converting to WGS84."
+                            )
+                        return transformed
+                    return x_coords, y_coords
+                
+                if nodata is None:
+                    valid_mask = np.isfinite(data)
+                else:
+                    if np.isnan(nodata):
+                        valid_mask = ~np.isnan(data)
+                    else:
+                        valid_mask = data != nodata
+                
+                valid_count = np.count_nonzero(valid_mask)
+                if valid_count == 0:
+                    print(f"  Warning: {file_path.name} contains no valid pixels after clipping")
+                    all_valid = False
+                    continue
+
+                rows, cols = np.nonzero(valid_mask)
+                xs, ys = rasterio.transform.xy(
+                    src.transform,
+                    rows,
+                    cols,
+                    offset="center"
+                )
+                xs = np.asarray(xs)
+                ys = np.asarray(ys)
+                lons_arr, lats_arr = _to_wgs84(xs, ys)
+                lons = np.asarray(lons_arr)
+                lats = np.asarray(lats_arr)
+
+                center_lon_arr = np.full_like(lons, center_lon, dtype=float)
+                center_lat_arr = np.full_like(lats, center_lat, dtype=float)
+                _, _, distances_m = geod.inv(center_lon_arr, center_lat_arr, lons, lats)
+                distances_km = np.asarray(distances_m) / 1000.0
+                inside_circle_mask = distances_km <= (expected_radius_km + edge_tolerance_km)
+
+                if not np.any(inside_circle_mask):
+                    print(
+                        f"  Warning: {file_path.name} has no valid pixels within the expected circle "
+                        f"(<= {expected_radius_km + edge_tolerance_km:.2f} km)."
+                    )
+                    all_valid = False
+                    continue
+
+                valid_values = data[valid_mask][inside_circle_mask]
+                info_type = threshold_info.get("type")
+                
+                if info_type == "categorical":
+                    unique_values = np.unique(valid_values)
+                    if unique_values.size <= 1:
+                        print(
+                            f"  Warning: {file_path.name} contains a single category "
+                            "after clipping"
+                        )
+                        all_valid = False
+                elif info_type == "continuous":
+                    std_threshold = threshold_info.get("std")
+                    std_value = float(np.nanstd(valid_values))
+                    if std_threshold is not None and std_value < std_threshold:
+                        print(
+                            f"  Warning: {file_path.name} standard deviation ({std_value:.4f}) "
+                            f"is below threshold ({std_threshold})"
+                        )
+                        all_valid = False
+                # If type is unknown, skip checks
+        
+        except Exception as exc:  # pragma: no cover - runtime I/O guard
+            print(f"  Warning: Unable to inspect {file_path} ({type(exc).__name__}: {exc})")
+            all_valid = False
+    
+    return all_valid
+
+
+def _infer_dataset_key(file_path: Path) -> Optional[str]:
+    stem_lower = file_path.stem.lower()
+    if "soil_moisture" in stem_lower:
+        return "soil_moisture"
+    if "soil_temp" in stem_lower or "soil_temperature" in stem_lower:
+        return "soil_temperature"
+    if "soil_ph" in stem_lower:
+        return "soil_pH"
+    if "soil_type" in stem_lower:
+        return "soil_type"
+    if "land_cover" in stem_lower:
+        return "land_cover"
+    if stem_lower.startswith("soc") or "soc" in stem_lower:
+        return "soil_organic_carbon"
+    return None
 
 
 if __name__ == "__main__":

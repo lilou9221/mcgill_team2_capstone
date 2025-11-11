@@ -5,11 +5,20 @@ Retrieves soil property datasets from Google Earth Engine.
 Handles authentication, image retrieval, and standardization.
 """
 
+import argparse
 import os
-import yaml
+import sys
 from pathlib import Path
 from typing import Dict, Optional, List, Union
+
 import ee
+import yaml
+
+
+# Ensure project root is on sys.path when running as a script
+PROJECT_ROOT = Path(__file__).resolve().parents[3]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
 
 
 # Mapping from internal dataset names to simplified file names (matching biochar-brazil convention)
@@ -36,6 +45,14 @@ DATASET_NATIVE_RESOLUTIONS = {
 
 # Default export resolution (250m)
 DEFAULT_EXPORT_RESOLUTION = 250
+
+
+# Specific datasets that require per-band exports (depth levels)
+MULTI_BAND_EXPORTS = {
+    'soil_organic_carbon': ['b0', 'b10', 'b30', 'b60'],
+    'soil_pH': ['b0', 'b10', 'b30', 'b60'],
+    'soil_type': ['b0', 'b10', 'b30', 'b60'],
+}
 
 
 def get_simplified_filename(dataset_name: str) -> str:
@@ -117,6 +134,8 @@ class GEEDataLoader:
         self.tasks = []
         # Store export resolutions for each dataset
         self.dataset_resolutions = {}
+        # Human-readable task summaries for verification
+        self.task_details: List[Dict[str, Optional[str]]] = []
 
     def _load_config(self) -> Dict:
         """Load configuration from YAML file."""
@@ -404,6 +423,7 @@ class GEEDataLoader:
         
         self.tasks = []
         self.dataset_resolutions = {}
+        self.task_details = []
         
         for name, image in images_to_export.items():
             # Get export resolution for this dataset (250m default, or native if > 250m)
@@ -414,7 +434,7 @@ class GEEDataLoader:
             simplified_name = get_simplified_filename(name)
             
             # Add resolution suffix to filename
-            filename = f"{simplified_name}_res_{export_res}"
+            filename_base = f"{simplified_name}_res_{export_res}"
             
             # Prepare image for export - ensure single band
             export_image = image
@@ -425,35 +445,59 @@ class GEEDataLoader:
                 # OpenLandMap images - unmask to handle potential NoData issues
                 export_image = export_image.unmask()
             
-            # Check if image has multiple bands and select first one if needed
+            # Determine which bands to export
+            bands_to_export: List[Optional[str]] = [None]
+            available_bands: List[str] = []
             try:
-                band_names = export_image.bandNames().getInfo()
-                if len(band_names) > 1:
-                    print(f"  Warning: {name} has {len(band_names)} bands, selecting first band: {band_names[0]}")
-                    export_image = export_image.select(band_names[0])
+                available_bands = export_image.bandNames().getInfo()
             except Exception as e:
                 print(f"  Warning: Could not check bands for {name}: {e}")
-                # Continue with export_image as-is
-            
-            # Create export task with proper parameters
-            print(f"  Creating export task for {name}...")
-            print(f"    Folder ID: {folder_name}")
-            print(f"    Filename: {filename}.tif")
-            print(f"    Resolution: {export_res}m")
-            
-            task = ee.batch.Export.image.toDrive(
-                image=export_image,
-                description=f"{filename}",
-                folder=folder_name,
-                fileNamePrefix=f"{filename}",
-                scale=export_res,
-                region=region,
-                crs='EPSG:4326',
-                fileFormat='GeoTIFF',
-                maxPixels=1e13  # Increase max pixels to avoid export limits for large regions
-            )
-            self.tasks.append(task)
-            print(f"  Created task for {name} -> {filename}.tif (resolution: {export_res}m)")
+                available_bands = []
+
+            if name in MULTI_BAND_EXPORTS:
+                desired_bands = MULTI_BAND_EXPORTS[name]
+                bands_to_export = [band for band in desired_bands if not available_bands or band in available_bands]
+                if not bands_to_export:
+                    print(f"  Warning: None of the desired bands {desired_bands} found for {name}, skipping dataset.")
+                    continue
+            elif available_bands:
+                # Default to first available band for other multi-band images
+                bands_to_export = [available_bands[0]]
+
+            for band in bands_to_export:
+                if band is not None:
+                    band_image = export_image.select(band)
+                    filename = f"{filename_base}_{band}"
+                    print(f"  Preparing band '{band}' for export")
+                else:
+                    band_image = export_image
+                    filename = filename_base
+
+                print(f"  Creating export task for {name} ({'band ' + band if band else 'single-band'})...")
+                print(f"    Folder ID: {folder_name}")
+                print(f"    Filename: {filename}.tif")
+                print(f"    Resolution: {export_res}m")
+
+                task = ee.batch.Export.image.toDrive(
+                    image=band_image,
+                    description=f"{filename}",
+                    folder=folder_name,
+                    fileNamePrefix=f"{filename}",
+                    scale=export_res,
+                    region=region,
+                    crs='EPSG:4326',
+                    fileFormat='GeoTIFF',
+                    maxPixels=1e13  # Increase max pixels to avoid export limits for large regions
+                )
+                self.tasks.append(task)
+                self.task_details.append({
+                    "dataset": name,
+                    "band": band,
+                    "filename": filename,
+                    "resolution": export_res,
+                    "folder": folder_name,
+                })
+                print(f"  Created task for {name} -> {filename}.tif (resolution: {export_res}m)")
 
         print(f"\nCreated {len(self.tasks)} export task(s)")
         return self.tasks
@@ -513,15 +557,19 @@ class GEEDataLoader:
             # Use simplified filename (matching biochar-brazil convention)
             simplified_name = get_simplified_filename(name)
             
-            # Add resolution suffix
-            filename = f"{simplified_name}_res_{export_res}"
-            expected.append(filename)
+            if name in MULTI_BAND_EXPORTS:
+                for band in MULTI_BAND_EXPORTS[name]:
+                    expected.append(f"{simplified_name}_res_{export_res}_{band}")
+            else:
+                # Add resolution suffix
+                filename = f"{simplified_name}_res_{export_res}"
+                expected.append(filename)
         
         return expected
 
 
-if __name__ == "__main__":
-    """Debug and test GEE Data Loader functionality."""
+def _run_debug_mode():
+    """Execute the verbose debug routine that exercises helper utilities."""
     print("=" * 60)
     print("Google Earth Engine Data Loader - Debug Mode")
     print("=" * 60)
@@ -567,7 +615,6 @@ if __name__ == "__main__":
     print("\n" + "-" * 60)
     print("2. Dataset Name Mappings:")
     print("-" * 60)
-    from src.data.gee_loader import DATASET_NAME_MAPPING, DATASET_NATIVE_RESOLUTIONS
     print("\nName Mappings:")
     for key, value in DATASET_NAME_MAPPING.items():
         print(f"  {key} -> {value}")
@@ -592,6 +639,165 @@ if __name__ == "__main__":
     
     print("\n" + "-" * 60)
     print("Note: Full GEE functionality requires authentication.")
-    print("To test GEE operations, run: python src/main.py")
+    print("To test GEE operations, run with '--run'.")
     print("-" * 60)
+
+
+def _parse_layers(layers_arg: Optional[str]) -> Optional[List[str]]:
+    if layers_arg is None:
+        return None
+    parsed = [layer.strip() for layer in layers_arg.split(",") if layer.strip()]
+    return parsed or None
+
+
+def _prompt_dataset_subset(available_layers: List[str]) -> Optional[List[str]]:
+    """
+    Interactively ask the user how many datasets to export.
+    
+    Returns a list of layer names or None to keep all layers.
+    """
+    if not available_layers:
+        return None
+
+    print("\nAvailable datasets:")
+    for idx, layer_name in enumerate(available_layers, start=1):
+        print(f"  {idx}. {layer_name}")
+
+    total = len(available_layers)
+    while True:
+        user_input = input(
+            f"\nHow many datasets should be exported? (1-{total}, or 0 for all): "
+        ).strip()
+        if not user_input:
+            # Default = all
+            return None
+        if not user_input.isdigit():
+            print("  Please enter a numeric value.")
+            continue
+        count = int(user_input)
+        if count == 0:
+            return None
+        if 1 <= count <= total:
+            return available_layers[:count]
+        print(f"  Please choose a number between 1 and {total}, or 0 for all.")
+
+
+def run_acquisition_pipeline(
+    config_path: Optional[str],
+    export_folder: Optional[str],
+    selected_layers: Optional[List[str]],
+    start_tasks: bool,
+    clip_region: bool
+) -> None:
+    """Execute the acquisition/export workflow."""
+    loader = GEEDataLoader(config_path=config_path)
+    loader.initialize()
+    loader.load_datasets()
+    
+    if selected_layers is None:
+        ordered_layers = list(loader.images.keys())
+        subset = _prompt_dataset_subset(ordered_layers)
+        if subset:
+            selected_layers = subset
+    
+    if clip_region:
+        loader.clip_to_mato_grosso()
+    
+    tasks = loader.create_export_tasks(
+        folder_name=export_folder,
+        selected_layers=selected_layers
+    )
+    
+    if not tasks:
+        print("\nNo export tasks were created. Nothing to do.")
+        return
+    
+    expected_files = loader.get_expected_file_names()
+    if expected_files:
+        print("\nExpected output filenames:")
+        for name in expected_files:
+            print(f"  - {name}.tif")
+    
+    if loader.task_details:
+        print("\nPrepared export tasks:")
+        for idx, info in enumerate(loader.task_details, start=1):
+            band_label = f"band {info['band']}" if info.get("band") else "single band"
+            print(
+                f"  {idx}. dataset='{info['dataset']}', {band_label}, "
+                f"filename='{info['filename']}.tif', resolution={info['resolution']}m, "
+                f"folder='{info['folder']}'"
+            )
+    else:
+        print("\nNo task details available.")
+    
+    if start_tasks:
+        print("\n'--start-tasks' provided: starting export tasks immediately.")
+        loader.start_export_tasks()
+    else:
+        while True:
+            user_choice = input("\nStart export tasks now? [y/n]: ").strip().lower()
+            if user_choice not in {"y", "n"}:
+                print("  Please respond with 'y' or 'n'.")
+                continue
+            if user_choice == "y":
+                print("\nStarting export tasks...")
+                loader.start_export_tasks()
+            else:
+                print(
+                    "\nExport tasks created but not started. Launch them manually in the "
+                    "Google Earth Engine Code Editor task panel or rerun with '--start-tasks'."
+                )
+            break
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(
+        description="Google Earth Engine data acquisition for Residual Carbon."
+    )
+    parser.add_argument(
+        "--config",
+        type=str,
+        default=None,
+        help="Path to config YAML (defaults to configs/config.yaml)."
+    )
+    parser.add_argument(
+        "--folder",
+        type=str,
+        default=None,
+        help="Google Drive folder ID for exports (overrides config)."
+    )
+    parser.add_argument(
+        "--layers",
+        type=str,
+        default=None,
+        help="Comma-separated list of dataset keys to export (defaults to all)."
+    )
+    parser.add_argument(
+        "--start-tasks",
+        action="store_true",
+        help="Start export tasks immediately after creation."
+    )
+    parser.add_argument(
+        "--no-clip",
+        action="store_true",
+        help="Skip clipping to Mato Grosso (exports full image extent)."
+    )
+    parser.add_argument(
+        "--debug",
+        action="store_true",
+        help="Run debug diagnostics instead of launching the export pipeline."
+    )
+    
+    args = parser.parse_args()
+    
+    if args.debug:
+        _run_debug_mode()
+    else:
+        run_acquisition_pipeline(
+            config_path=args.config,
+            export_folder=args.folder,
+            selected_layers=_parse_layers(args.layers),
+            start_tasks=args.start_tasks,
+            clip_region=(not args.no_clip)
+        )
 

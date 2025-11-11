@@ -9,7 +9,7 @@ This tool analyzes soil properties (moisture, type, temperature, organic carbon,
 ## Features
 
 - **Automated Data Retrieval**: Retrieves soil property datasets from Google Earth Engine
-- **Spatial Analysis**: Supports analysis of entire Mato Grosso state or user-specified 100km radius circles
+- **Spatial Analysis**: Supports analysis of entire Mato Grosso state or user-specified 100km radius circles with intelligent edge handling when the circle falls near state boundaries
 - **GeoTIFF Processing**: Exports data to GeoTIFF format with automated download from Google Drive
 - **H3 Hexagonal Grid**: Converts spatial data to H3 hexagonal grid for efficient spatial indexing
 - **Suitability Scoring**: Calculates suitability scores (0-10) based on soil property thresholds
@@ -102,16 +102,31 @@ Edit `configs/config.yaml` to customize:
 
 ## Usage
 
-### Basic Usage (Full State Analysis)
+### 1. Acquire GeoTIFFs from Google Earth Engine
+
+Run the acquisition script to create Drive export tasks. It prompts for how many datasets to export, shows a detailed summary (dataset, depth band, filename, resolution, folder), reminds you which files will be generated, and then asks whether to start the tasks.
+
+```bash
+python src/data/acquisition/gee_loader.py
+```
+
+- Use `--layers soil_pH,soil_organic_carbon` to target specific datasets.
+- Add `--start-tasks` to skip the confirmation prompt and immediately launch the Drive exports.
+- OpenLandMap layers (`soil_pH`, `soil_organic_carbon`, `soil_type`) are exported one GeoTIFF per depth band (`b0`, `b10`, `b30`, `b60`).
+
+After the Drive tasks complete (and downloads finish, if you use the automated downloader), the GeoTIFFs will be in `data/raw/`.
+
+### 2. Process and Map (Full State Analysis)
 
 ```bash
 python src/main.py
 ```
+Running without `--lat`/`--lon` launches an interactive prompt that lets you decide whether to keep the full state or supply coordinates on the fly.
 
 ### With User Coordinates (100km Radius)
 
 ```bash
-python src/main.py --lat -15.5 --lon -56.0
+python src/main.py --lat -15.5 --lon -56.0 --radius 100
 ```
 
 ### CLI Options
@@ -119,6 +134,11 @@ python src/main.py --lat -15.5 --lon -56.0
 ```bash
 python src/main.py --help
 ```
+Key options:
+
+- `--lat / --lon / --radius`: Provide coordinates programmatically (skips prompts)
+- `--h3-resolution`: Control the aggregation resolution (default 7)
+- `--config`: Point to an alternate configuration file
 
 ## Project Structure
 
@@ -145,16 +165,15 @@ Residual_Carbon/
 ## Workflow
 
 1. **Data Retrieval**: Retrieve soil property datasets from Google Earth Engine
-2. **Clipping**: Clip datasets to Mato Grosso state boundaries
-3. **Export**: Export to GeoTIFF format (uploaded to Google Drive)
-4. **Download**: Automatically download GeoTIFF files from Google Drive
-5. **User Input**: Optionally specify coordinates for 100km radius analysis
-6. **Radius Clipping**: Clip GeoTIFFs to user-specified circles (if provided)
-7. **CSV Conversion**: Convert clipped rasters to CSV format
-8. **H3 Indexing**: Convert coordinates to H3 hexagonal grid
-9. **Scoring**: Calculate suitability scores based on thresholds
-10. **Visualization**: Generate interactive HTML map with color-coded scores
-11. **Auto-Open**: Automatically open map in default browser
+2. **Task Review**: Confirm export summary and start Drive tasks from the CLI
+3. **Download**: Automatically download GeoTIFF files from Google Drive
+4. **User Input**: Optionally specify coordinates for a 100km radius analysis (prompted if not supplied)
+5. **Radius Clipping**: Clip GeoTIFFs to user-specified circles (if provided); verification tolerates partial coverage when circles touch the border
+6. **CSV Conversion**: Convert clipped rasters to CSV format
+7. **H3 Indexing**: Convert coordinates to H3 hexagonal grid
+8. **Scoring**: Calculate suitability scores (0-10) by aggregating and averaging within H3 hexagons
+9. **Visualization**: Generate interactive HTML map using PyDeck with Capstone-inspired styling
+10. **Auto-Open**: Automatically open the final map in the default browser
 
 ## Data Sources
 

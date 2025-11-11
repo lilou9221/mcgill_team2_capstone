@@ -112,7 +112,28 @@ python -c "import ee; import pandas; import geopandas; import h3; print('All imp
 python -c "import ee; ee.Initialize(); print('GEE initialized successfully!')"
 ```
 
-### 6. Configuration
+### 6. (Optional) Add Project to PYTHONPATH
+
+If you run scripts from terminals outside PyCharm, add the project root to `PYTHONPATH` so imports work everywhere:
+
+1. Open **System Properties** → **Environment Variables**.
+2. Under **User variables**, create or edit `PYTHONPATH` and set it to the absolute path of this project, for example:
+   ```
+   C:\path\to\Residual_Carbon
+   ```
+   (Replace `C:\path\to` with the real location on your machine.)
+3. Close all shells and reopen them so the change takes effect.
+4. You can achieve the same result from PowerShell:
+   ```powershell
+   $projectRoot = "C:\path\to\Residual_Carbon"
+   [Environment]::SetEnvironmentVariable("PYTHONPATH", $projectRoot, "User")
+   ```
+5. On macOS/Linux, add this to your shell profile (`~/.bashrc`, `~/.zshrc`, etc.):
+   ```bash
+   export PYTHONPATH="/path/to/Residual_Carbon"
+   ```
+
+### 7. Configuration
 
 Edit `configs/config.yaml` to customize:
 
@@ -163,17 +184,26 @@ python -c "import ee; ee.Authenticate()"
 
 Once setup is complete, you can:
 
-1. **Test the workflow:**
+1. **Create GeoTIFF export tasks (interactive prompt):**
+   ```bash
+   python src/data/acquisition/gee_loader.py
+   ```
+   - Choose how many datasets to export when prompted (0 = all)
+   - Review the task summary (dataset, depth band, filename, resolution, folder)
+   - Start the Drive exports by responding `y` when asked, or rerun with `--start-tasks` to skip the prompt
+
+2. **Test the processing workflow:**
    ```bash
    python src/main.py
    ```
+   - The script will confirm that GeoTIFFs exist and then ask whether you want to supply coordinates if you didn’t pass `--lat/--lon`.
 
-2. **Run with specific coordinates:**
+3. **Run with specific coordinates:**
    ```bash
    python src/main.py --lat -15.5 --lon -56.0 --radius 100
    ```
 
-3. **Check the project plan:**
+4. **Check the project plan:**
    - See `PROJECT_PLAN.md` for step-by-step implementation progress
    - We'll implement each step one at a time
 

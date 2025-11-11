@@ -6,11 +6,48 @@ Handles nodata values and extracts pixel coordinates.
 """
 
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Sequence
 import rasterio
 import pandas as pd
 import numpy as np
 from rasterio.transform import xy
+
+
+VALUE_UNIT_PATTERNS: Sequence[tuple[str, str]] = (
+    ("soil_temperature", "K"),
+    ("soil_temp", "K"),
+    ("soil_moisture", "m3/m3"),
+    ("soil_organic_carbon", "g/kg"),
+    ("soc", "g/kg"),
+    ("soil_ph", "pH"),
+)
+
+VALUE_SCALING_PATTERNS: Sequence[tuple[str, float]] = (
+    ("soil_pH", 0.1),
+    ("soil_ph", 0.1),
+)
+
+
+def _infer_unit(*names: str) -> Optional[str]:
+    """
+    Infer the unit for a raster value column based on known naming patterns.
+    """
+    combined = " ".join(name.lower() for name in names if name)
+    for pattern, unit in VALUE_UNIT_PATTERNS:
+        if pattern in combined:
+            return unit
+    return None
+
+
+def _infer_scaling_factor(*names: str) -> Optional[float]:
+    """
+    Infer a scaling factor to convert raw raster values into human-readable units.
+    """
+    combined = " ".join(name.lower() for name in names if name)
+    for pattern, factor in VALUE_SCALING_PATTERNS:
+        if pattern.lower() in combined:
+            return factor
+    return None
 
 
 def raster_to_csv(
@@ -47,14 +84,21 @@ def raster_to_csv(
     # Ensure output directory exists
     output_csv.parent.mkdir(parents=True, exist_ok=True)
     
-    # Get value column name from filename if not provided
-    if value_column_name is None:
-        value_column_name = tif_path.stem
+    # Determine value column name (optionally include unit)
+    base_column_name = value_column_name if value_column_name is not None else tif_path.stem
+    unit_label = _infer_unit(base_column_name, tif_path.stem)
+    if unit_label and f"({unit_label}" not in base_column_name:
+        value_column_name = f"{base_column_name} ({unit_label})"
+    else:
+        value_column_name = base_column_name
+    scaling_factor = _infer_scaling_factor(base_column_name, tif_path.stem)
     
     # Open raster
     with rasterio.open(tif_path) as src:
         # Read the specified band
-        band_data = src.read(band)
+        band_data = src.read(band).astype(np.float32)
+        if scaling_factor and scaling_factor != 1.0:
+            band_data *= scaling_factor
         
         # Get nodata value
         nodata = src.nodata
@@ -112,7 +156,8 @@ def convert_all_rasters_to_csv(
     output_dir: Path,
     pattern: str = "*.tif",
     band: int = 1,
-    nodata_handling: str = "skip"
+    nodata_handling: str = "skip",
+    clean_output_dir: bool = True
 ) -> list[Path]:
     """
     Convert all GeoTIFF files in a directory to CSV format.
@@ -130,6 +175,9 @@ def convert_all_rasters_to_csv(
     nodata_handling : str, optional
         How to handle nodata values: "skip", "nan", or "zero" (default: "skip")
     
+    clean_output_dir : bool, optional
+        If True, delete existing CSV files in the output directory before conversion (default: True)
+
     Returns
     -------
     List[Path]
@@ -140,6 +188,17 @@ def convert_all_rasters_to_csv(
     
     # Ensure output directory exists
     output_dir.mkdir(parents=True, exist_ok=True)
+
+    if clean_output_dir:
+        removed_files = 0
+        for existing_csv in output_dir.glob("*.csv"):
+            try:
+                existing_csv.unlink()
+                removed_files += 1
+            except Exception as exc:  # pragma: no cover - filesystem variability
+                print(f"  Warning: Could not remove {existing_csv.name}: {type(exc).__name__}: {exc}")
+        if removed_files:
+            print(f"\nRemoved {removed_files} existing CSV file(s) from {output_dir} before conversion")
     
     # Find all GeoTIFF files
     tif_files = list(input_dir.glob(pattern))

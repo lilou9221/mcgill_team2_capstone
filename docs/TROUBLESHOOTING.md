@@ -60,9 +60,9 @@ pip install earthengine-api rasterio pandas h3 folium pydeck shapely pyyaml
 **Problem**: `data/raw/` directory is empty or files are missing.
 
 **Solution**:
-1. Run the data loader first: `python src/data_loader.py`
-2. Export data from Google Earth Engine to Google Drive
-3. Manually download GeoTIFF files to `data/raw/`
+1. Run the acquisition tool: `python src/data/acquisition/gee_loader.py`
+2. When prompted, choose how many datasets to export (0 = all), review the task summary, and start the Drive tasks
+3. Wait for the exports (and automated downloads, if configured) to finish so GeoTIFFs appear in `data/raw/`
 
 ### CSV files are empty
 
@@ -72,6 +72,7 @@ pip install earthengine-api rasterio pandas h3 folium pydeck shapely pyyaml
 - Check that GeoTIFF files are valid and not corrupted
 - Verify the clipping area intersects with the data
 - Check for NoData values in the GeoTIFF files
+- If your circle sits on the edge of the dataset (common near state boundaries), expect large nodata regions; this is fine as long as some valid pixels remain
 
 ### Suitability scores are all zero
 
@@ -103,6 +104,15 @@ pip install earthengine-api rasterio pandas h3 folium pydeck shapely pyyaml
   - Latitude: -7.0 to -18.0
   - Longitude: -50.0 to -62.0
 - Or omit coordinates to use the full state
+- If you are unsure, run `python src/main.py` without flags; the CLI will prompt you and display the valid ranges before accepting coordinates
+
+### Circle partially outside dataset
+
+**Problem**: You selected coordinates near the edge of the available rasters, so the clipped output contains many NaNs.
+
+**Solution**:
+- This is expected. The verification helpers (`verify_clipping_success`, `verify_clipped_data_integrity`) already ignore nodata pixels outside the circle and only check that remaining pixels stay inside the radius.
+- As long as the pipeline reports success, you can proceed; hexagons with insufficient data are skipped automatically during scoring.
 
 ## Performance Issues
 
@@ -147,6 +157,22 @@ pip install earthengine-api rasterio pandas h3 folium pydeck shapely pyyaml
 - Verify the file has `lon`, `lat`, and `suitability_score` columns
 - Check that scores are in valid range (0-10)
 - Review the data in `data/processed/suitability_scores.csv`
+
+### PYTHONPATH / import issues outside PyCharm
+
+**Problem**: Running scripts from PowerShell or Command Prompt raises `ModuleNotFoundError: No module named 'src...'`.
+
+**Solution**:
+- Add the project root to your user-level `PYTHONPATH` environment variable via System Properties → Environment Variables.
+- Alternatively, in PowerShell run:
+  ```powershell
+  [Environment]::SetEnvironmentVariable(
+      "PYTHONPATH",
+      "C:\Users\lilou\PycharmProjects\PythonProject\Residual_Carbon",
+      "User"
+  )
+  ```
+- Restart the shell so the new variable is picked up.
 
 ## Getting Help
 

@@ -75,10 +75,15 @@ If marking as source root doesn't work, you can install the package in editable 
 
 After applying any solution, verify it works:
 
-1. **Open `src/main.py`**
+1. **Open `src/main.py` or `src/data/acquisition/gee_loader.py`**
 2. **Check if the imports are resolved:**
-   - `from src.data.gee_loader import GEEDataLoader` should not show red squiggly lines
-3. **Try running the code:**
+   - `from src.data.acquisition.gee_loader import GEEDataLoader` should not show red squiggly lines
+3. **Try running the acquisition tool from PyCharm:**
+   - Create a Run configuration with:
+     - Script path: `src/data/acquisition/gee_loader.py`
+     - Working directory: project root (`$PROJECT_DIR$`)
+   - Run it once to verify the interactive prompts (dataset count, task confirmation) appear as expected
+4. **Optionally run the main pipeline:**
    ```bash
    python src/main.py --help
    ```

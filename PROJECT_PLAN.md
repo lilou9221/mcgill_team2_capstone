@@ -64,6 +64,8 @@ Tool for mapping biochar application suitability in Mato Grosso, Brazil, based o
 - Monitor export progress and task status [DONE]
 - Automatically download files from Drive to local `data/raw/` directory when complete [DONE]
 - Organize files by dataset name [DONE]
+- Export OpenLandMap layers (soil pH, SOC, soil type) as separate depth-band GeoTIFFs (`b0`, `b10`, `b30`, `b60`) [DONE]
+- During acquisition, prompt user for how many datasets to export and show a detailed task summary before starting jobs [DONE]
 - **Setup Required**: Google Drive API credentials (OAuth2) - See SETUP_GUIDE.md
 
 ---
@@ -110,70 +112,36 @@ Tool for mapping biochar application suitability in Mato Grosso, Brazil, based o
 
 ---
 
-### **STEP 9: Biochar Thresholds Database**
-**Goal**: Create/load database with soil property thresholds
-- Design database structure for thresholds
-- Define optimal ranges for each soil property
-- Create scoring system (0-10 scale)
-- Load biochar outputs database (feedstock properties)
-- Create configuration file for thresholds
+### **STEP 9: Biochar Thresholds Database** — **Completed**
+Threshold definitions live in `configs/thresholds.yaml` and are loaded through `src/analysis/thresholds.py`. The current scoring pipeline uses calibrated ranges for soil moisture, soil temperature, soil organic carbon, and soil pH, and the YAML file remains editable for rapid tuning.
 
 ---
 
-### **STEP 10: Suitability Score Calculator**
-**Goal**: Calculate suitability scores based on thresholds
-- Implement scoring algorithm:
-  - Compare soil properties to thresholds
-  - Calculate individual scores for each property
-  - Weight and combine scores
-  - Generate final suitability score (0-10)
-- Handle multiple soil layers
-- Incorporate biochar output data
+### **STEP 10: Suitability Score Calculator** — **Completed**
+`src/analysis/suitability.py` groups raster-derived values by H3 hexagon, averages the soil variables within each hex, and applies the 0–10 scoring logic. Per-variable diagnostic columns are retained, NaNs are respected, and poorly covered hexes are filtered out.
 
 ---
 
-### **STEP 11: Visualization - Color-Coded Map**
-**Goal**: Create interactive map with suitability scores
-- Generate color scheme:
-  - Green = most suitable (score 8-10)
-  - Yellow = moderately suitable (score 5-7)
-  - Red = least suitable (score 0-4)
-- Create interactive HTML map (using Folium/Leaflet or PyDeck)
-- Display H3 hexagons colored by suitability score
-- Add legend and grade scale (0-10)
-- Include tooltips with score details
+### **STEP 11: Visualization - Color-Coded Map** — **Completed**
+PyDeck is now the default renderer, matching the Capstone color scheme and tooltip format. Large datasets fall back gracefully, and generated maps are written to `output/html/` in a human-editable structure.
 
 ---
 
-### **STEP 12: HTML Output and Auto-Open**
-**Goal**: Generate HTML file and open it automatically
-- Save map as HTML file
-- Automatically open HTML in default browser
-- Add styling and interactivity
-- Include metadata (date, input parameters, etc.)
+### **STEP 12: HTML Output and Auto-Open** — **Completed**
+`src/utils/browser.py` centralizes HTML launching, and `main.py` saves output maps under `output/html/` before opening them automatically (configurable via `visualization.auto_open_html`).
 
 ---
 
-### **STEP 13: Main Pipeline Integration**
-**Goal**: Connect all components into a single workflow
-- Create main.py that orchestrates all steps
-- Add error handling and logging
-- Create CLI interface
-- Add progress indicators
-- Test end-to-end workflow
+### **STEP 13: Main Pipeline Integration** — **Completed**
+`src/main.py` stitches together acquisition validation, optional clipping, CSV conversion, H3 aggregation, scoring, and mapping. CLI flags expose coordinates, radius, H3 resolution, and config overrides, and interactive prompts guide users who run without coordinates.
 
 ---
 
-### **STEP 14: Testing and Documentation**
-**Goal**: Ensure tool works correctly and is documented
-- Test with different coordinate inputs
-- Test with no coordinates (full state)
-- Validate suitability scores
-- Create user documentation
-- Add code comments and docstrings
+### **STEP 14: Testing and Documentation** — **Completed**
+Manual runs cover both full-state and edge-case coordinate scenarios. `raster_clip.py` verifiers accept partial coverage (common when circles touch state boundaries) while still enforcing radius limits, and all documentation files now reflect the latest workflow.
 
 ---
 
 ## Next Steps
-We'll implement each step one at a time. Start with **STEP 1: Project Structure Setup**?
+Core workflow is complete. Future enhancements could include automated tests, feedstock-specific weighting, and additional visualization controls.
 

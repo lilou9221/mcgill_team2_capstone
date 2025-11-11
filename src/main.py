@@ -14,7 +14,7 @@ Simple workflow:
 import argparse
 import sys
 from pathlib import Path
-import pandas as pd
+from typing import List
 import tempfile
 import shutil
 
@@ -29,6 +29,41 @@ from src.data.processing.h3_converter import process_all_csv_files_with_h3
 from src.analysis.suitability import process_csv_files_with_suitability_scores
 from src.visualization.map_generator import create_suitability_map
 from src.utils.browser import open_html_in_browser
+
+
+def ensure_rasters_acquired(raw_dir: Path) -> List[Path]:
+    """
+    Ensure GeoTIFF rasters are available from the acquisition step.
+
+    Parameters
+    ----------
+    raw_dir : Path
+        Directory expected to contain acquired GeoTIFF files.
+
+    Returns
+    -------
+    List[Path]
+        List of GeoTIFF files discovered in the raw directory.
+
+    Raises
+    ------
+    FileNotFoundError
+        If no GeoTIFF files are present.
+    """
+    tif_files = sorted(raw_dir.glob("*.tif"))
+    tif_files.extend(sorted(raw_dir.glob("*.tiff")))
+
+    if not tif_files:
+        raise FileNotFoundError(
+            f"No GeoTIFF files found in '{raw_dir}'. "
+            "Run the acquisition step (data_loader.py) before processing."
+        )
+
+    print(f"Found {len(tif_files)} GeoTIFF file(s) from acquisition:")
+    for tif in tif_files:
+        print(f"  - {tif.name}")
+
+    return tif_files
 
 
 def main():
@@ -47,7 +82,10 @@ def main():
     output_dir = project_root / config.get("output", {}).get("html", "output/html")
     output_dir.mkdir(parents=True, exist_ok=True)
     
-    # Get area of interest
+    # Ensure acquisition step completed before prompting for coordinates
+    ensure_rasters_acquired(raw_dir)
+
+    # Get area of interest (optional coordinates)
     area = get_user_area_of_interest(
         lat=args.lat,
         lon=args.lon,
@@ -69,30 +107,18 @@ def main():
     
     # Step 2: Convert GeoTIFFs to CSV (get coordinates and values for each point)
     print("Converting GeoTIFFs to CSV...")
-    csv_files = convert_all_rasters_to_csv(
+    convert_all_rasters_to_csv(
         input_dir=tif_dir,
         output_dir=processed_dir,
         band=1,
         nodata_handling="skip"
     )
-    
+
     # Clean up temp directory
     if tif_dir != raw_dir and tif_dir.exists():
         shutil.rmtree(tif_dir, ignore_errors=True)
-    
-    # Step 3: Score each value based on thresholds
-    print("Calculating suitability scores...")
-    scored_df = process_csv_files_with_suitability_scores(
-        csv_dir=processed_dir,
-        thresholds_path=config.get("thresholds", {}).get("path"),
-        output_csv=processed_dir / "suitability_scores.csv",
-        property_weights=None,
-        pattern="*.csv",
-        lon_column="lon",
-        lat_column="lat"
-    )
-    
-    # Step 4: Get H3 index for each point and aggregate within hexagons
+
+    # Step 3: Add H3 indexes before scoring
     print(f"Adding H3 indexes (resolution {args.h3_resolution})...")
     process_all_csv_files_with_h3(
         csv_dir=processed_dir,
@@ -101,9 +127,9 @@ def main():
         lat_column="lat",
         lon_column="lon"
     )
-    
-    # Recalculate scores with H3 aggregation (aggregate points within hexagons)
-    print("Aggregating scores by hexagon...")
+
+    # Step 4: Calculate suitability scores (aggregates by H3 if available)
+    print("Calculating suitability scores...")
     scored_df = process_csv_files_with_suitability_scores(
         csv_dir=processed_dir,
         thresholds_path=config.get("thresholds", {}).get("path"),
