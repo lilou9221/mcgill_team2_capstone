@@ -32,7 +32,7 @@ folium>=0.14.0
 pydeck>=0.8.0
 
 # Configuration
-pyyaml>=6.0
+PyYAML>=6.0
 
 # Utilities
 python-dotenv>=1.0.0
