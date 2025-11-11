@@ -9,10 +9,12 @@ numpy>=1.24.0
 earthengine-api>=0.1.375
 
 # Google Drive API (for automated download)
-pydrive2>=1.16.0  # For automated download from Google Drive
+# Google API (replace PyDrive2)
+google-api-python-client>=2.100.0
 google-auth>=2.23.0
 google-auth-oauthlib>=1.1.0
 google-auth-httplib2>=0.1.1
+
 
 # Geospatial processing
 # NOTE: On Windows, these are easier to install via Conda:
