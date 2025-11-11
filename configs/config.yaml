@@ -104,5 +104,5 @@ drive:
   credentials_file: "configs/credentials.json"
   client_secrets_file: "configs/client_secrets.json"
   settings_file: "configs/settings.yaml"
-  download_folder: "EarthEngineExports"  # ← Keep this (for GEE exports)
-  raw_data_folder_id: "1A2B3C4D5E6F7G8H9I0J..."  # ← ADD THIS LINE (your folder ID)
+  download_folder: "Biochar_Raw_Data"  # ← Keep this (for GEE exports)
+  raw_data_folder_id: "1oHYjcJgUXYdmYabdw4K7QjXQsYl6nZpK"  # ← ADD THIS LINE (your folder ID)
