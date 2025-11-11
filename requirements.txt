@@ -37,8 +37,6 @@ pyyaml>=6.0
 # Utilities
 python-dotenv>=1.0.0
 
-# Web browser automation (for auto-opening HTML)
-webbrowser  # Built-in Python module
 
 # Streamlit UI
 streamlit>=1.38.0
