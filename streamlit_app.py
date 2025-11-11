@@ -85,7 +85,6 @@ st.markdown('<div class="header-subtitle">Precision mapping for sustainable bioc
 with st.sidebar:
     st.markdown("### Analysis Scope")
     use_coords = st.checkbox("Analyze 100 km radius around a point", value=False)
-
     lat = lon = None
     if use_coords:
         col1, col2 = st.columns(2)
@@ -94,7 +93,6 @@ with st.sidebar:
         st.info("Fixed radius: **100 km**")
     else:
         st.info("Full **Mato Grosso state** analysis")
-
     h3_res = st.slider("H3 resolution", 5, 9, config["processing"].get("h3_resolution", 7))
     run_btn = st.button("Run Analysis", type="primary", use_container_width=True)
 
@@ -102,14 +100,16 @@ with st.sidebar:
 if run_btn:
     with st.spinner("Initializing..."):
         tmp_raw = Path(tempfile.mkdtemp(prefix="rc_raw_"))
-                from pydrive2.auth import GoogleAuth
+
+        # === AUTO-DOWNLOAD FROM GOOGLE DRIVE ===
+        from pydrive2.auth import GoogleAuth
         from pydrive2.drive import GoogleDrive
         import os
 
         raw_dir = PROJECT_ROOT / config["data"]["raw"]
         raw_dir.mkdir(parents=True, exist_ok=True)
 
-        # If files exist locally → use them
+        # Check if GeoTIFFs are already cached
         if raw_dir.exists() and len(list(raw_dir.glob("*.tif"))) >= 5:
             st.info("Using cached GeoTIFFs")
             shutil.copytree(raw_dir, tmp_raw, dirs_exist_ok=True)
@@ -145,6 +145,7 @@ if run_btn:
                 st.error(f"Drive download failed: {e}")
                 st.stop()
 
+        # === RUN MAIN PIPELINE ===
         cli = [
             "python", str(PROJECT_ROOT / "src" / "main.py"),
             "--config", str(PROJECT_ROOT / "configs" / "config.yaml"),
@@ -157,40 +158,60 @@ if run_btn:
         shutil.rmtree(tmp_raw, ignore_errors=True)
 
         if proc.returncode != 0:
-            st.error("Failed")
-            with st.expander("Error"):
+            st.error("Analysis failed")
+            with st.expander("View error log"):
                 st.code(proc.stderr)
             st.stop()
 
-    # Results
+    # === DISPLAY RESULTS ===
     csv_path = PROJECT_ROOT / config["data"]["processed"] / "suitability_scores.csv"
     if not csv_path.exists():
-        st.error("Results missing.")
+        st.error("Results not generated.")
         st.stop()
 
     df = pd.read_csv(csv_path)
-
-    st.success("Complete")
+    st.success("Analysis complete!")
 
     col1, col2, col3 = st.columns(3)
     with col1:
-        st.markdown(f'<div class="metric-card"><h4 style="margin:0;color:#5D7B6A">Hexagons</h4><p style="font-size:1.8rem;margin:0.4rem 0;color:#FAFAFA">{len(df):,}</p></div>', unsafe_allow_html=True)
+        st.markdown(f'''
+        <div class="metric-card">
+            <h4 style="margin:0;color:#5D7B6A">Hexagons</h4>
+            <p style="font-size:1.8rem;margin:0.4rem 0;color:#FAFAFA">{len(df):,}</p>
+        </div>
+        ''', unsafe_allow_html=True)
     with col2:
         mean = df['suitability_score'].mean()
-        st.markdown(f'<div class="metric-card"><h4 style="margin:0;color:#5D7B6A">Mean Score</h4><p style="font-size:1.8rem;margin:0.4rem 0;color:#FAFAFA">{mean:.2f}/10</p></div>', unsafe_allow_html=True)
+        st.markdown(f'''
+        <div class="metric-card">
+            <h4 style="margin:0;color:#5D7B6A">Mean Score</h4>
+            <p style="font-size:1.8rem;margin:0.4rem 0;color:#FAFAFA">{mean:.2f}/10</p>
+        </div>
+        ''', unsafe_allow_html=True)
     with col3:
         high = (df['suitability_score'] >= 8).sum()
-        st.markdown(f'<div class="metric-card"><h4 style="margin:0;color:#5D7B6A">High Suitability</h4><p style="font-size:1.8rem;margin:0.4rem 0;color:#FAFAFA">{high:,}</p></div>', unsafe_allow_html=True)
+        st.markdown(f'''
+        <div class="metric-card">
+            <h4 style="margin:0;color:#5D7B6A">High Suitability</h4>
+            <p style="font-size:1.8rem;margin:0.4rem 0;color:#FAFAFA">{high:,}</p>
+        </div>
+        ''', unsafe_allow_html=True)
 
     st.subheader("Suitability Scores")
     st.dataframe(df.sort_values("suitability_score", ascending=False), use_container_width=True, hide_index=True)
 
-    csv = df.to_csv(index=False).encode()
-    st.download_button("Download CSV", csv, "biochar_suitability_scores.csv", "text/csv", use_container_width=True)
+    csv_data = df.to_csv(index=False).encode()
+    st.download_button(
+        "Download CSV",
+        csv_data,
+        "biochar_suitability_scores.csv",
+        "text/csv",
+        use_container_width=True
+    )
 
     html_path = PROJECT_ROOT / config["output"]["html"] / "suitability_map.html"
     if html_path.exists():
-        st.subheader("Interactive Map")
+        st.subheader("Interactive Suitability Map")
         with open(html_path, "r", encoding="utf-8") as f:
             st.components.v1.html(f.read(), height=700, scrolling=True)
     else:
