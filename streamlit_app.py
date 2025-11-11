@@ -8,7 +8,7 @@ import subprocess
 import shutil
 import tempfile
 
-# --------------------------------------------------------------
+
 # 1. Project setup
 # --------------------------------------------------------------
 PROJECT_ROOT = Path(__file__).parent.resolve()
