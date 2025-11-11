@@ -8,7 +8,6 @@ from pathlib import Path
 from typing import List
 import pandas as pd
 import h3
-import tempfile
 import shutil
 
 
@@ -64,8 +63,8 @@ def process_all_csv_files_with_h3(
         try:
             # Skip if already has h3_index column
             df_check = pd.read_csv(csv_path, nrows=1)
-            if 'h3_index' in df_check.columns:
-                print(f"  Skipping {csv_path.name} (already has H3 indexes)")
+            if 'h3_index' in df_check.columns and 'h3_boundary_geojson' in df_check.columns:
+                print(f"  Skipping {csv_path.name} (already has H3 indexes and boundaries)")
                 processed_files.append(csv_path)
                 continue
             
@@ -115,6 +114,10 @@ def process_all_csv_files_with_h3(
                 lambda row: h3.latlng_to_cell(row[lat_column], row[lon_column], resolution),
                 axis=1
             )
+
+            df['h3_boundary_geojson'] = df['h3_index'].apply(
+                lambda cell: [[lon, lat] for lat, lon in h3.cell_to_boundary(cell)]
+            )
             
             # Save back to CSV (use a temporary file first to avoid permission errors)
             # Create temporary file in same directory
@@ -138,7 +141,7 @@ def process_all_csv_files_with_h3(
                     temp_file.unlink()
                 raise e
             
-            print(f"    Added H3 indexes: {len(df):,} rows")
+            print(f"    Added H3 indexes and boundaries: {len(df):,} rows")
             processed_files.append(csv_path)
             
         except KeyError as e:
