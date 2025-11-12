@@ -34,17 +34,17 @@ Tool for mapping biochar application suitability in Mato Grosso, Brazil, based o
 
 ### **STEP 2: Google Earth Engine Data Retrieval Module**
 **Goal**: Retrieve soil property datasets from GEE
-- Create GEE authentication and initialization
-- Define functions to retrieve each soil property:
+- Authenticate against the Earth Engine API and initialise clients
+- Define export recipes for:
   - Soil moisture (NASA/SMAP)
   - Soil type (OpenLandMap)
   - Soil temperature (NASA/SMAP)
   - Soil organic carbon (OpenLandMap)
   - Soil pH (OpenLandMap)
   - Land cover (ESA WorldCover)
-- Handle ImageCollections vs Images
-- Standardize projections to EPSG:4326
-- Cross examin the projections
+- Normalise projections (EPSG:4326) and rename bands consistently
+- Present a CLI summary of each export (dataset name, band, resolution, destination folder)
+- Offer optional auto-start flags for unattended task launches
 
 ---
 
@@ -84,31 +84,31 @@ Tool for mapping biochar application suitability in Mato Grosso, Brazil, based o
 ### **STEP 6: Radius Clipping (100km circles)**
 **Goal**: Clip GeoTIFFs to user-specified circles
 - If coordinates provided:
-  - Create 100km radius buffer around point
+  - Create the requested-radius geodesic buffer
   - Clip all GeoTIFF files to this circle
-  - Save clipped versions
+  - Persist clipped versions to a temporary workspace
+  - Offer integrity helpers (`verify_clipping_success`, `verify_clipped_data_integrity`) for sanity checks
 - If no coordinates:
-  - Use full state data
-- Handle coordinate transformations
+  - Use full state data with no clipping
+- Handle coordinate transformations automatically
 
 ---
 
-### **STEP 7: Convert Maps to CSV (within circles)**
-**Goal**: Convert clipped GeoTIFFs to CSV format
-- Extract pixel values from clipped rasters
-- Create CSV with columns: lon, lat, value for each soil property
-- Handle nodata values
-- Merge spatial coordinates across all datasets
+### **STEP 7: Convert Maps to Tabular Data (within circles)**
+**Goal**: Convert clipped GeoTIFFs to in-memory tables
+- Extract pixel values from rasters (full-state or clipped)
+- Produce pandas DataFrames with lon/lat/value columns and inferred units
+- Handle nodata values with configurable strategies
+- Provide dataset-level summaries (row counts, column names)
 
 ---
 
 ### **STEP 8: H3 Index Conversion**
 **Goal**: Convert coordinates to H3 hexagonal grid
-- Install and configure H3 library
-- Convert lat/lon to H3 indexes
-- Generate H3 polygons (hexagon boundaries)
-- Aggregate data by H3 hexagons if needed
-- Store H3 index and polygon data in CSV
+- Convert lat/lon to H3 indexes at configurable resolution
+- Persist `h3_index` and GeoJSON boundary columns within each DataFrame (snapshots optional)
+- Filter invalid/nan coordinates defensively before hex encoding
+- Surface counts and success messages to the console
 
 ---
 
@@ -118,7 +118,7 @@ Threshold definitions live in `configs/thresholds.yaml` and are loaded through `
 ---
 
 ### **STEP 10: Suitability Score Calculator** — **Completed**
-`src/analysis/suitability.py` groups raster-derived values by H3 hexagon, averages the soil variables within each hex, and applies the 0–10 scoring logic. Per-variable diagnostic columns are retained, NaNs are respected, and poorly covered hexes are filtered out.
+`src/analysis/suitability.py` merges the in-memory tables, aggregates by hexagon when `h3_index` is available, and applies the 0–10 scoring logic. Per-variable diagnostic columns are retained, NaNs are respected, and helper functions are exposed for unit tests or ad-hoc checks.
 
 ---
 
@@ -133,15 +133,15 @@ PyDeck is now the default renderer, matching the Capstone color scheme and toolt
 ---
 
 ### **STEP 13: Main Pipeline Integration** — **Completed**
-`src/main.py` stitches together acquisition validation, optional clipping, CSV conversion, H3 aggregation, scoring, and mapping. CLI flags expose coordinates, radius, H3 resolution, and config overrides, and interactive prompts guide users who run without coordinates.
+`src/main.py` stitches together acquisition validation, optional clipping, DataFrame conversion, H3 aggregation, scoring, and mapping. CLI flags expose coordinates, radius, H3 resolution, and config overrides, and interactive prompts guide users who run without coordinates.
 
 ---
 
 ### **STEP 14: Testing and Documentation** — **Completed**
-Manual runs cover both full-state and edge-case coordinate scenarios. `raster_clip.py` verifiers accept partial coverage (common when circles touch state boundaries) while still enforcing radius limits, and all documentation files now reflect the latest workflow.
+Manual runs cover full-state, AOI, and failure-path scenarios. `raster_clip.py` verifiers accept partial coverage (common when circles touch state boundaries) while still enforcing radius limits, and documentation is kept current with each code iteration (README, setup notes, troubleshooting).
 
 ---
 
 ## Next Steps
-Core workflow is complete. Future enhancements could include automated tests, feedstock-specific weighting, and additional visualization controls.
+Core workflow is complete. Future enhancements could include automated tests, feedstock-specific weighting, incremental processing (resume by stage), and richer visualisation controls (e.g., filters, score histograms).
 

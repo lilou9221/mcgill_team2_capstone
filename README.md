@@ -8,13 +8,13 @@ This tool analyzes soil properties (moisture, type, temperature, organic carbon,
 
 ## Features
 
-- **Automated Data Retrieval**: Retrieves soil property datasets from Google Earth Engine
-- **Spatial Analysis**: Supports analysis of entire Mato Grosso state or user-specified 100km radius circles with intelligent edge handling when the circle falls near state boundaries
-- **GeoTIFF Processing**: Exports data to GeoTIFF format with automated download from Google Drive
-- **H3 Hexagonal Grid**: Converts spatial data to H3 hexagonal grid for efficient spatial indexing
-- **Suitability Scoring**: Calculates suitability scores (0-10) based on soil property thresholds
-- **Interactive Maps**: Generates color-coded HTML maps with automatic browser opening
-- **Automated Workflow**: End-to-end pipeline from data retrieval to visualization
+- **Automated Data Retrieval**: Launches parameterized Google Earth Engine exports with per-layer summaries and optional auto-start.
+- **Targeted Spatial Analysis**: Works on the full Mato Grosso extent or user-specified circular AOIs with validation and graceful edge handling.
+- **Robust GeoTIFF Processing**: Clips, converts, and validates rasters before tabularisation, with an in-memory pandas pipeline and optional snapshots.
+- **H3 Hexagonal Grid**: Adds hex indexes and boundary geometry for efficient aggregation and map rendering.
+- **Suitability Scoring**: Applies configurable thresholds (0–10 scale) with per-property diagnostics prior to final rollups.
+- **Interactive Maps**: Generates PyDeck-based HTML visualisations and auto-opens them (configurable).
+- **Auditable Workflow**: Each stage can be run independently, and helper utilities exist to verify intermediate results.
 
 ## Installation
 
@@ -45,19 +45,14 @@ source venv/bin/activate
 
 ### Step 3: Install Dependencies
 
-**Option A: Using pip (Linux/Mac)**
+> ⚠️ Raster libraries ship native binaries. On Windows we recommend installing them with Conda first.
 
 ```bash
+# Linux / macOS (single step)
 pip install -r requirements.txt
-```
 
-**Option B: Using Conda (Recommended for Windows)**
-
-```bash
-# Install geospatial packages via Conda
+# Windows (two step)
 conda install -c conda-forge geopandas rasterio shapely fiona pyproj gdal
-
-# Then install remaining packages via pip
 pip install -r requirements.txt
 ```
 
@@ -99,6 +94,7 @@ Edit `configs/config.yaml` to customize:
 - H3 resolution (default: 6)
 - Output directories
 - Suitability scoring parameters
+- Optional snapshot persistence for intermediate DataFrames
 
 ## Usage
 
@@ -116,29 +112,24 @@ python src/data/acquisition/gee_loader.py
 
 After the Drive tasks complete (and downloads finish, if you use the automated downloader), the GeoTIFFs will be in `data/raw/`.
 
-### 2. Process and Map (Full State Analysis)
+### 2. Process and Map
 
 ```bash
+# Full-state run (interactive prompt will confirm coordinates)
 python src/main.py
-```
-Running without `--lat`/`--lon` launches an interactive prompt that lets you decide whether to keep the full state or supply coordinates on the fly.
 
-### With User Coordinates (100km Radius)
-
-```bash
+# Targeted 100 km analysis
 python src/main.py --lat -15.5 --lon -56.0 --radius 100
-```
 
-### CLI Options
-
-```bash
+# Explore all CLI switches
 python src/main.py --help
 ```
-Key options:
 
-- `--lat / --lon / --radius`: Provide coordinates programmatically (skips prompts)
-- `--h3-resolution`: Control the aggregation resolution (default 7)
-- `--config`: Point to an alternate configuration file
+Key processing flags:
+
+- `--lat / --lon / --radius` — Skip prompts and inject AOI coordinates directly.
+- `--h3-resolution` — Choose aggregation granularity (higher = more hexes, default 7).
+- `--config` — Point the pipeline at an alternate configuration document.
 
 ## Project Structure
 
@@ -152,7 +143,7 @@ Residual_Carbon/
 ├── configs/            # Configuration files
 ├── data/
 │   ├── raw/            # GeoTIFF files from GEE
-│   └── processed/      # Processed CSV and H3 data
+│   └── processed/      # Processed outputs and optional snapshots
 ├── output/
 │   ├── maps/           # Generated maps
 │   └── html/           # HTML map files
@@ -162,18 +153,28 @@ Residual_Carbon/
 └── README.md           # This file
 ```
 
-## Workflow
+## Processing Pipeline
 
-1. **Data Retrieval**: Retrieve soil property datasets from Google Earth Engine
-2. **Task Review**: Confirm export summary and start Drive tasks from the CLI
-3. **Download**: Automatically download GeoTIFF files from Google Drive
-4. **User Input**: Optionally specify coordinates for a 100km radius analysis (prompted if not supplied)
-5. **Radius Clipping**: Clip GeoTIFFs to user-specified circles (if provided); verification tolerates partial coverage when circles touch the border
-6. **CSV Conversion**: Convert clipped rasters to CSV format
-7. **H3 Indexing**: Convert coordinates to H3 hexagonal grid
-8. **Scoring**: Calculate suitability scores (0-10) by aggregating and averaging within H3 hexagons
-9. **Visualization**: Generate interactive HTML map using PyDeck with Capstone-inspired styling
-10. **Auto-Open**: Automatically open the final map in the default browser
+The core pipeline lives in `src/main.py` and wires high-level helpers from each submodule:
+
+1. **Acquisition check** (`ensure_rasters_acquired`) — confirms GeoTIFFs exist in `data/raw/` before doing any expensive work.
+2. **AOI selection** (`get_user_area_of_interest`) — validates coordinates, radius, and provides a full-state fallback.
+3. **Optional clipping** (`clip_all_rasters_to_circle`) — trims rasters to the requested buffer and reports size deltas.
+4. **Raster ➜ Table** (`convert_all_rasters_to_dataframes`) — flattens rasters into pandas DataFrames with coordinates, nodata handling, and unit inference.
+5. **Hex indexing** (`process_dataframes_with_h3`) — injects `h3_index` plus polygon boundaries at the requested resolution.
+6. **Suitability scoring** (`process_csv_files_with_suitability_scores`) — merges property tables, aggregates by hex, and applies thresholds.
+7. **Visualisation** (`create_suitability_map`) — renders an interactive PyDeck map and saves it under `output/html/`.
+
+Verification helpers such as `verify_clipping_success`, `verify_clipped_data_integrity`, and `calculate_property_score` can be run independently when you need to inspect intermediate outputs.
+
+## Workflow Summary
+
+1. **Data Retrieval**: Launch Drive exports from Google Earth Engine.
+2. **Task Review**: Inspect task summaries and start jobs with confidence.
+3. **Download**: Allow the automated Drive downloader (optional) to populate `data/raw/`.
+4. **Processing**: Run `python src/main.py` with or without coordinates.
+5. **Score & Map**: Review the returned DataFrame (optionally written to `data/processed/suitability_scores.csv`) and `output/html/suitability_map.html`.
+6. **Validate (optional)**: Run the helper verification functions if you need to sanity-check inputs or radius coverage.
 
 ## Data Sources
 
@@ -189,40 +190,22 @@ Residual_Carbon/
 The tool generates:
 
 - **GeoTIFF files**: Raw raster data in `data/raw/`
-- **CSV files**: Processed point data in `data/processed/`
+- **CSV snapshots**: Optional debug exports and final `suitability_scores.csv` in `data/processed/`
 - **HTML map**: Interactive suitability map in `output/html/`
 - **Logs**: Application logs in `logs/`
 
-## Troubleshooting
+## Troubleshooting Highlights
 
-### Google Earth Engine Authentication Issues
+- **Re-authenticate GEE**: `python -c "import ee; ee.Authenticate()"`.
+- **Drive API hiccups**: confirm `configs/client_secrets.json` exists, delete `configs/credentials.json`, and re-run the acquisition tool.
+- **Missing rasters**: rerun `src/data/acquisition/gee_loader.py` and wait for Drive downloads to complete.
+- **Empty CSV outputs**: make sure the clipping circle overlaps the raster (edge circles often produce sparse data—use the verification helpers to confirm coverage).
 
-```bash
-# Re-authenticate
-python -c "import ee; ee.Authenticate()"
-```
+## Contributing & Support
 
-### Google Drive API Issues
+This project is actively developed for internal research. If you have improvements or encounter issues:
 
-- Ensure `client_secrets.json` is in `configs/` directory
-- Check that Google Drive API is enabled in Google Cloud Console
-- Delete `configs/credentials.json` and re-authenticate if needed
-
-### GeoTIFF Export Issues
-
-- Check export task status in Google Earth Engine Code Editor
-- Verify you have sufficient Google Drive storage
-- Ensure export folder name matches in `config.yaml`
-
-## License
-
-[Add your license here]
-
-## Contributing
-
-[Add contribution guidelines here]
-
-## Contact
-
-[Add contact information here]
+- Open an issue or pull request with a clear description of the change.
+- Attach sample rasters/CSVs when reporting pipeline bugs so we can reproduce them.
+- Reach out to the project maintainers via the repository issue tracker for further assistance.
 

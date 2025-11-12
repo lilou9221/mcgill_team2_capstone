@@ -4,10 +4,11 @@
 
 - [ ] Python 3.9+ installed
 - [ ] Virtual environment created and activated
-- [ ] Dependencies installed (`pip install -r requirements.txt`)
+- [ ] Dependencies installed (including raster libraries)
 - [ ] Google Earth Engine authenticated
 - [ ] Google Drive API credentials configured
 - [ ] Configuration file updated (`configs/config.yaml`)
+- [ ] Sample rasters exported to `data/raw/`
 
 ## Detailed Setup Instructions
 
@@ -26,16 +27,13 @@ source venv/bin/activate
 
 ### 2. Install Dependencies
 
-**Windows (Recommended):**
+**Windows (Recommended two-step):**
 ```bash
-# Install geospatial packages via Conda first
 conda install -c conda-forge geopandas rasterio shapely fiona pyproj gdal
-
-# Then install remaining packages
 pip install -r requirements.txt
 ```
 
-**Linux/Mac:**
+**Linux / macOS:**
 ```bash
 pip install -r requirements.txt
 ```
@@ -105,12 +103,14 @@ If you prefer to set up PyDrive manually:
 ### 5. Verify Installation
 
 ```bash
-# Test imports
-python -c "import ee; import pandas; import geopandas; import h3; print('All imports successful!')"
+# Test critical imports
+python -c "import ee, h3, rasterio, shapely; print('Core imports OK')"
 
-# Test Google Earth Engine
+# Confirm Google Earth Engine access
 python -c "import ee; ee.Initialize(); print('GEE initialized successfully!')"
 ```
+
+> Tip: you can run `python src/data/acquisition/gee_loader.py` and answer "n" when prompted to leave tasks pending while reviewing the export summary.
 
 ### 6. (Optional) Add Project to PYTHONPATH
 
@@ -141,6 +141,7 @@ Edit `configs/config.yaml` to customize:
 - **Export Resolution**: Default 1000m (affects processing time and file size)
 - **H3 Resolution**: Default 6 (higher = finer hexagons)
 - **Export Folder**: Must match in both `gee.export_folder` and `drive.download_folder`
+- **Persist Snapshots**: Set `processing.persist_snapshots` to `true` to keep intermediate CSV tables for debugging
 
 ## Troubleshooting
 
@@ -179,6 +180,7 @@ python -c "import ee; ee.Authenticate()"
 2. Verify folder name matches in `config.yaml` (`gee.export_folder` and `drive.download_folder`)
 3. Check Google Drive for the exported files
 4. Verify Drive API credentials are correct
+5. Rerun `python src/data/acquisition/gee_loader.py`; once the script detects completed Drive exports it will download them to `data/raw/`
 
 ## Next Steps
 
@@ -203,9 +205,21 @@ Once setup is complete, you can:
    python src/main.py --lat -15.5 --lon -56.0 --radius 100
    ```
 
-4. **Check the project plan:**
-   - See `PROJECT_PLAN.md` for step-by-step implementation progress
-   - We'll implement each step one at a time
+4. **Inspect intermediate outputs (optional):**
+   ```bash
+   python - <<'PY'
+   from pathlib import Path
+   from src.data.processing.raster_clip import verify_clipping_success
+   from src.utils.geospatial import create_circle_buffer
+
+   circle = create_circle_buffer(-15.5, -56.0, 100)
+   clipped = list(Path("data/processed").glob("*.tif"))
+   print("Verified:", verify_clipping_success(clipped, circle))
+   PY
+   ```
+
+5. **Check the project plan:**
+   - See `PROJECT_PLAN.md` for module-by-module status
 
 ## Support
 

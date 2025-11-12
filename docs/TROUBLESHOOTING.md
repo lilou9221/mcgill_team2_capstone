@@ -14,12 +14,13 @@ This guide helps you resolve common issues when using the Residual_Carbon biocha
 
 ### PermissionError: [Errno 13] Permission denied
 
-**Problem**: Cannot write to CSV files during H3 conversion or suitability scoring.
+**Problem**: Cannot write snapshot CSVs or the final suitability export during H3 conversion or scoring.
 
 **Solution**:
 - Close any programs that might have the CSV files open (Excel, text editors, etc.)
 - Check file permissions on the `data/processed/` directory
 - Run the script with appropriate permissions
+- When automation fails mid-run, delete any partially written `.tmp` files (prefixed with `.`) so the converter can retry
 
 ### TypeError: Could not convert string to numeric
 
@@ -27,8 +28,8 @@ This guide helps you resolve common issues when using the Residual_Carbon biocha
 
 **Solution**:
 - This has been fixed in the latest version - the code now filters to only numeric columns
-- If you still see this error, check your CSV files for unexpected string columns
-- Ensure CSV files only contain numeric data for soil properties
+- If you still see this error, check your CSV snapshots for unexpected string columns
+- Ensure persisted tables only contain numeric data for soil properties
 
 ### ModuleNotFoundError
 
@@ -52,6 +53,7 @@ pip install earthengine-api rasterio pandas h3 folium pydeck shapely pyyaml
 - Ensure `configs/config.yaml` exists
 - Run the script from the project root directory
 - Use `--config` flag to specify a custom config path
+- If running inside PyCharm, set the working directory to the project root (`$PROJECT_DIR$`)
 
 ## Data Issues
 
@@ -63,16 +65,18 @@ pip install earthengine-api rasterio pandas h3 folium pydeck shapely pyyaml
 1. Run the acquisition tool: `python src/data/acquisition/gee_loader.py`
 2. When prompted, choose how many datasets to export (0 = all), review the task summary, and start the Drive tasks
 3. Wait for the exports (and automated downloads, if configured) to finish so GeoTIFFs appear in `data/raw/`
+4. Re-run the acquisition tool once exports complete; it will download any newly available rasters
 
-### CSV files are empty
+### Final suitability CSV is empty
 
-**Problem**: Converted CSV files have no data.
+**Problem**: The exported `suitability_scores.csv` (or optional snapshots) contains no data.
 
 **Solution**:
 - Check that GeoTIFF files are valid and not corrupted
 - Verify the clipping area intersects with the data
 - Check for NoData values in the GeoTIFF files
 - If your circle sits on the edge of the dataset (common near state boundaries), expect large nodata regions; this is fine as long as some valid pixels remain
+- When working purely in memory, inspect the DataFrames returned from the conversion step before writing snapshots
 
 ### Suitability scores are all zero
 
@@ -80,9 +84,11 @@ pip install earthengine-api rasterio pandas h3 folium pydeck shapely pyyaml
 
 **Solution**:
 - Check that thresholds file exists: `configs/thresholds.yaml`
-- Verify CSV files contain the required soil property columns
+- Verify the in-memory tables contain the required soil property columns
 - Check that property values are within expected ranges
 - Review threshold values in `configs/thresholds.yaml`
+- Run `python -m src.analysis.thresholds` (or a quick REPL) to ensure thresholds load as expected
+- Inspect the per-property score columns (`*_score`) to see which property is pulling the composite down
 
 ## Configuration Issues
 
@@ -113,6 +119,7 @@ pip install earthengine-api rasterio pandas h3 folium pydeck shapely pyyaml
 **Solution**:
 - This is expected. The verification helpers (`verify_clipping_success`, `verify_clipped_data_integrity`) already ignore nodata pixels outside the circle and only check that remaining pixels stay inside the radius.
 - As long as the pipeline reports success, you can proceed; hexagons with insufficient data are skipped automatically during scoring.
+- To double-check, call `verify_clipped_data_integrity` manually with the circle geometry and compare the console warnings.
 
 ## Performance Issues
 
@@ -147,6 +154,7 @@ pip install earthengine-api rasterio pandas h3 folium pydeck shapely pyyaml
 - Check browser console for JavaScript errors
 - Try a different browser
 - Disable auto-open in config and open manually
+- Confirm that the HTML file is under 100 MB; larger files can take a while to open on slower machines
 
 ### Map shows no data
 
@@ -157,6 +165,7 @@ pip install earthengine-api rasterio pandas h3 folium pydeck shapely pyyaml
 - Verify the file has `lon`, `lat`, and `suitability_score` columns
 - Check that scores are in valid range (0-10)
 - Review the data in `data/processed/suitability_scores.csv`
+- Ensure the H3 resolution you selected matches what the visualisation expects (defaults to 7)
 
 ### PYTHONPATH / import issues outside PyCharm
 
@@ -182,4 +191,5 @@ If you encounter issues not covered here:
 2. Run with `--verbose` flag for detailed output
 3. Check the progress file: `.progress.json` to see which steps completed
 4. Review error messages and stack traces for specific error details
+5. Use the verification helpers to isolate whether the issue lies in clipping, table conversion, or scoring
 
