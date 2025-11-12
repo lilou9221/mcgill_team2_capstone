@@ -51,7 +51,7 @@ sys.path.insert(0, str(PROJECT_ROOT))
 @st.cache_data
 def load_config():
     cfg_path = PROJECT_ROOT / "configs" / "config.yaml"
-    with open(cfg_path) as f:
+    with open(cfg_path, encoding='utf-8') as f:
         return yaml.safe_load(f)
 
 config = load_config()
@@ -209,22 +209,86 @@ if run_btn:
         if lat and lon:
             cli += ["--lat", str(lat), "--lon", str(lon), "--radius", "100"]
 
-        # Run main pipeline with proper environment
-        with st.spinner("Running analysis pipeline..."):
-            proc = subprocess.run(
-                cli, 
-                cwd=PROJECT_ROOT, 
-                capture_output=True, 
-                text=True,
-                env={**os.environ, "PYTHONPATH": str(PROJECT_ROOT)}
-            )
+        # Run main pipeline with real-time output streaming
+        status_container = st.empty()
+        log_container = st.empty()
+        
+        with status_container.container():
+            st.info("🚀 Starting analysis pipeline... This may take 2-5 minutes for a 100km radius.")
+        
+        # Use Popen to stream output in real-time
+        # Set PYTHONUNBUFFERED=1 to ensure all print statements flush immediately
+        proc = subprocess.Popen(
+            cli,
+            cwd=PROJECT_ROOT,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,  # Combine stderr into stdout
+            text=True,
+            bufsize=1,  # Line buffered
+            env={
+                **os.environ, 
+                "PYTHONPATH": str(PROJECT_ROOT),
+                "PYTHONUNBUFFERED": "1"  # Force unbuffered output for real-time streaming
+            },
+            universal_newlines=True
+        )
+        
+        # Stream output in real-time
+        output_lines = []
+        last_update = 0
+        update_interval = 0.5  # Update UI every 0.5 seconds
+        
+        import time
+        start_time = time.time()
+        
+        while True:
+            line = proc.stdout.readline()
+            if not line:
+                if proc.poll() is not None:
+                    break
+                time.sleep(0.1)
+                continue
+            
+            output_lines.append(line)
+            current_time = time.time()
+            
+            # Update UI periodically to show progress
+            if current_time - last_update > update_interval:
+                elapsed = int(current_time - start_time)
+                with status_container.container():
+                    st.info(f"⏳ Running... ({elapsed}s elapsed)")
+                
+                # Show last few lines of output
+                recent_lines = output_lines[-10:] if len(output_lines) > 10 else output_lines
+                with log_container.expander("📋 View progress log", expanded=False):
+                    st.code("".join(recent_lines))
+                
+                last_update = current_time
+        
+        # Get remaining output
+        remaining_output, _ = proc.communicate()
+        if remaining_output:
+            output_lines.append(remaining_output)
+        
+        # Wait for process to complete
+        returncode = proc.returncode
+        full_output = "".join(output_lines)
+        elapsed_total = int(time.time() - start_time)
+        
+        # Update final status
+        with status_container.container():
+            if returncode == 0:
+                st.success(f"✅ Analysis completed successfully! ({elapsed_total}s)")
+            else:
+                st.error(f"❌ Analysis failed after {elapsed_total}s")
+        
         shutil.rmtree(tmp_raw, ignore_errors=True)
 
-        if proc.returncode != 0:
+        if returncode != 0:
             st.error("Analysis failed")
             
             # Check if it's a yaml import error
-            error_output = proc.stderr or proc.stdout
+            error_output = full_output
             if "ModuleNotFoundError" in error_output and "yaml" in error_output.lower():
                 st.error(
                     "**PyYAML Missing in Subprocess**\n\n"

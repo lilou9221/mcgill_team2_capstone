@@ -146,7 +146,7 @@ class GEEDataLoader:
 
     def _load_config(self) -> Dict:
         """Load configuration from YAML file."""
-        with open(self.config_path, 'r') as f:
+        with open(self.config_path, 'r', encoding='utf-8') as f:
             return yaml.safe_load(f)
 
     def initialize(self, project_name: Optional[str] = None) -> None:
