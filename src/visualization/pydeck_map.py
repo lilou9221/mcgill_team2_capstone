@@ -69,9 +69,11 @@ def create_pydeck_map(
     )
     
     # Create tooltip
+    # Note: PyDeck tooltips use {property} syntax, but format specifiers like .2f don't work
+    # So we format the score in the data and use the formatted column
     tooltip = {
         'html': '''
-        <b>Suitability Score:</b> {suitability_score:.2f}<br>
+        <b>Suitability Score:</b> {suitability_score_formatted}<br>
         <b>Location:</b> {lat_formatted}, {lon_formatted}<br>
         <b>Points:</b> {point_count}
         ''',
@@ -111,20 +113,36 @@ def _prepare_hexagon_data(df: pd.DataFrame) -> pd.DataFrame:
     pd.DataFrame
         Prepared hexagon data
     """
-    # Group by H3 index and aggregate
-    hexagon_data = df.groupby('h3_index').agg({
-        'suitability_score': 'mean',
-        'lat': 'first',
-        'lon': 'first'
-    }).reset_index()
-    
-    # Count points per hexagon
-    point_counts = df.groupby('h3_index').size().reset_index(name='point_count')
-    hexagon_data = hexagon_data.merge(point_counts, on='h3_index')
+    # Check if data is already aggregated (one row per h3_index)
+    # If point_count column exists, use it; otherwise calculate it
+    if 'point_count' in df.columns:
+        # Data is already aggregated - group by h3_index and take first values
+        hexagon_data = df.groupby('h3_index').agg({
+            'suitability_score': 'first',
+            'lat': 'first',
+            'lon': 'first',
+            'point_count': 'first'  # Preserve existing point_count
+        }).reset_index()
+    else:
+        # Data is not aggregated - need to aggregate and count points
+        hexagon_data = df.groupby('h3_index').agg({
+            'suitability_score': 'mean',
+            'lat': 'first',
+            'lon': 'first'
+        }).reset_index()
+        
+        # Count points per hexagon
+        point_counts = df.groupby('h3_index').size().reset_index(name='point_count')
+        hexagon_data = hexagon_data.merge(point_counts, on='h3_index')
     
     # Format coordinates for display
     hexagon_data['lat_formatted'] = hexagon_data['lat'].apply(lambda x: f"{x:.2f}")
     hexagon_data['lon_formatted'] = hexagon_data['lon'].apply(lambda x: f"{x:.2f}")
+    
+    # Format suitability score for tooltip display (2 decimal places)
+    hexagon_data['suitability_score_formatted'] = hexagon_data['suitability_score'].apply(
+        lambda x: f"{x:.2f}" if pd.notna(x) else "N/A"
+    )
     
     # Add color as RGBA array [R, G, B, A]
     def get_color_rgba(score):
@@ -186,6 +204,11 @@ def _prepare_point_data(df: pd.DataFrame) -> pd.DataFrame:
     # Format coordinates for display
     point_data['lat_formatted'] = point_data['lat'].apply(lambda x: f"{x:.2f}")
     point_data['lon_formatted'] = point_data['lon'].apply(lambda x: f"{x:.2f}")
+    
+    # Format suitability score for tooltip display (2 decimal places)
+    point_data['suitability_score_formatted'] = point_data['suitability_score'].apply(
+        lambda x: f"{x:.2f}" if pd.notna(x) else "N/A"
+    )
     
     # Add point count (1 for each point)
     point_data['point_count'] = 1
