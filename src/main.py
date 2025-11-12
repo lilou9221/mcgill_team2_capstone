@@ -24,8 +24,8 @@ from src.utils.initialization import initialize_project
 from src.data.processing.user_input import get_user_area_of_interest
 from src.data.processing.raster_clip import clip_all_rasters_to_circle
 from src.utils.geospatial import create_circle_buffer
-from src.data.processing.raster_to_csv import convert_all_rasters_to_csv
-from src.data.processing.h3_converter import process_all_csv_files_with_h3
+from src.data.processing.raster_to_csv import convert_all_rasters_to_dataframes
+from src.data.processing.h3_converter import process_dataframes_with_h3
 from src.analysis.suitability import process_csv_files_with_suitability_scores
 from src.visualization.map_generator import create_suitability_map
 from src.utils.browser import open_html_in_browser
@@ -79,6 +79,10 @@ def main():
     
     # Initialize
     config, project_root, raw_dir, processed_dir = initialize_project(args.config)
+    processing_config = config.get("processing", {})
+    persist_snapshots = processing_config.get("persist_snapshots", False)
+    snapshot_dir = processed_dir / "snapshots" if persist_snapshots else None
+    h3_snapshot_dir = snapshot_dir / "h3" if snapshot_dir else None
     output_dir = project_root / config.get("output", {}).get("html", "output/html")
     output_dir.mkdir(parents=True, exist_ok=True)
     
@@ -105,14 +109,18 @@ def main():
         tif_dir = Path(tempfile.mkdtemp(prefix="residual_carbon_clip_"))
         clip_all_rasters_to_circle(raw_dir, tif_dir, circle)
     
-    # Step 2: Convert GeoTIFFs to CSV (get coordinates and values for each point)
-    print("Converting GeoTIFFs to CSV...")
-    convert_all_rasters_to_csv(
+    # Step 2: Convert GeoTIFFs to DataFrames (lon/lat/value tables)
+    print("Converting GeoTIFFs to DataFrames...")
+    tables = convert_all_rasters_to_dataframes(
         input_dir=tif_dir,
-        output_dir=processed_dir,
         band=1,
-        nodata_handling="skip"
+        nodata_handling="skip",
+        persist_dir=snapshot_dir
     )
+
+    if not tables:
+        print("No raster tables were generated. Exiting.")
+        return 1
 
     # Clean up temp directory
     if tif_dir != raw_dir and tif_dir.exists():
@@ -120,13 +128,17 @@ def main():
 
     # Step 3: Add H3 indexes before scoring
     print(f"Adding H3 indexes (resolution {args.h3_resolution})...")
-    process_all_csv_files_with_h3(
-        csv_dir=processed_dir,
+    tables_with_h3 = process_dataframes_with_h3(
+        tables=tables,
         resolution=args.h3_resolution,
-        pattern="*.csv",
         lat_column="lat",
-        lon_column="lon"
+        lon_column="lon",
+        persist_dir=h3_snapshot_dir
     )
+
+    if not tables_with_h3:
+        print("Failed to add H3 indexes to any tables. Exiting.")
+        return 1
 
     # Step 4: Calculate suitability scores (aggregates by H3 if available)
     print("Calculating suitability scores...")
@@ -137,7 +149,8 @@ def main():
         property_weights=None,
         pattern="*.csv",
         lon_column="lon",
-        lat_column="lat"
+        lat_column="lat",
+        dataframes=tables_with_h3
     )
     
     # Step 5: Output HTML map (PyDeck format)

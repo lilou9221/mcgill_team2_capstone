@@ -2,7 +2,8 @@
 Suitability Score Calculator
 
 Calculates suitability scores based on soil property thresholds.
-Merges CSV files and calculates individual property scores and final suitability score.
+Merges tabular datasets (CSV files or in-memory DataFrames) and calculates
+individual property scores before producing the final suitability score.
 """
 
 import sys
@@ -363,10 +364,11 @@ def process_csv_files_with_suitability_scores(
     property_weights: Optional[Dict[str, float]] = None,
     pattern: str = "*.csv",
     lon_column: str = "lon",
-    lat_column: str = "lat"
+    lat_column: str = "lat",
+    dataframes: Optional[Dict[str, pd.DataFrame]] = None,
 ) -> pd.DataFrame:
     """
-    Process CSV files by merging them and calculating suitability scores.
+    Process tabular datasets by merging them and calculating suitability scores.
     
     If H3 indexes are available, aggregates data by hexagon regions (averages values per hexagon)
     before calculating scores. This creates one score per hexagon region instead of per point.
@@ -387,59 +389,77 @@ def process_csv_files_with_suitability_scores(
         Name of longitude column (default: "lon")
     lat_column : str, optional
         Name of latitude column (default: "lat")
+    dataframes : Dict[str, pd.DataFrame], optional
+        Optional mapping of dataset names to DataFrames. When provided, the function
+        operates on these in-memory tables instead of loading CSV files from disk.
     
     Returns
     -------
     pd.DataFrame
         DataFrame with suitability scores (one row per hexagon if H3 indexes available, otherwise one row per point)
     """
-    if not csv_dir.exists():
+    if dataframes is None and not csv_dir.exists():
         raise FileNotFoundError(f"Directory not found: {csv_dir}")
     
-    # Find all CSV files (exclude suitability_scores.csv output file)
-    csv_files = [f for f in csv_dir.glob(pattern) if 'suitability' not in f.name.lower()]
-    
-    if not csv_files:
-        print(f"No CSV files found in {csv_dir} matching pattern {pattern}")
-        return pd.DataFrame()
-    
-    print(f"\nFound {len(csv_files)} CSV file(s) to process")
-    
-    # Load all CSV files into a list
-    print("\nLoading CSV files...")
-    dataframes = []
-    for csv_file in csv_files:
-        try:
-            df = pd.read_csv(csv_file)
+    loaded_frames: List[pd.DataFrame] = []
+    source_names: List[str] = []
+
+    if dataframes is not None:
+        if not dataframes:
+            print("No DataFrames provided for suitability scoring.")
+            return pd.DataFrame()
+
+        print(f"\nReceived {len(dataframes)} DataFrame(s) to process")
+        for name, df in dataframes.items():
             if df.empty:
-                print(f"  Warning: {csv_file.name} is empty, skipping")
+                print(f"  Warning: DataFrame '{name}' is empty, skipping")
                 continue
-            
-            # Check for required columns
             if lon_column not in df.columns or lat_column not in df.columns:
-                print(f"  Warning: {csv_file.name} missing coordinates, skipping")
+                print(f"  Warning: DataFrame '{name}' missing coordinates, skipping")
                 continue
-            
-            # Round coordinates for matching
-            df[lon_column] = df[lon_column].round(6)
-            df[lat_column] = df[lat_column].round(6)
-            
-            dataframes.append(df)
-            print(f"  Loaded {csv_file.name}: {len(df):,} rows, {len(df.columns)} columns")
-            
-        except Exception as e:
-            print(f"  Error reading {csv_file.name}: {type(e).__name__}: {e}")
-            continue
-    
-    if not dataframes:
-        print("No valid CSV files could be loaded")
+            working = df.copy()
+            working[lon_column] = working[lon_column].round(6)
+            working[lat_column] = working[lat_column].round(6)
+            loaded_frames.append(working)
+            source_names.append(name)
+            print(f"  Loaded '{name}': {len(working):,} rows, {len(working.columns)} columns")
+    else:
+        csv_files = [f for f in csv_dir.glob(pattern) if 'suitability' not in f.name.lower()]
+        if not csv_files:
+            print(f"No CSV files found in {csv_dir} matching pattern {pattern}")
+            return pd.DataFrame()
+
+        print(f"\nFound {len(csv_files)} CSV file(s) to process")
+        print("\nLoading CSV files...")
+
+        for csv_file in csv_files:
+            try:
+                df = pd.read_csv(csv_file)
+                if df.empty:
+                    print(f"  Warning: {csv_file.name} is empty, skipping")
+                    continue
+                if lon_column not in df.columns or lat_column not in df.columns:
+                    print(f"  Warning: {csv_file.name} missing coordinates, skipping")
+                    continue
+
+                df[lon_column] = df[lon_column].round(6)
+                df[lat_column] = df[lat_column].round(6)
+                loaded_frames.append(df)
+                source_names.append(csv_file.stem)
+                print(f"  Loaded {csv_file.name}: {len(df):,} rows, {len(df.columns)} columns")
+
+            except Exception as e:
+                print(f"  Error reading {csv_file.name}: {type(e).__name__}: {e}")
+                continue
+
+    if not loaded_frames:
+        print("No valid tabular datasets available for scoring.")
         return pd.DataFrame()
     
-    # Merge all dataframes by coordinates using for loop
-    print("\nMerging CSV files by coordinates...")
-    merged_df = dataframes[0].copy()
+    print("\nMerging datasets by coordinates...")
+    merged_df = loaded_frames[0].copy()
     
-    for i, df in enumerate(dataframes[1:], start=2):
+    for i, df in enumerate(loaded_frames[1:], start=2):
         # Merge on coordinates
         merged_df = pd.merge(
             merged_df,
@@ -448,7 +468,8 @@ def process_csv_files_with_suitability_scores(
             how='outer',
             suffixes=('', f'_file{i}')
         )
-        print(f"  Merged file {i}/{len(dataframes)}: {len(merged_df):,} rows")
+        source_label = source_names[i - 1] if i - 1 < len(source_names) else i
+        print(f"  Merged dataset {source_label} ({i}/{len(loaded_frames)}): {len(merged_df):,} rows")
     
     # Remove duplicate columns (keep first occurrence)
     # Remove columns that end with '_file' suffix (from merging)
