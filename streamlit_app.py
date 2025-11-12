@@ -3,10 +3,22 @@ import streamlit as st
 import pandas as pd
 from pathlib import Path
 import sys
-import yaml
 import subprocess
 import shutil
 import tempfile
+
+# Check for required dependencies
+try:
+    import yaml
+except ImportError:
+    st.error(
+        "**Missing Dependency: PyYAML**\n\n"
+        "PyYAML is not installed. Please install it:\n\n"
+        "```bash\npip install pyyaml\n```\n\n"
+        "Or install all dependencies:\n\n"
+        "```bash\npip install -r requirements.txt\n```"
+    )
+    st.stop()
 
 # Project setup
 PROJECT_ROOT = Path(__file__).parent.resolve()

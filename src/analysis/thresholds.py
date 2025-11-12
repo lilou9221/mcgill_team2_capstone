@@ -7,7 +7,13 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Dict, Mapping
 
-import yaml
+try:
+    import yaml
+except ImportError:
+    raise ImportError(
+        "PyYAML is not installed. Please install it using: pip install pyyaml\n"
+        "Or install all dependencies: pip install -r requirements.txt"
+    )
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_THRESHOLDS_PATH = PROJECT_ROOT / "configs" / "thresholds.yaml"

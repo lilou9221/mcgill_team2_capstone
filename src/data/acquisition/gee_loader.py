@@ -12,7 +12,14 @@ from pathlib import Path
 from typing import Dict, Optional, List, Union
 
 import ee
-import yaml
+
+try:
+    import yaml
+except ImportError:
+    raise ImportError(
+        "PyYAML is not installed. Please install it using: pip install pyyaml\n"
+        "Or install all dependencies: pip install -r requirements.txt"
+    )
 
 
 # Ensure project root is on sys.path when running as a script

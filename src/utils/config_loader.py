@@ -4,7 +4,14 @@ Configuration Loader Utility
 Loads and validates configuration from YAML files.
 """
 
-import yaml
+try:
+    import yaml
+except ImportError:
+    raise ImportError(
+        "PyYAML is not installed. Please install it using: pip install pyyaml\n"
+        "Or install all dependencies: pip install -r requirements.txt"
+    )
+
 from pathlib import Path
 from typing import Dict, Any, Optional
 
