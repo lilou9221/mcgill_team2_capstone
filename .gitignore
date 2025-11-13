@@ -58,6 +58,7 @@ logs/*.log
 configs/credentials.json
 configs/client_secrets.json
 configs/settings.yaml
+settings.yaml
 
 # Temporary files
 *.tmp

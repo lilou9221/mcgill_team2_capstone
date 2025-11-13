@@ -222,13 +222,14 @@ Once setup is complete, you can:
    PY
    ```
 
-5. **Check the project plan:**
-   - See `PROJECT_PLAN.md` for module-by-module status
+5. **Check project status:**
+   - Review `README.md` for project overview and features
+   - Check logs in `logs/residual_carbon.log` for processing status
 
 ## Support
 
 For issues or questions:
-- Check `PROJECT_PLAN.md` for implementation status
-- Review `README.md` for general information
+- Review `README.md` for general information and usage
+- Check `docs/TROUBLESHOOTING.md` for common issues and solutions
 - Check logs in `logs/residual_carbon.log`
 
