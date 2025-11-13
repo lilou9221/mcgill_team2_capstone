@@ -122,8 +122,11 @@ python src/data/acquisition/gee_loader.py
 # Full-state run (interactive prompt will confirm coordinates)
 python src/main.py
 
-# Targeted 100 km analysis
+# Targeted analysis with explicit radius (default is 100 km)
 python src/main.py --lat -15.5 --lon -56.0 --radius 100
+
+# Using default radius (100 km)
+python src/main.py --lat -15.5 --lon -56.0
 
 # Explore all CLI switches
 python src/main.py --help
@@ -131,7 +134,7 @@ python src/main.py --help
 
 Key processing flags:
 
-- `--lat / --lon / --radius` — Skip prompts and inject AOI coordinates directly.
+- `--lat / --lon / --radius` — Skip prompts and inject AOI coordinates directly. Default radius is 100 km.
 - `--h3-resolution` — Choose aggregation granularity (higher = more hexes, default 7).
 - `--config` — Point the pipeline at an alternate configuration document.
 

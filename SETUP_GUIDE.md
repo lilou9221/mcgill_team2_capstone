@@ -293,6 +293,7 @@ Once setup is complete, you can:
    ```bash
    python src/main.py --lat -15.5 --lon -56.0 --radius 100
    ```
+   Note: If `--radius` is not specified, the default radius is 100 km.
 
 4. **Inspect intermediate outputs (optional):**
    ```bash

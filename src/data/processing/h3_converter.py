@@ -160,7 +160,7 @@ def process_dataframes_with_h3(
                 lat_column=lat_column,
                 lon_column=lon_column,
             )
-            print(f"    Added H3 indexes to {len(enriched):,} row(s) (boundaries will be added after merge)")
+            print(f"    Added H3 indexes to {len(enriched):,} row(s)")
             processed[name] = enriched
 
             if persist_dir:

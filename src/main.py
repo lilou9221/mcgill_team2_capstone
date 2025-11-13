@@ -154,7 +154,6 @@ def main():
 
     # Step 3: Add H3 indexes before scoring (boundaries added after merge)
     print(f"Adding H3 indexes (resolution {h3_resolution})...")
-    print("  Boundaries will be generated after merge and aggregation for visualization")
     tables_with_h3 = process_dataframes_with_h3(
         tables=tables,
         resolution=h3_resolution,

@@ -384,7 +384,6 @@ def add_h3_boundaries_to_dataframe(df: pd.DataFrame, h3_column: str = "h3_index"
     working = df.copy()
     
     # Generate boundaries for each unique H3 index
-    print("  Generating hexagon boundaries for aggregated regions...")
     working["h3_boundary_geojson"] = working[h3_column].apply(
         lambda cell: [[lon, lat] for lat, lon in h3.cell_to_boundary(cell)]
     )
@@ -492,12 +491,10 @@ def process_csv_files_with_suitability_scores(
         return pd.DataFrame()
     
     # Drop boundary columns before merging (memory optimization - will add back after aggregation)
-    print("\nPreparing datasets for merging...")
     boundary_col = 'h3_boundary_geojson'
     for i, df in enumerate(loaded_frames):
         if boundary_col in df.columns:
             loaded_frames[i] = df.drop(columns=[boundary_col])
-            print(f"  Dropped {boundary_col} from dataset {i+1} (will add back after aggregation)")
     
     print("\nMerging datasets by coordinates...")
     merged_df = loaded_frames[0].copy()
@@ -525,7 +522,6 @@ def process_csv_files_with_suitability_scores(
     # Ensure boundary column is not present (in case it somehow got through)
     if boundary_col in merged_df.columns:
         merged_df = merged_df.drop(columns=[boundary_col])
-        print(f"  Removed {boundary_col} from merged DataFrame (will add back after aggregation)")
     
     # Sort by coordinates
     merged_df = merged_df.sort_values([lat_column, lon_column])
