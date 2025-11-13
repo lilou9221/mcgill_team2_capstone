@@ -26,8 +26,9 @@ from src.data.processing.raster_clip import clip_all_rasters_to_circle
 from src.utils.geospatial import create_circle_buffer
 from src.data.processing.raster_to_csv import convert_all_rasters_to_dataframes
 from src.data.processing.h3_converter import process_dataframes_with_h3
-from src.analysis.suitability import process_csv_files_with_suitability_scores
-from src.visualization.map_generator import create_suitability_map
+from src.analysis.suitability import merge_and_aggregate_soil_data
+from src.visualization.biochar_map import create_biochar_suitability_map
+from src.analysis.biochar_suitability import calculate_biochar_suitability_scores
 from src.utils.browser import open_html_in_browser
 
 
@@ -168,30 +169,37 @@ def main():
         print("Failed to add H3 indexes to any tables. Exiting.")
         return 1
 
-    # Step 4: Calculate suitability scores (aggregates by H3 if available)
-    print("Calculating suitability scores...")
-    scored_df = process_csv_files_with_suitability_scores(
+    # Step 4: Merge and aggregate soil data (aggregates by H3 if available)
+    print("Merging and aggregating soil data...")
+    merged_df = merge_and_aggregate_soil_data(
         csv_dir=processed_dir,
-        thresholds_path=config.get("thresholds", {}).get("path"),
-        output_csv=processed_dir / "suitability_scores.csv",
-        property_weights=None,
         pattern="*.csv",
         lon_column="lon",
         lat_column="lat",
-        dataframes=tables_with_h3
+        dataframes=tables_with_h3,
+        output_csv=processed_dir / "merged_soil_data.csv"
     )
     
-    # Step 5: Output HTML map (PyDeck format)
-    print("Creating map...")
-    output_path = output_dir / "suitability_map.html"
+    # Step 5: Calculate biochar suitability scores with new grading system
+    print("\n" + "="*60)
+    print("Calculating biochar suitability scores with new grading system...")
+    print("="*60)
+    
+    scored_df = calculate_biochar_suitability_scores(merged_df)
+    
+    # Step 6: Output biochar suitability map
+    print("\nCreating biochar suitability map...")
     
     center_lat = area.lat if not area.use_full_state else None
     center_lon = area.lon if not area.use_full_state else None
     zoom = 8 if not area.use_full_state else 6
     
-    create_suitability_map(
+    # Create biochar suitability map with new color scheme
+    biochar_map_path = output_dir / "biochar_suitability_map.html"
+    
+    create_biochar_suitability_map(
         df=scored_df,
-        output_path=output_path,
+        output_path=biochar_map_path,
         max_file_size_mb=100.0,
         use_h3=True,
         center_lat=center_lat,
@@ -199,11 +207,13 @@ def main():
         zoom_start=zoom
     )
     
-    # Auto-open in browser
-    if config.get("visualization", {}).get("auto_open_html", True):
-        open_html_in_browser(output_path)
+    print(f"\nBiochar suitability map saved to: {biochar_map_path}")
     
-    print(f"\nMap saved to: {output_path}")
+    # Auto-open biochar map if enabled
+    if config.get("visualization", {}).get("auto_open_html", True):
+        open_html_in_browser(biochar_map_path)
+    
+    print(f"\nAll maps saved to: {output_dir}")
     return 0
 
 

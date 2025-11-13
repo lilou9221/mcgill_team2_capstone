@@ -71,32 +71,69 @@ def create_pydeck_map(
     # Create tooltip
     # Note: PyDeck tooltips use {property} syntax, but format specifiers like .2f don't work
     # So we format the score in the data and use the formatted column
-    # Include H3 index in tooltip if using H3 hexagons
+    # Check if property value is available for tooltip
+    has_property_value = 'property_value' in df.columns or 'value_formatted' in df.columns
+    
+    # Determine tooltip template based on available columns
+    # For H3 hexagons, value_formatted will be added in _prepare_hexagon_data if property_value exists
+    # For points, we check directly in df
     if has_h3:
-        tooltip = {
-            'html': '''
-            <b>Suitability Score:</b> {suitability_score_formatted}<br>
-            <b>H3 Index:</b> {h3_index}<br>
-            <b>Location:</b> {lat_formatted}, {lon_formatted}<br>
-            <b>Points:</b> {point_count}
-            ''',
-            'style': {
-                'backgroundColor': 'white',
-                'color': 'black'
+        # If property value exists, value_formatted will be created in _prepare_hexagon_data
+        if has_property_value:
+            tooltip = {
+                'html': '''
+                <b>Score:</b> {suitability_score_formatted}<br>
+                <b>Value:</b> {value_formatted}<br>
+                <b>H3 Index:</b> {h3_index}<br>
+                <b>Location:</b> {lat_formatted}, {lon_formatted}<br>
+                <b>Points:</b> {point_count}
+                ''',
+                'style': {
+                    'backgroundColor': 'white',
+                    'color': 'black'
+                }
             }
-        }
+        else:
+            tooltip = {
+                'html': '''
+                <b>Suitability Score:</b> {suitability_score_formatted}<br>
+                <b>H3 Index:</b> {h3_index}<br>
+                <b>Location:</b> {lat_formatted}, {lon_formatted}<br>
+                <b>Points:</b> {point_count}
+                ''',
+                'style': {
+                    'backgroundColor': 'white',
+                    'color': 'black'
+                }
+            }
     else:
-        tooltip = {
-            'html': '''
-            <b>Suitability Score:</b> {suitability_score_formatted}<br>
-            <b>Location:</b> {lat_formatted}, {lon_formatted}<br>
-            <b>Points:</b> {point_count}
-            ''',
-            'style': {
-                'backgroundColor': 'white',
-                'color': 'black'
+        # For points, check if value_formatted exists (will be added in _prepare_point_data)
+        if has_property_value:
+            # value_formatted will be created in _prepare_point_data
+            tooltip = {
+                'html': '''
+                <b>Score:</b> {suitability_score_formatted}<br>
+                <b>Value:</b> {value_formatted}<br>
+                <b>Location:</b> {lat_formatted}, {lon_formatted}<br>
+                <b>Points:</b> {point_count}
+                ''',
+                'style': {
+                    'backgroundColor': 'white',
+                    'color': 'black'
+                }
             }
-        }
+        else:
+            tooltip = {
+                'html': '''
+                <b>Suitability Score:</b> {suitability_score_formatted}<br>
+                <b>Location:</b> {lat_formatted}, {lon_formatted}<br>
+                <b>Points:</b> {point_count}
+                ''',
+                'style': {
+                    'backgroundColor': 'white',
+                    'color': 'black'
+                }
+            }
     
     # Create deck with default Carto style background
     # Using default map_style (Carto's dark style) to test if background shows
@@ -158,6 +195,21 @@ def _prepare_hexagon_data(df: pd.DataFrame) -> pd.DataFrame:
     hexagon_data['suitability_score_formatted'] = hexagon_data['suitability_score'].apply(
         lambda x: f"{x:.2f}" if pd.notna(x) else "N/A"
     )
+    
+    # Add property value to hexagon data if available
+    if 'property_value' in df.columns:
+        # Aggregate property value by hexagon (use mean)
+        prop_values = df.groupby('h3_index')['property_value'].agg('mean').reset_index()
+        prop_values.columns = ['h3_index', 'property_value']
+        hexagon_data = hexagon_data.merge(prop_values, on='h3_index', how='left')
+        # Format property value for tooltip
+        hexagon_data['value_formatted'] = hexagon_data['property_value'].apply(
+            lambda x: f"{x:.4f}" if pd.notna(x) else "N/A"
+        )
+    elif 'value_formatted' in df.columns:
+        # If value_formatted already exists, aggregate it
+        prop_values = df.groupby('h3_index')['value_formatted'].first().reset_index()
+        hexagon_data = hexagon_data.merge(prop_values, on='h3_index', how='left')
     
     # Add color as RGBA array [R, G, B, A]
     def get_color_rgba(score):
@@ -224,6 +276,16 @@ def _prepare_point_data(df: pd.DataFrame) -> pd.DataFrame:
     point_data['suitability_score_formatted'] = point_data['suitability_score'].apply(
         lambda x: f"{x:.2f}" if pd.notna(x) else "N/A"
     )
+    
+    # Add property value to point data if available
+    if 'property_value' in df.columns and 'value_formatted' not in point_data.columns:
+        point_data['property_value'] = df['property_value']
+        # Format property value for tooltip
+        point_data['value_formatted'] = point_data['property_value'].apply(
+            lambda x: f"{x:.4f}" if pd.notna(x) else "N/A"
+        )
+    elif 'value_formatted' in df.columns and 'value_formatted' not in point_data.columns:
+        point_data['value_formatted'] = df['value_formatted']
     
     # Add point count (1 for each point)
     point_data['point_count'] = 1

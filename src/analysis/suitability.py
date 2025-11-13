@@ -21,7 +21,7 @@ if str(project_root) not in sys.path:
 from src.analysis.thresholds import load_thresholds, get_property_thresholds
 
 
-def calculate_property_score(value: float, thresholds: Dict[str, Any]) -> float:
+def _calculate_property_score_OLD_REMOVED(value: float, thresholds: Dict[str, Any]) -> float:
     """
     Calculate score (0-10) for a single property value based on thresholds.
     
@@ -153,7 +153,7 @@ def calculate_property_score(value: float, thresholds: Dict[str, Any]) -> float:
         return max(0.0, min(6.0, score))
 
 
-def calculate_suitability_scores(
+def _calculate_suitability_scores_OLD_REMOVED(
     df: pd.DataFrame,
     thresholds: Dict[str, Any],
     property_weights: Optional[Dict[str, float]] = None
@@ -235,7 +235,7 @@ def calculate_suitability_scores(
         # Calculate scores
         score_col_name = f"{prop_name}_score"
         df[score_col_name] = df[column_name].apply(
-            lambda x: calculate_property_score(x, prop_thresholds)
+            lambda x: _calculate_property_score_OLD_REMOVED(x, prop_thresholds)
         )
         score_columns.append(score_col_name)
     
@@ -391,32 +391,30 @@ def add_h3_boundaries_to_dataframe(df: pd.DataFrame, h3_column: str = "h3_index"
     return working
 
 
-def process_csv_files_with_suitability_scores(
+def merge_and_aggregate_soil_data(
     csv_dir: Path,
-    thresholds_path: Optional[str] = None,
-    output_csv: Optional[Path] = None,
-    property_weights: Optional[Dict[str, float]] = None,
     pattern: str = "*.csv",
     lon_column: str = "lon",
     lat_column: str = "lat",
     dataframes: Optional[Dict[str, pd.DataFrame]] = None,
+    output_csv: Optional[Path] = None,
 ) -> pd.DataFrame:
     """
-    Process tabular datasets by merging them and calculating suitability scores.
+    Merge tabular datasets by coordinates and aggregate by H3 hexagons if available.
     
-    If H3 indexes are available, aggregates data by hexagon regions (averages values per hexagon)
-    before calculating scores. This creates one score per hexagon region instead of per point.
+    This function handles the data processing pipeline:
+    1. Loads DataFrames (from in-memory dict or CSV files)
+    2. Merges all datasets by coordinates
+    3. Aggregates data by H3 hexagon regions if H3 indexes are available
+    4. Adds H3 boundaries for visualization
+    
+    If H3 indexes are available, aggregates data by hexagon regions (averages values per hexagon).
+    This creates one row per hexagon region instead of per point, reducing data size significantly.
     
     Parameters
     ----------
     csv_dir : Path
         Directory containing CSV files (with optional H3 indexes)
-    thresholds_path : str, optional
-        Path to thresholds file (default: configs/thresholds.yaml)
-    output_csv : Path, optional
-        Path to save merged CSV with scores. If None, saves to csv_dir/suitability_scores.csv (default: None)
-    property_weights : Dict[str, float], optional
-        Weights for each property. If None, uses equal weights (default: None)
     pattern : str, optional
         File pattern to match (default: "*.csv")
     lon_column : str, optional
@@ -426,11 +424,14 @@ def process_csv_files_with_suitability_scores(
     dataframes : Dict[str, pd.DataFrame], optional
         Optional mapping of dataset names to DataFrames. When provided, the function
         operates on these in-memory tables instead of loading CSV files from disk.
+    output_csv : Path, optional
+        Path to save merged CSV. If None, no CSV is saved (default: None)
     
     Returns
     -------
     pd.DataFrame
-        DataFrame with suitability scores (one row per hexagon if H3 indexes available, otherwise one row per point)
+        Merged and aggregated DataFrame (one row per hexagon if H3 indexes available, 
+        otherwise one row per point)
     """
     if dataframes is None and not csv_dir.exists():
         raise FileNotFoundError(f"Directory not found: {csv_dir}")
@@ -580,47 +581,21 @@ def process_csv_files_with_suitability_scores(
             # Generate boundaries for aggregated hexagons (memory-efficient: only ~1,491 vs ~130,000)
             hexagon_df = add_h3_boundaries_to_dataframe(hexagon_df, h3_column='h3_index')
             
-            # Use hexagon-aggregated data for scoring
+            # Use hexagon-aggregated data
             data_for_scoring = hexagon_df
     else:
-        print("\nNo H3 indexes found - scoring individual points...")
+        print("\nNo H3 indexes found - processing individual points...")
         data_for_scoring = merged_df
     
-    # Load thresholds
-    print("\nLoading thresholds...")
-    thresholds = load_thresholds(thresholds_path)
+    print(f"\nMerged and aggregated DataFrame: {len(data_for_scoring):,} rows, {len(data_for_scoring.columns)} columns")
     
-    # Calculate suitability scores
-    print("\nCalculating suitability scores...")
-    scored_df = calculate_suitability_scores(
-        df=data_for_scoring,
-        thresholds=thresholds,
-        property_weights=property_weights
-    )
+    # Save to output CSV if requested
+    if output_csv is not None:
+        output_csv.parent.mkdir(parents=True, exist_ok=True)
+        data_for_scoring.to_csv(output_csv, index=False)
+        print(f"  Saved merged data to: {output_csv}")
     
-    # Save to output CSV
-    if output_csv is None:
-        output_csv = csv_dir / "suitability_scores.csv"
-    
-    output_csv.parent.mkdir(parents=True, exist_ok=True)
-    scored_df.to_csv(output_csv, index=False)
-    
-    # Get score columns that were actually created
-    actual_score_columns = [col for col in scored_df.columns if 'score' in col.lower()]
-    
-    if 'suitability_score' in scored_df.columns:
-        score_range = f"{scored_df['suitability_score'].min():.2f} - {scored_df['suitability_score'].max():.2f}"
-    else:
-        score_range = "N/A (no scores calculated)"
-    
-    print(f"""
-Suitability scores calculated successfully
-Output saved to: {output_csv}
-Total rows: {len(scored_df):,}
-Score columns: {actual_score_columns}
-Suitability score range: {score_range}""")
-    
-    return scored_df
+    return data_for_scoring
 
 
 if __name__ == "__main__":
@@ -656,19 +631,10 @@ Suitability Score Calculator - Debug Mode
         ('soil_pH', 4.5, "Below optimal pH"),
     ]
     
-    for prop_name, value, description in test_cases:
-        try:
-            prop_thresholds = get_property_thresholds(thresholds, prop_name)
-            score = calculate_property_score(value, prop_thresholds)
-            print(f"""  PASS: {prop_name} = {value} ({description})
-    Score: {score:.2f}""")
-        except Exception as e:
-            print(f"  FAIL: {prop_name} = {value}: {type(e).__name__}: {e}")
-    
     # Test with actual CSV files if available
     print("""
 ------------------------------------------------------------
-2. Testing with actual CSV files:
+2. Testing data merging and aggregation:
 ------------------------------------------------------------""")
     
     project_root = Path(__file__).parent.parent.parent
@@ -678,20 +644,20 @@ Suitability Score Calculator - Debug Mode
         csv_files = list(csv_dir.glob("*.csv"))
         if csv_files:
             print(f"  Found {len(csv_files)} CSV file(s) in {csv_dir}")
-            print("  Testing suitability score calculation...")
+            print("  Testing data merging and aggregation...")
             
             try:
-                scored_df = process_csv_files_with_suitability_scores(
+                merged_df = merge_and_aggregate_soil_data(
                     csv_dir=csv_dir,
-                    output_csv=csv_dir / "suitability_scores_test.csv"
+                    output_csv=csv_dir / "merged_soil_data_test.csv"
                 )
-                print(f"""  PASS: Successfully calculated suitability scores
-    Output rows: {len(scored_df):,}
-    Score columns: {[col for col in scored_df.columns if 'score' in col]}
-    Sample scores:
-{scored_df[['lon', 'lat', 'suitability_score']].head() if 'suitability_score' in scored_df.columns else 'No scores calculated'}""")
+                print(f"""  PASS: Successfully merged and aggregated data
+    Output rows: {len(merged_df):,}
+    Columns: {len(merged_df.columns)}
+    Sample data:
+{merged_df.head() if not merged_df.empty else 'No data'}""")
             except Exception as e:
-                print(f"  FAIL: Error calculating scores: {type(e).__name__}: {e}")
+                print(f"  FAIL: Error merging data: {type(e).__name__}: {e}")
                 import traceback
                 traceback.print_exc()
         else:
@@ -703,10 +669,12 @@ Suitability Score Calculator - Debug Mode
 ------------------------------------------------------------
 Usage Example:
 ------------------------------------------------------------
-  from src.analysis.suitability import process_csv_files_with_suitability_scores
+  from src.analysis.suitability import merge_and_aggregate_soil_data
+  from src.analysis.biochar_suitability import calculate_biochar_suitability_scores
   from pathlib import Path
   
   csv_dir = Path('data/processed')
-  scored_df = process_csv_files_with_suitability_scores(csv_dir=csv_dir)
+  merged_df = merge_and_aggregate_soil_data(csv_dir=csv_dir)
+  scored_df = calculate_biochar_suitability_scores(merged_df)
 ------------------------------------------------------------""")
 

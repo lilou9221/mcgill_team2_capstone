@@ -228,6 +228,11 @@ The tool includes an intelligent caching system that significantly speeds up re-
    - Based on source files, conversion parameters (band, nodata handling, pattern)
    - **Time savings**: ~70% (skips expensive raster reading and DataFrame conversion)
 
+3. **H3 Indexes Cache** (`data/processed/cache/h3_indexes/`)
+   - Caches H3-indexed DataFrames as Parquet files
+   - Based on input DataFrames and H3 resolution
+   - **Time savings**: ~50% (skips H3 index generation for large datasets)
+
 ### Cache Management
 
 - **Location**: `data/processed/cache/`

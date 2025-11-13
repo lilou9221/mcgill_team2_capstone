@@ -104,3 +104,89 @@ def get_color_scheme_info() -> dict:
     }
 
 
+def get_color_for_biochar_suitability(score: float) -> str:
+    """
+    Get color for a biochar suitability score (0-100).
+    
+    Biochar suitability is inverse of soil quality:
+    - Red (76-100): High suitability - poor soil needs biochar
+    - Orange (51-75): Moderate suitability
+    - Yellow (26-50): Low suitability
+    - Green (0-25): Not suitable - healthy soil doesn't need biochar
+    
+    Parameters
+    ----------
+    score : float
+        Biochar suitability score (0-100)
+    
+    Returns
+    -------
+    str
+        Hex color code (e.g., "#d32f2f")
+    """
+    if np.isnan(score):
+        return "#808080"  # Gray for NaN
+    
+    score = float(score)
+    
+    if score >= 76:
+        # High Suitability - Red (#d32f2f)
+        # Interpolate from dark red (76) to bright red (100)
+        ratio = (score - 76) / 24.0  # 0 to 1
+        # Dark red (#d32f2f) to bright red (#ff1744)
+        r = int(211 + (255 - 211) * ratio)
+        g = int(47 + (23 - 47) * ratio)
+        b = int(47 + (68 - 47) * ratio)
+        return f"#{r:02X}{g:02X}{b:02X}"
+    
+    elif score >= 51:
+        # Moderate Suitability - Orange (#f57c00)
+        # Interpolate from orange (51) to red-orange (75)
+        ratio = (score - 51) / 24.0  # 0 to 1
+        # Orange (#f57c00) to red-orange (#ff5722)
+        r = int(245 + (255 - 245) * ratio)
+        g = int(124 + (87 - 124) * ratio)
+        b = int(0 + (34 - 0) * ratio)
+        return f"#{r:02X}{g:02X}{b:02X}"
+    
+    elif score >= 26:
+        # Low Suitability - Yellow (#fbc02d)
+        # Interpolate from yellow (26) to orange-yellow (50)
+        ratio = (score - 26) / 24.0  # 0 to 1
+        # Yellow (#fbc02d) to orange-yellow (#ffb300)
+        r = int(251 + (255 - 251) * ratio)
+        g = int(192 + (179 - 192) * ratio)
+        b = int(45 + (0 - 45) * ratio)
+        return f"#{r:02X}{g:02X}{b:02X}"
+    
+    else:
+        # Not Suitable - Green (#388e3c)
+        # Interpolate from dark green (0) to medium green (25)
+        ratio = score / 25.0  # 0 to 1
+        # Dark green (#2e7d32) to medium green (#388e3c)
+        r = int(46 + (56 - 46) * ratio)
+        g = int(125 + (142 - 125) * ratio)
+        b = int(50 + (60 - 50) * ratio)
+        return f"#{r:02X}{g:02X}{b:02X}"
+
+
+def get_biochar_suitability_color_rgb(score: float) -> Tuple[int, int, int]:
+    """
+    Get RGB color tuple for a biochar suitability score.
+    
+    Parameters
+    ----------
+    score : float
+        Biochar suitability score (0-100)
+    
+    Returns
+    -------
+    Tuple[int, int, int]
+        RGB color tuple (0-255)
+    """
+    hex_color = get_color_for_biochar_suitability(score)
+    # Convert hex to RGB
+    hex_color = hex_color.lstrip('#')
+    return tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
+
+

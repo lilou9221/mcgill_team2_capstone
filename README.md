@@ -4,7 +4,7 @@ A tool for mapping biochar application suitability in Mato Grosso, Brazil, based
 
 ## Project Overview
 
-This tool analyzes soil properties (moisture, type, temperature, organic carbon, pH, and land cover) from Google Earth Engine to calculate suitability scores for biochar application across Mato Grosso state. The tool generates interactive maps with color-coded suitability scores (0-10 scale) where green indicates high suitability and red indicates low suitability.
+This tool analyzes soil properties (moisture, type, temperature, organic carbon, pH, and land cover) from Google Earth Engine to calculate biochar suitability scores across Mato Grosso state. The tool generates interactive maps with color-coded suitability scores (0-100 scale) where red indicates high suitability (poor soil needs biochar) and green indicates low suitability (healthy soil doesn't need biochar).
 
 ## Features
 
@@ -13,8 +13,8 @@ This tool analyzes soil properties (moisture, type, temperature, organic carbon,
 - **Robust GeoTIFF Processing**: Clips, converts, and validates rasters before tabularisation, with an in-memory pandas pipeline and optional snapshots.
 - **Performance Caching**: Intelligent caching system speeds up re-runs by caching clipped rasters and DataFrame conversions. Automatically detects changes and invalidates cache when source files are updated.
 - **H3 Hexagonal Grid**: Adds hex indexes for efficient aggregation. Boundary geometry is generated after merge and aggregation to optimize memory usage (prevents memory crashes with large datasets).
-- **Suitability Scoring**: Applies configurable thresholds (0–10 scale) with per-property diagnostics prior to final rollups.
-- **Interactive Maps**: Generates PyDeck-based HTML visualisations with interactive tooltips showing suitability scores, H3 hexagon indexes, location coordinates, and point counts. Maps auto-open in browser (configurable).
+- **Biochar Suitability Scoring**: Calculates biochar suitability scores (0-100 scale) based on soil quality metrics. Uses weighted scoring for moisture, organic carbon, pH, and temperature properties. Lower soil quality = higher biochar suitability.
+- **Interactive Maps**: Generates PyDeck-based HTML visualisations with interactive tooltips showing biochar suitability scores, suitability grades, recommendations, H3 hexagon indexes, location coordinates, and point counts. Maps auto-open in browser (configurable).
 - **Auditable Workflow**: Each stage can be run independently, and helper utilities exist to verify intermediate results.
 
 ## Installation
@@ -97,7 +97,6 @@ Edit `configs/config.yaml` to customize:
 - Export resolution (default: 1000m)
 - H3 resolution (default: 7 for clipped areas, 5 for full state)
 - Output directories
-- Suitability scoring parameters
 - Optional snapshot persistence for intermediate DataFrames
 
 ## Usage
@@ -151,9 +150,10 @@ Residual_Carbon/
 ├── data/
 │   ├── raw/            # GeoTIFF files from GEE
 │   └── processed/      # Processed outputs and optional snapshots
-│       └── cache/      # Cache directory (clipped rasters, DataFrames)
+│       └── cache/      # Cache directory (clipped rasters, DataFrames, H3 indexes)
 │           ├── clipped_rasters/    # Cached clipped GeoTIFF files
-│           └── raster_to_dataframe/ # Cached DataFrame Parquet files
+│           ├── raster_to_dataframe/ # Cached DataFrame Parquet files
+│           └── h3_indexes/         # Cached H3-indexed DataFrame Parquet files
 ├── output/
 │   ├── maps/           # Generated maps
 │   └── html/           # HTML map files
@@ -171,9 +171,10 @@ The core pipeline lives in `src/main.py` and wires high-level helpers from each 
 2. **AOI selection** (`get_user_area_of_interest`) — validates coordinates, radius, and provides a full-state fallback.
 3. **Optional clipping** (`clip_all_rasters_to_circle`) — trims rasters to the requested buffer and reports size deltas. **Cached** to speed up re-runs (see Caching System section).
 4. **Raster ➜ Table** (`convert_all_rasters_to_dataframes`) — flattens rasters into pandas DataFrames with coordinates, nodata handling, and unit inference. **Cached** as Parquet files for fast loading (see Caching System section).
-5. **Hex indexing** (`process_dataframes_with_h3`) — injects `h3_index` at the requested resolution. Boundary geometry is excluded during indexing and merging to optimize memory usage.
-6. **Suitability scoring** (`process_csv_files_with_suitability_scores`) — merges property tables (without boundaries), aggregates by hex, generates boundaries for aggregated hexagons only, and applies thresholds.
-7. **Visualisation** (`create_suitability_map`) — renders an interactive PyDeck map and saves it under `output/html/`.
+5. **Hex indexing** (`process_dataframes_with_h3`) — injects `h3_index` at the requested resolution. Boundary geometry is excluded during indexing and merging to optimize memory usage. **Cached** to speed up re-runs (see Caching System section).
+6. **Data merging and aggregation** (`merge_and_aggregate_soil_data`) — merges property tables (without boundaries), aggregates by hex, and generates boundaries for aggregated hexagons only.
+7. **Biochar suitability scoring** (`calculate_biochar_suitability_scores`) — calculates biochar suitability scores based on soil quality metrics (moisture, organic carbon, pH, temperature) with weighted scoring.
+8. **Visualisation** (`create_biochar_suitability_map`) — renders an interactive PyDeck map with biochar suitability scores and saves it under `output/html/`.
 
 Verification helpers such as `verify_clipping_success`, `verify_clipped_data_integrity`, and `calculate_property_score` can be run independently when you need to inspect intermediate outputs.
 
@@ -183,7 +184,7 @@ Verification helpers such as `verify_clipping_success`, `verify_clipped_data_int
 2. **Task Review**: Inspect task summaries and start jobs with confidence.
 3. **Automatic Download**: Files are automatically downloaded from Google Drive to `data/raw/` as export tasks complete (requires Google Drive API setup from Step 5).
 4. **Processing**: Run `python src/main.py` with or without coordinates.
-5. **Score & Map**: Review the returned DataFrame (optionally written to `data/processed/suitability_scores.csv`) and `output/html/suitability_map.html`.
+5. **Score & Map**: Review the returned DataFrame (optionally written to `data/processed/merged_soil_data.csv`) and `output/html/biochar_suitability_map.html`.
 6. **Validate (optional)**: Run the helper verification functions if you need to sanity-check inputs or radius coverage.
 
 ## Data Sources
@@ -211,6 +212,12 @@ The tool includes an intelligent caching system that significantly speeds up re-
    - Based on source files, conversion parameters (band, nodata handling, pattern)
    - Automatically invalidates when source files change
    - **Time savings**: ~70% (skips expensive raster reading and DataFrame conversion)
+
+3. **H3 Indexes Cache** (`data/processed/cache/h3_indexes/`)
+   - Caches H3-indexed DataFrames as Parquet files
+   - Based on input DataFrames and H3 resolution
+   - Automatically invalidates when input DataFrames change
+   - **Time savings**: ~50% (skips H3 index generation for large datasets)
 
 ### How It Works
 
@@ -251,9 +258,9 @@ The pipeline includes memory optimizations to handle large datasets efficiently:
 The tool generates:
 
 - **GeoTIFF files**: Raw raster data in `data/raw/`
-- **CSV snapshots**: Optional debug exports and final `suitability_scores.csv` in `data/processed/`
-- **Cache files**: Cached clipped rasters and DataFrames in `data/processed/cache/`
-- **HTML map**: Interactive suitability map in `output/html/`
+- **CSV snapshots**: Optional debug exports and final `merged_soil_data.csv` in `data/processed/`
+- **Cache files**: Cached clipped rasters, DataFrames, and H3 indexes in `data/processed/cache/`
+- **HTML map**: Interactive biochar suitability map (`biochar_suitability_map.html`) in `output/html/`
 - **Logs**: Application logs in `logs/`
 
 ## Troubleshooting Highlights

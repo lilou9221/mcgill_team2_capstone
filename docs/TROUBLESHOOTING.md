@@ -70,9 +70,9 @@ pip install earthengine-api rasterio pandas h3 folium pydeck shapely pyyaml pyar
 4. **Automatic downloads**: Once Google Drive API is configured (see SETUP_GUIDE.md Step 4), files are automatically downloaded from Google Drive to `data/raw/` as export tasks complete. No manual step required.
 5. If downloads are not working automatically, re-run the acquisition tool once exports complete; it will automatically download any newly available rasters to `data/raw/`
 
-### Final suitability CSV is empty
+### Final merged data CSV is empty
 
-**Problem**: The exported `suitability_scores.csv` (or optional snapshots) contains no data.
+**Problem**: The exported `merged_soil_data.csv` (or optional snapshots) contains no data.
 
 **Solution**:
 - Check that GeoTIFF files are valid and not corrupted
@@ -81,17 +81,16 @@ pip install earthengine-api rasterio pandas h3 folium pydeck shapely pyyaml pyar
 - If your circle sits on the edge of the dataset (common near state boundaries), expect large nodata regions; this is fine as long as some valid pixels remain
 - When working purely in memory, inspect the DataFrames returned from the conversion step before writing snapshots
 
-### Suitability scores are all zero
+### Biochar suitability scores are all zero or NaN
 
-**Problem**: All suitability scores are 0.0.
+**Problem**: All biochar suitability scores are 0.0 or NaN.
 
 **Solution**:
-- Check that thresholds file exists: `configs/thresholds.yaml`
-- Verify the in-memory tables contain the required soil property columns
+- Verify the in-memory tables contain the required soil property columns (moisture, SOC, pH, temperature)
 - Check that property values are within expected ranges
-- Review threshold values in `configs/thresholds.yaml`
-- Run `python -m src.analysis.thresholds` (or a quick REPL) to ensure thresholds load as expected
-- Inspect the per-property score columns (`*_score`) to see which property is pulling the composite down
+- Ensure SOC and pH values are present (these are required for biochar suitability calculation)
+- Check that moisture and temperature have valid values or will use default values (50% moisture, 20°C temperature)
+- Inspect the biochar suitability score columns to see which properties might be causing issues
 
 ## Configuration Issues
 
@@ -188,7 +187,7 @@ pip install earthengine-api rasterio pandas h3 folium pydeck shapely pyyaml pyar
 **Problem**: Auto-open fails or map doesn't display correctly.
 
 **Solution**:
-- Manually open the HTML file: `output/html/suitability_map.html`
+- Manually open the HTML file: `output/html/biochar_suitability_map.html`
 - Check browser console for JavaScript errors
 - Try a different browser
 - Disable auto-open in config and open manually
@@ -199,13 +198,13 @@ pip install earthengine-api rasterio pandas h3 folium pydeck shapely pyyaml pyar
 **Problem**: Map is empty or shows only background.
 
 **Solution**:
-- Check that `suitability_scores.csv` exists and has data
-- Verify the file has `lon`, `lat`, and `suitability_score` columns
-- Check that scores are in valid range (0-10)
-- Review the data in `data/processed/suitability_scores.csv`
+- Check that `merged_soil_data.csv` exists and has data
+- Verify the file has `lon`, `lat`, and required property columns (moisture, SOC, pH, temperature)
+- Check that biochar suitability scores are in valid range (0-100)
+- Review the data in `data/processed/merged_soil_data.csv`
 - Ensure the H3 resolution you selected matches what the visualisation expects (defaults to 7)
 
-**Note**: When using H3 hexagons, clicking or hovering over a hexagon displays a tooltip with the suitability score, H3 index, location coordinates, and point count.
+**Note**: When using H3 hexagons, clicking or hovering over a hexagon displays a tooltip with the biochar suitability score, suitability grade, recommendation, H3 index, location coordinates, and point count.
 
 ### PYTHONPATH / import issues outside PyCharm
 
