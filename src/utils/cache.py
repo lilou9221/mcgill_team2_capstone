@@ -720,3 +720,253 @@ def save_dataframes_to_cache(
     
     return cached_paths
 
+
+# H3 indexes cache functions
+def generate_h3_cache_key(
+    dataframes: Dict[str, Any],
+    resolution: int,
+    lat_column: str = "lat",
+    lon_column: str = "lon"
+) -> str:
+    """
+    Generate a cache key for H3 indexing.
+    
+    Parameters
+    ----------
+    dataframes : Dict[str, pd.DataFrame]
+        Dictionary mapping DataFrame names to DataFrames
+    resolution : int
+        H3 resolution (0-15)
+    lat_column : str, optional
+        Name of latitude column (default: "lat")
+    lon_column : str, optional
+        Name of longitude column (default: "lon")
+    
+    Returns
+    -------
+    str
+        Cache key (hexadecimal hash)
+    """
+    # Create hash components: H3 parameters and DataFrame info
+    hash_components = [
+        f"resolution_{resolution}",
+        f"lat_col_{lat_column}",
+        f"lon_col_{lon_column}",
+    ]
+    
+    # Add DataFrame info (name, row count, column hash)
+    # Sort by name for consistent hashing
+    sorted_names = sorted(dataframes.keys())
+    for name in sorted_names:
+        df = dataframes[name]
+        if df is not None and not df.empty:
+            # Create a hash based on DataFrame shape and column names
+            # This ensures cache invalidates if DataFrames change significantly
+            row_count = len(df)
+            col_names = sorted(df.columns.tolist())
+            col_hash = hashlib.md5("|".join(col_names).encode()).hexdigest()[:8]
+            df_info = f"{name}_{row_count}_{col_hash}"
+            hash_components.append(df_info)
+    
+    # Create hash from all components
+    hash_string = "|".join(hash_components)
+    cache_key = hashlib.md5(hash_string.encode()).hexdigest()
+    
+    return cache_key
+
+
+def save_h3_cache_metadata(
+    cache_dir: Path,
+    cache_key: str,
+    dataframes: Dict[str, Any],
+    resolution: int,
+    lat_column: str,
+    lon_column: str,
+    cached_dataframes: Dict[str, Path]
+) -> None:
+    """
+    Save H3 cache metadata to JSON file.
+    
+    Parameters
+    ----------
+    cache_dir : Path
+        Cache directory
+    cache_key : str
+        Cache key
+    dataframes : Dict[str, pd.DataFrame]
+        Dictionary mapping DataFrame names to DataFrames
+    resolution : int
+        H3 resolution
+    lat_column : str
+        Name of latitude column
+    lon_column : str
+        Name of longitude column
+    cached_dataframes : Dict[str, Path]
+        Dictionary mapping DataFrame names to cached file paths
+    """
+    metadata = {
+        "cache_key": cache_key,
+        "resolution": resolution,
+        "lat_column": lat_column,
+        "lon_column": lon_column,
+        "created_at": datetime.now().isoformat(),
+        "dataframes": {
+            name: {
+                "rows": len(df) if df is not None and not df.empty else 0,
+                "columns": sorted(df.columns.tolist()) if df is not None and not df.empty else []
+            }
+            for name, df in sorted(dataframes.items())
+        },
+        "cached_dataframes": {
+            name: str(path) for name, path in cached_dataframes.items()
+        },
+    }
+    
+    metadata_path = get_cache_metadata_path(cache_dir, cache_key)
+    with open(metadata_path, "w") as f:
+        json.dump(metadata, f, indent=2)
+
+
+def load_h3_cache_metadata(cache_dir: Path, cache_key: str) -> Optional[Dict]:
+    """
+    Load H3 cache metadata from JSON file.
+    
+    Parameters
+    ----------
+    cache_dir : Path
+        Cache directory
+    cache_key : str
+        Cache key
+    
+    Returns
+    -------
+    Optional[Dict]
+        Metadata dictionary if found, None otherwise
+    """
+    return load_cache_metadata(cache_dir, cache_key)
+
+
+def is_h3_cache_valid(
+    cache_dir: Path,
+    cache_key: str,
+    dataframes: Dict[str, Any],
+    resolution: int,
+    lat_column: str,
+    lon_column: str
+) -> Tuple[bool, Optional[str]]:
+    """
+    Check if H3 cache is valid by comparing DataFrame metadata and parameters.
+    
+    Parameters
+    ----------
+    cache_dir : Path
+        Cache directory
+    cache_key : str
+        Cache key
+    dataframes : Dict[str, pd.DataFrame]
+        Dictionary mapping DataFrame names to DataFrames
+    resolution : int
+        H3 resolution
+    lat_column : str
+        Name of latitude column
+    lon_column : str
+        Name of longitude column
+    
+    Returns
+    -------
+    Tuple[bool, Optional[str]]
+        (is_valid, reason) - True if cache is valid, False otherwise with reason
+    """
+    metadata = load_h3_cache_metadata(cache_dir, cache_key)
+    if metadata is None:
+        return False, "Cache metadata not found"
+    
+    # Check parameters match
+    if metadata.get("resolution") != resolution:
+        return False, f"Resolution mismatch: {metadata.get('resolution')} != {resolution}"
+    
+    if metadata.get("lat_column") != lat_column:
+        return False, f"Lat column mismatch: {metadata.get('lat_column')} != {lat_column}"
+    
+    if metadata.get("lon_column") != lon_column:
+        return False, f"Lon column mismatch: {metadata.get('lon_column')} != {lon_column}"
+    
+    # Check if all cached DataFrames exist
+    cached_dataframes = metadata.get("cached_dataframes", {})
+    for name, cached_path_str in cached_dataframes.items():
+        cached_path = Path(cached_path_str)
+        if not cached_path.exists():
+            return False, f"Cached DataFrame not found: {name} ({cached_path.name})"
+    
+    # Check if DataFrame metadata matches
+    cached_df_info = metadata.get("dataframes", {})
+    for name, df in dataframes.items():
+        if name not in cached_df_info:
+            return False, f"New DataFrame detected: {name}"
+        
+        # Check row count and columns match
+        cached_info = cached_df_info[name]
+        if cached_info["rows"] != len(df) if df is not None and not df.empty else 0:
+            return False, f"DataFrame row count changed: {name} ({cached_info['rows']} != {len(df) if df is not None and not df.empty else 0})"
+        
+        cached_cols = set(cached_info.get("columns", []))
+        current_cols = set(df.columns.tolist()) if df is not None and not df.empty else set()
+        if cached_cols != current_cols:
+            return False, f"DataFrame columns changed: {name}"
+    
+    # Check if there are missing DataFrames (DataFrames removed)
+    current_df_names = set(dataframes.keys())
+    cached_df_names = set(cached_df_info.keys())
+    
+    if cached_df_names != current_df_names:
+        return False, f"DataFrame list changed: {cached_df_names} != {current_df_names}"
+    
+    return True, None
+
+
+def load_cached_h3_dataframes(cache_dir: Path, cache_key: str) -> Optional[Dict[str, Any]]:
+    """
+    Load cached H3-indexed DataFrames from Parquet or CSV files.
+    
+    Parameters
+    ----------
+    cache_dir : Path
+        Cache directory
+    cache_key : str
+        Cache key
+    
+    Returns
+    -------
+    Optional[Dict[str, pd.DataFrame]]
+        Dictionary mapping DataFrame names to DataFrames if found, None otherwise
+    """
+    return load_cached_dataframes(cache_dir, cache_key)
+
+
+def save_h3_dataframes_to_cache(
+    cache_dir: Path,
+    cache_key: str,
+    dataframes: Dict[str, Any],
+    use_parquet: bool = True
+) -> Dict[str, Path]:
+    """
+    Save H3-indexed DataFrames to cache as Parquet or CSV files.
+    
+    Parameters
+    ----------
+    cache_dir : Path
+        Cache directory
+    cache_key : str
+        Cache key
+    dataframes : Dict[str, pd.DataFrame]
+        Dictionary mapping DataFrame names to DataFrames
+    use_parquet : bool, optional
+        Whether to use Parquet format (default: True, faster and more efficient)
+    
+    Returns
+    -------
+    Dict[str, Path]
+        Dictionary mapping DataFrame names to cached file paths
+    """
+    return save_dataframes_to_cache(cache_dir, cache_key, dataframes, use_parquet)
+

@@ -95,7 +95,7 @@ Edit `configs/config.yaml` to customize:
 
 - Google Earth Engine project name
 - Export resolution (default: 1000m)
-- H3 resolution (default: 6)
+- H3 resolution (default: 7 for clipped areas, 5 for full state)
 - Output directories
 - Suitability scoring parameters
 - Optional snapshot persistence for intermediate DataFrames
@@ -135,7 +135,7 @@ python src/main.py --help
 Key processing flags:
 
 - `--lat / --lon / --radius` — Skip prompts and inject AOI coordinates directly. Default radius is 100 km.
-- `--h3-resolution` — Choose aggregation granularity (higher = more hexes, default 7).
+- `--h3-resolution` — Choose aggregation granularity (higher = more hexes, default 7). Full state uses resolution 5 automatically.
 - `--config` — Point the pipeline at an alternate configuration document.
 
 ## Project Structure

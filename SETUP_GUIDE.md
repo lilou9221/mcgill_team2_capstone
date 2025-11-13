@@ -144,7 +144,7 @@ Edit `configs/config.yaml` to customize:
 
 - **GEE Project Name**: Your Google Earth Engine project name
 - **Export Resolution**: Default 1000m (affects processing time and file size)
-- **H3 Resolution**: Default 6 (higher = finer hexagons)
+- **H3 Resolution**: Default 7 for clipped areas (higher = finer hexagons). Full state uses resolution 5 automatically.
 - **Export Folder**: Must match in both `gee.export_folder` and `drive.download_folder`
 - **Persist Snapshots**: Set `processing.persist_snapshots` to `true` to keep intermediate CSV tables for debugging
 

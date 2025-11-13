@@ -15,6 +15,16 @@ from typing import Dict, Mapping, Optional
 import h3
 import pandas as pd
 
+# Import cache utilities
+from src.utils.cache import (
+    get_cache_dir,
+    generate_h3_cache_key,
+    save_h3_cache_metadata,
+    is_h3_cache_valid,
+    load_cached_h3_dataframes,
+    save_h3_dataframes_to_cache
+)
+
 
 def _validate_resolution(resolution: int) -> None:
     if not isinstance(resolution, int) or not 0 <= resolution <= 15:
@@ -98,6 +108,9 @@ def process_dataframes_with_h3(
     lon_column: str = "lon",
     persist_dir: Optional[Path] = None,
     clean_persist_dir: bool = True,
+    use_cache: bool = True,
+    cache_dir: Optional[Path] = None,
+    processed_dir: Optional[Path] = None,
 ) -> Dict[str, pd.DataFrame]:
     """
     Add H3 indexes to each DataFrame in ``tables``.
@@ -118,6 +131,12 @@ def process_dataframes_with_h3(
     clean_persist_dir
         When ``True`` (default) existing CSV files in ``persist_dir`` are
         removed before writing new ones.
+    use_cache
+        Whether to use caching (default: True).
+    cache_dir
+        Optional cache directory. If None and use_cache is True, will be inferred from processed_dir.
+    processed_dir
+        Optional processed data directory. Used to infer cache_dir if cache_dir is None.
 
     Returns
     -------
@@ -129,6 +148,63 @@ def process_dataframes_with_h3(
     if not tables:
         print("No DataFrames supplied for H3 indexing.")
         return {}
+    
+    # Check cache if enabled
+    cache_used = False
+    actual_cache_dir = None
+    if use_cache:
+        # Determine cache directory
+        if cache_dir is None:
+            if processed_dir is None:
+                print("  Warning: use_cache=True but no cache_dir or processed_dir provided, skipping cache")
+            else:
+                actual_cache_dir = get_cache_dir(processed_dir, cache_type="h3_indexes")
+        else:
+            # If cache_dir is provided, check if it's already the h3_indexes directory
+            if cache_dir.name == "h3_indexes":
+                actual_cache_dir = cache_dir
+            else:
+                actual_cache_dir = get_cache_dir(cache_dir, cache_type="h3_indexes")
+        
+        # Generate cache key
+        cache_key = generate_h3_cache_key(
+            dataframes=dict(tables),
+            resolution=resolution,
+            lat_column=lat_column,
+            lon_column=lon_column
+        )
+        
+        if actual_cache_dir:
+            # Check if cache is valid
+            is_valid, reason = is_h3_cache_valid(
+                cache_dir=actual_cache_dir,
+                cache_key=cache_key,
+                dataframes=dict(tables),
+                resolution=resolution,
+                lat_column=lat_column,
+                lon_column=lon_column
+            )
+            
+            if is_valid:
+                # Load from cache
+                cached_dataframes = load_cached_h3_dataframes(actual_cache_dir, cache_key)
+                if cached_dataframes:
+                    cache_used = True
+                    print(f"\nUsing cached H3-indexed DataFrames (cache key: {cache_key[:8]}...)")
+                    print(f"  Found {len(cached_dataframes)} cached DataFrame(s)")
+                    for name in sorted(cached_dataframes.keys()):
+                        df = cached_dataframes[name]
+                        print(f"    Loaded {name}: {len(df):,} rows")
+                    print(f"  Cache location: {actual_cache_dir}")
+                    print(f"  Time saved: Using cached DataFrames instead of H3 indexing")
+                    return cached_dataframes
+            
+            # Cache not valid or not found
+            print(f"\nCache invalid or not found: {reason if is_valid else reason}")
+            print(f"  Will index and cache results (cache key: {cache_key[:8]}...)")
+        else:
+            print(f"\nCache invalid or not found: No cache directory available")
+            print(f"  Will index and cache results (cache key: {cache_key[:8]}...)")
 
     if persist_dir:
         persist_dir.mkdir(parents=True, exist_ok=True)
@@ -173,6 +249,32 @@ def process_dataframes_with_h3(
 
     if not processed:
         print("No DataFrames were successfully processed with H3.")
+        return {}
+    
+    # Save to cache if enabled and cache wasn't used
+    if use_cache and processed and not cache_used and actual_cache_dir:
+        # Save to cache
+        cached_paths = save_h3_dataframes_to_cache(
+            cache_dir=actual_cache_dir,
+            cache_key=cache_key,
+            dataframes=processed,
+            use_parquet=True
+        )
+        
+        if cached_paths:
+            # Save metadata
+            save_h3_cache_metadata(
+                cache_dir=actual_cache_dir,
+                cache_key=cache_key,
+                dataframes=dict(tables),  # Original DataFrames for metadata
+                resolution=resolution,
+                lat_column=lat_column,
+                lon_column=lon_column,
+                cached_dataframes=cached_paths
+            )
+            
+            print(f"\n  Cached H3-indexed DataFrames for future use (cache key: {cache_key[:8]}...)")
+            print(f"  Cache location: {actual_cache_dir}")
 
     return processed
 

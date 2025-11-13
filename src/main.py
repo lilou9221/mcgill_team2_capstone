@@ -72,7 +72,7 @@ def main():
     parser.add_argument("--lat", type=float, default=None, help="Latitude (optional)")
     parser.add_argument("--lon", type=float, default=None, help="Longitude (optional)")
     parser.add_argument("--radius", type=float, default=100, help="Radius in km (default: 100)")
-    parser.add_argument("--h3-resolution", type=int, default=7, help="H3 resolution for clipped areas (default: 7). Full state uses resolution 9 automatically.")
+    parser.add_argument("--h3-resolution", type=int, default=7, help="H3 resolution for clipped areas (default: 7). Full state uses resolution 5 automatically.")
     parser.add_argument("--config", type=str, default="configs/config.yaml", help="Config file")
     
     args = parser.parse_args()
@@ -102,9 +102,9 @@ def main():
         # Use full state - no clipping needed
         tif_dir = raw_dir
         print("Using full Mato Grosso state data")
-        # Use coarser H3 resolution (9) for full state
-        h3_resolution = 9
-        print("Using H3 resolution 9 for full state (coarser resolution)")
+        # Use coarser H3 resolution (5) for full state
+        h3_resolution = 5
+        print("Using H3 resolution 5 for full state (coarser resolution)")
     else:
         # Clip to 100km radius with caching
         print(f"Clipping to {area.radius_km}km radius around ({area.lat}, {area.lon})")
@@ -159,7 +159,9 @@ def main():
         resolution=h3_resolution,
         lat_column="lat",
         lon_column="lon",
-        persist_dir=h3_snapshot_dir
+        persist_dir=h3_snapshot_dir,
+        use_cache=True,
+        processed_dir=processed_dir
     )
 
     if not tables_with_h3:
