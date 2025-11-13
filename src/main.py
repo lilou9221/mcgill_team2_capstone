@@ -152,8 +152,9 @@ def main():
     if tif_dir != raw_dir and tif_dir.exists():
         shutil.rmtree(tif_dir, ignore_errors=True)
 
-    # Step 3: Add H3 indexes before scoring
+    # Step 3: Add H3 indexes before scoring (boundaries added after merge)
     print(f"Adding H3 indexes (resolution {h3_resolution})...")
+    print("  Boundaries will be generated after merge and aggregation for visualization")
     tables_with_h3 = process_dataframes_with_h3(
         tables=tables,
         resolution=h3_resolution,

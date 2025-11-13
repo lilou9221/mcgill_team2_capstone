@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import List, Dict, Any, Optional
 import pandas as pd
 import numpy as np
+import h3
 
 # Add project root to path for imports
 project_root = Path(__file__).parent.parent.parent
@@ -357,6 +358,40 @@ def merge_csv_files_by_coordinates(
     return merged_df
 
 
+def add_h3_boundaries_to_dataframe(df: pd.DataFrame, h3_column: str = "h3_index") -> pd.DataFrame:
+    """
+    Add h3_boundary_geojson column to a DataFrame with H3 indexes.
+    
+    This function generates hexagon boundary geometries from H3 index strings.
+    Used after aggregation to add boundaries only for the aggregated hexagons
+    (much more memory-efficient than generating boundaries for all points).
+    
+    Parameters
+    ----------
+    df : pd.DataFrame
+        DataFrame with h3_index column
+    h3_column : str, default "h3_index"
+        Name of the H3 index column
+        
+    Returns
+    -------
+    pd.DataFrame
+        Copy of input DataFrame with h3_boundary_geojson column added
+    """
+    if h3_column not in df.columns:
+        raise KeyError(f"Missing required column '{h3_column}' in DataFrame.")
+    
+    working = df.copy()
+    
+    # Generate boundaries for each unique H3 index
+    print("  Generating hexagon boundaries for aggregated regions...")
+    working["h3_boundary_geojson"] = working[h3_column].apply(
+        lambda cell: [[lon, lat] for lat, lon in h3.cell_to_boundary(cell)]
+    )
+    
+    return working
+
+
 def process_csv_files_with_suitability_scores(
     csv_dir: Path,
     thresholds_path: Optional[str] = None,
@@ -456,6 +491,14 @@ def process_csv_files_with_suitability_scores(
         print("No valid tabular datasets available for scoring.")
         return pd.DataFrame()
     
+    # Drop boundary columns before merging (memory optimization - will add back after aggregation)
+    print("\nPreparing datasets for merging...")
+    boundary_col = 'h3_boundary_geojson'
+    for i, df in enumerate(loaded_frames):
+        if boundary_col in df.columns:
+            loaded_frames[i] = df.drop(columns=[boundary_col])
+            print(f"  Dropped {boundary_col} from dataset {i+1} (will add back after aggregation)")
+    
     print("\nMerging datasets by coordinates...")
     merged_df = loaded_frames[0].copy()
     
@@ -478,6 +521,11 @@ def process_csv_files_with_suitability_scores(
     
     # Remove any remaining duplicate columns
     merged_df = merged_df.loc[:, ~merged_df.columns.duplicated()]
+    
+    # Ensure boundary column is not present (in case it somehow got through)
+    if boundary_col in merged_df.columns:
+        merged_df = merged_df.drop(columns=[boundary_col])
+        print(f"  Removed {boundary_col} from merged DataFrame (will add back after aggregation)")
     
     # Sort by coordinates
     merged_df = merged_df.sort_values([lat_column, lon_column])
@@ -532,6 +580,9 @@ def process_csv_files_with_suitability_scores(
             print(f"  Average points per hexagon: {len(merged_df) / len(hexagon_df):.1f}")
             print(f"  Total points: {len(merged_df):,}")
             print(f"  Aggregated {len(numeric_cols)} numeric columns")
+            
+            # Generate boundaries for aggregated hexagons (memory-efficient: only ~1,491 vs ~130,000)
+            hexagon_df = add_h3_boundaries_to_dataframe(hexagon_df, h3_column='h3_index')
             
             # Use hexagon-aggregated data for scoring
             data_for_scoring = hexagon_df

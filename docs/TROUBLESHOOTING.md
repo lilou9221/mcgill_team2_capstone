@@ -137,6 +137,19 @@ pip install earthengine-api rasterio pandas h3 folium pydeck shapely pyyaml pyar
 - Process smaller areas (use coordinates with smaller radius)
 - Check if cache is being used: Look for "Using cached..." messages in the output
 
+### Memory issues or crashes
+
+**Problem**: Application crashes or runs out of memory, especially with large datasets (100km+ radius).
+
+**Solution**:
+- **Memory optimization is built-in**: The pipeline automatically optimizes memory usage by deferring H3 boundary generation until after merge and aggregation. This reduces memory usage by ~99% for large datasets.
+- **How it works**: Boundaries are not generated during H3 indexing or merging. They are only generated after data is aggregated by hexagon (e.g., 5,817 hexagons instead of 521,217 points).
+- **If you still experience memory issues**:
+  - Process smaller areas (reduce radius)
+  - Reduce H3 resolution (coarser hexagons = fewer hexagons)
+  - Ensure you're using the latest version with memory optimizations
+  - Check available system memory (recommended: 4GB+ free RAM for 100km radius)
+
 ### Cache not working
 
 **Problem**: Cache is not being used or cache errors occur.

@@ -35,10 +35,29 @@ def add_h3_to_dataframe(
     lon_column: str = "lon",
 ) -> pd.DataFrame:
     """
-    Return a copy of ``df`` with ``h3_index`` and ``h3_boundary_geojson`` columns.
+    Return a copy of ``df`` with ``h3_index`` column.
 
     The input DataFrame must contain numeric latitude/longitude columns. Rows
     with invalid coordinates are dropped before indexing.
+
+    Note: Boundaries are NOT generated here. They are added after merge and aggregation
+    to optimize memory usage.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Input DataFrame with lat/lon columns
+    resolution : int, default 7
+        H3 resolution (0-15)
+    lat_column : str, default "lat"
+        Name of latitude column
+    lon_column : str, default "lon"
+        Name of longitude column
+
+    Returns
+    -------
+    pd.DataFrame
+        Copy of input DataFrame with h3_index column (no boundaries)
     """
     _validate_resolution(resolution)
 
@@ -65,9 +84,9 @@ def add_h3_to_dataframe(
         lambda row: h3.latlng_to_cell(row[lat_column], row[lon_column], resolution),
         axis=1,
     )
-    working["h3_boundary_geojson"] = working["h3_index"].apply(
-        lambda cell: [[lon, lat] for lat, lon in h3.cell_to_boundary(cell)]
-    )
+    
+    # Boundaries are NOT generated here - they are added after merge and aggregation
+    # to optimize memory usage (see add_h3_boundaries_to_dataframe in suitability.py)
 
     return working
 
@@ -82,6 +101,9 @@ def process_dataframes_with_h3(
 ) -> Dict[str, pd.DataFrame]:
     """
     Add H3 indexes to each DataFrame in ``tables``.
+
+    Note: Boundaries are NOT generated here. They are added after merge and aggregation
+    to optimize memory usage.
 
     Parameters
     ----------
@@ -100,7 +122,7 @@ def process_dataframes_with_h3(
     Returns
     -------
     Dict[str, pd.DataFrame]
-        Updated mapping containing copies of each DataFrame with H3 columns.
+        Updated mapping containing copies of each DataFrame with H3 index columns (no boundaries).
     """
     _validate_resolution(resolution)
 
@@ -138,7 +160,7 @@ def process_dataframes_with_h3(
                 lat_column=lat_column,
                 lon_column=lon_column,
             )
-            print(f"    Added H3 columns to {len(enriched):,} row(s)")
+            print(f"    Added H3 indexes to {len(enriched):,} row(s) (boundaries will be added after merge)")
             processed[name] = enriched
 
             if persist_dir:

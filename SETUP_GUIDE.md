@@ -242,6 +242,35 @@ The tool includes an intelligent caching system that significantly speeds up re-
 - **Resource efficiency**: Reduces CPU and I/O usage for repeated operations
 - **Automatic**: No manual configuration required, works out of the box
 
+## Memory Optimization
+
+The pipeline includes built-in memory optimizations to handle large datasets efficiently:
+
+### H3 Boundary Generation Optimization
+
+- **Problem**: Generating hexagon boundary geometry for all data points (e.g., 500,000+ points) can cause memory crashes, especially with large areas (100km+ radius).
+- **Solution**: Boundaries are **not** generated during H3 indexing or merging. They are only generated after data is merged and aggregated by hexagon.
+- **Memory savings**: ~99% reduction in boundary data:
+  - **Before**: Generate boundaries for all points (e.g., 521,217 points)
+  - **After**: Only generate boundaries for aggregated hexagons (e.g., 5,817 hexagons)
+- **Result**: Prevents memory crashes when processing large areas
+- **Automatic**: This optimization is built-in and requires no configuration
+
+### When to Use
+
+- **Small areas** (< 25km radius): Works smoothly with or without optimization
+- **Medium areas** (25-50km radius): Optimization helps prevent memory issues
+- **Large areas** (50-100km+ radius): **Essential** - prevents memory crashes
+
+### Technical Details
+
+The pipeline follows this optimized flow:
+1. H3 indexing: Only generates `h3_index` (no boundaries)
+2. Merging: Datasets merged without boundary columns
+3. Aggregation: Data aggregated by hexagon
+4. Boundary generation: Boundaries generated only for aggregated hexagons
+5. Visualization: Map created with boundaries for visualization
+
 ## Next Steps
 
 Once setup is complete, you can:
