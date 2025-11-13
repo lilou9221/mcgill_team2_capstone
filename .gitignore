@@ -42,6 +42,8 @@ data/raw/*.tif
 data/raw/*.tiff
 data/processed/*.csv
 data/processed/*.json
+data/processed/cache/
+!data/processed/cache/.gitkeep
 output/html/*.html
 output/maps/*
 logs/*.log

@@ -3,10 +3,11 @@ Raster Clipping Module
 
 Clips GeoTIFF files to circular buffers around user-specified points.
 Handles coordinate transformations and saves clipped rasters.
+Includes caching to avoid re-clipping the same areas.
 """
 
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 import numpy as np
 import rasterio
@@ -16,12 +17,28 @@ from shapely.geometry import mapping
 
 try:  # pragma: no cover
     from src.utils.geospatial import create_circle_buffer
+    from src.utils.cache import (
+        generate_cache_key,
+        get_cache_dir,
+        get_cached_files,
+        is_cache_valid,
+        save_cache_metadata,
+        get_cache_subdirectory,
+    )
 except ModuleNotFoundError:  # Fallback when running as script
     import sys
     SCRIPT_ROOT = Path(__file__).resolve().parents[3]
     if str(SCRIPT_ROOT) not in sys.path:
         sys.path.insert(0, str(SCRIPT_ROOT))
     from src.utils.geospatial import create_circle_buffer
+    from src.utils.cache import (
+        generate_cache_key,
+        get_cache_dir,
+        get_cached_files,
+        is_cache_valid,
+        save_cache_metadata,
+        get_cache_subdirectory,
+    )
 
 
 def clip_raster_to_circle(
@@ -139,10 +156,16 @@ def clip_all_rasters_to_circle(
     input_dir: Path,
     output_dir: Path,
     circle_geometry,
-    pattern: str = "*.tif"
-) -> List[Path]:
+    pattern: str = "*.tif",
+    use_cache: bool = True,
+    cache_dir: Optional[Path] = None,
+    lat: Optional[float] = None,
+    lon: Optional[float] = None,
+    radius_km: Optional[float] = None
+) -> Tuple[List[Path], bool]:
     """
     Clip all GeoTIFF files in a directory to a circular geometry.
+    Includes caching to avoid re-clipping the same areas.
     
     Parameters
     ----------
@@ -154,21 +177,82 @@ def clip_all_rasters_to_circle(
         Circular buffer polygon (should be in WGS84/EPSG:4326)
     pattern : str, optional
         File pattern to match (default: "*.tif")
+    use_cache : bool, optional
+        Whether to use cache (default: True)
+    cache_dir : Optional[Path], optional
+        Cache directory. If None, uses default cache directory.
+    lat : Optional[float], optional
+        Latitude of circle center (for cache key generation)
+    lon : Optional[float], optional
+        Longitude of circle center (for cache key generation)
+    radius_km : Optional[float], optional
+        Radius in kilometers (for cache key generation)
     
     Returns
     -------
-    List[Path]
-        List of paths to clipped output files
+    Tuple[List[Path], bool]
+        List of paths to clipped output files and whether cache was used
     """
-    # Ensure output directory exists
-    output_dir.mkdir(parents=True, exist_ok=True)
-    
     # Collect GeoTIFF files sequentially
     tif_files = collect_geotiff_files(input_dir=input_dir, pattern=pattern)
     
     if not tif_files:
         print(f"No GeoTIFF files found in {input_dir} matching pattern {pattern}")
-        return []
+        return [], False
+    
+    # Try to use cache if enabled and coordinates are provided
+    cache_used = False
+    if use_cache and lat is not None and lon is not None and radius_km is not None:
+        # Get cache directory
+        if cache_dir is None:
+            # Use output_dir's parent processed directory for cache
+            # output_dir is typically a temp directory, so we need to find processed_dir
+            # Try to infer from output_dir structure
+            if "processed" in str(output_dir) or "cache" in str(output_dir):
+                processed_dir = output_dir.parent
+            else:
+                # Fallback: use a default cache location relative to output_dir
+                processed_dir = output_dir.parent.parent / "processed"
+            
+            cache_dir = get_cache_dir(processed_dir)
+        
+        # Generate cache key
+        cache_key = generate_cache_key(lat, lon, radius_km, tif_files)
+        
+        # Check if cache is valid
+        is_valid, reason = is_cache_valid(cache_dir, cache_key, tif_files)
+        
+        if is_valid:
+            # Use cached files
+            cached_files = get_cached_files(cache_dir, cache_key)
+            if cached_files:
+                print(f"\nUsing cached clipped rasters (cache key: {cache_key[:8]}...)")
+                print(f"  Found {len(cached_files)} cached file(s)")
+                
+                # Copy cached files to output directory (temp directory)
+                output_files: List[Path] = []
+                for cached_file in cached_files:
+                    output_path = output_dir / cached_file.name
+                    if cached_file != output_path:
+                        import shutil
+                        shutil.copy2(cached_file, output_path)
+                        print(f"  Copied: {cached_file.name}")
+                    else:
+                        output_path = cached_file
+                    output_files.append(output_path)
+                
+                cache_subdir = get_cache_subdirectory(cache_dir, cache_key)
+                print(f"  Cache location: {cache_subdir}")
+                print(f"  Time saved: Using cached files instead of clipping")
+                
+                return output_files, True
+        else:
+            if reason:
+                print(f"\nCache invalid or not found: {reason}")
+                print(f"  Will clip and cache results (cache key: {cache_key[:8]}...)")
+    
+    # Ensure output directory exists
+    output_dir.mkdir(parents=True, exist_ok=True)
     
     print(f"\nFound {len(tif_files)} GeoTIFF file(s) to clip")
     
@@ -192,8 +276,45 @@ def clip_all_rasters_to_circle(
         except Exception as exc:  # pragma: no cover - runtime I/O guard
             print(f"  Error clipping {tif_path.name}: {type(exc).__name__}: {exc}")
     
+    # Save to cache if enabled and coordinates are provided and cache wasn't used
+    if use_cache and lat is not None and lon is not None and radius_km is not None and clipped_files and not cache_used:
+        if cache_dir is None:
+            # Infer cache directory from output_dir structure
+            if "processed" in str(output_dir) or "cache" in str(output_dir):
+                processed_dir = output_dir.parent
+            else:
+                processed_dir = output_dir.parent.parent / "processed"
+            cache_dir = get_cache_dir(processed_dir)
+        
+        cache_key = generate_cache_key(lat, lon, radius_km, tif_files)
+        cache_subdir = get_cache_subdirectory(cache_dir, cache_key)
+        
+        # Copy clipped files to cache
+        cached_files: List[Path] = []
+        for clipped_file in clipped_files:
+            cached_path = cache_subdir / clipped_file.name
+            if clipped_file != cached_path:
+                import shutil
+                shutil.copy2(clipped_file, cached_path)
+                cached_files.append(cached_path)
+            else:
+                cached_files.append(clipped_file)
+        
+        # Save cache metadata
+        save_cache_metadata(
+            cache_dir=cache_dir,
+            cache_key=cache_key,
+            lat=lat,
+            lon=lon,
+            radius_km=radius_km,
+            source_files=tif_files,
+            cached_files=cached_files
+        )
+        print(f"\n  Cached clipped rasters for future use (cache key: {cache_key[:8]}...)")
+        print(f"  Cache location: {cache_subdir}")
+    
     print(f"\nSuccessfully clipped {len(clipped_files)} of {len(tif_files)} file(s)")
-    return clipped_files
+    return clipped_files, cache_used
 
 
 def verify_clipping_success(
@@ -532,10 +653,15 @@ Usage Example:
   from src.data.raster_clip import clip_all_rasters_to_circle
   from src.utils.geospatial import create_circle_buffer
   circle = create_circle_buffer(lat=-12.0, lon=-55.0, radius_km=100.0)
-  clipped = clip_all_rasters_to_circle(
+  clipped_files, cache_used = clip_all_rasters_to_circle(
       input_dir=Path('data/raw'),
       output_dir=Path('data/processed'),
-      circle_geometry=circle
+      circle_geometry=circle,
+      lat=-12.0,
+      lon=-55.0,
+      radius_km=100.0,
+      use_cache=True
   )
+  # Returns: (List[Path], bool) - list of clipped files and whether cache was used
 ------------------------------------------------------------""")
 

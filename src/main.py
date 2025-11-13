@@ -106,11 +106,30 @@ def main():
         h3_resolution = 9
         print("Using H3 resolution 9 for full state (coarser resolution)")
     else:
-        # Clip to 100km radius
+        # Clip to 100km radius with caching
         print(f"Clipping to {area.radius_km}km radius around ({area.lat}, {area.lon})")
         circle = create_circle_buffer(area.lat, area.lon, area.radius_km)
         tif_dir = Path(tempfile.mkdtemp(prefix="residual_carbon_clip_"))
-        clip_all_rasters_to_circle(raw_dir, tif_dir, circle)
+        
+        # Use cache for clipped rasters (enabled by default)
+        # Pass processed_dir to get correct cache directory
+        from src.utils.cache import get_cache_dir
+        cache_dir = get_cache_dir(processed_dir)
+        
+        clipped_files, cache_used = clip_all_rasters_to_circle(
+            input_dir=raw_dir,
+            output_dir=tif_dir,
+            circle_geometry=circle,
+            use_cache=True,
+            cache_dir=cache_dir,
+            lat=area.lat,
+            lon=area.lon,
+            radius_km=area.radius_km
+        )
+        
+        if cache_used:
+            print("  Using cached clipped rasters - skipping clipping step")
+        
         # Use specified/default H3 resolution for clipped area
         h3_resolution = args.h3_resolution
     
