@@ -35,6 +35,7 @@ from src.utils.browser import open_html_in_browser
 def ensure_rasters_acquired(raw_dir: Path) -> List[Path]:
     """
     Ensure GeoTIFF rasters are available from the acquisition step.
+    Filters out old 3000m resolution files when 250m versions exist.
 
     Parameters
     ----------
@@ -44,25 +45,55 @@ def ensure_rasters_acquired(raw_dir: Path) -> List[Path]:
     Returns
     -------
     List[Path]
-        List of GeoTIFF files discovered in the raw directory.
+        List of GeoTIFF files discovered in the raw directory (preferring 250m over 3000m).
 
     Raises
     ------
     FileNotFoundError
         If no GeoTIFF files are present.
     """
-    tif_files = sorted(raw_dir.glob("*.tif"))
-    tif_files.extend(sorted(raw_dir.glob("*.tiff")))
+    all_tif_files = sorted(raw_dir.glob("*.tif"))
+    all_tif_files.extend(sorted(raw_dir.glob("*.tiff")))
 
-    if not tif_files:
+    if not all_tif_files:
         raise FileNotFoundError(
             f"No GeoTIFF files found in '{raw_dir}'. "
+            "Run the acquisition step (data_loader.py) before processing."
+        )
+
+    # Filter: Prefer 250m over 3000m resolution files
+    # Group files by dataset type (soil_moisture, soil_temp, etc.)
+    tif_files = []
+    excluded_files = []
+    
+    # Find all 250m files
+    res_250_files = {f.name for f in all_tif_files if 'res_250' in f.name}
+    
+    for tif in all_tif_files:
+        # If it's a 3000m file, check if a 250m version exists
+        if 'res_3000' in tif.name:
+            # Check if corresponding 250m file exists
+            # Replace res_3000 with res_250 in filename
+            potential_250m_name = tif.name.replace('res_3000', 'res_250')
+            if potential_250m_name in res_250_files:
+                excluded_files.append(tif)
+                continue  # Skip this 3000m file, use 250m version instead
+        tif_files.append(tif)
+    
+    if not tif_files:
+        raise FileNotFoundError(
+            f"No valid GeoTIFF files found in '{raw_dir}'. "
             "Run the acquisition step (data_loader.py) before processing."
         )
 
     print(f"Found {len(tif_files)} GeoTIFF file(s) from acquisition:")
     for tif in tif_files:
         print(f"  - {tif.name}")
+    
+    if excluded_files:
+        print(f"\nExcluded {len(excluded_files)} old 3000m resolution file(s) (250m versions available):")
+        for tif in excluded_files:
+            print(f"  - {tif.name} (replaced by 250m version)")
 
     return tif_files
 

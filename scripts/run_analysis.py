@@ -27,8 +27,8 @@ except ImportError:
         print(f"Failed to install/import PyYAML: {e}", file=sys.stderr, flush=True)
         sys.exit(1)
 
-# Add project root to path
-project_root = Path(__file__).parent
+# Add project root (two levels up from this script) to path
+project_root = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(project_root))
 
 # Now import and run main() directly (not via subprocess)

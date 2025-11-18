@@ -132,6 +132,7 @@ def clip_raster_to_circle(
 def collect_geotiff_files(input_dir: Path, pattern: str = "*.tif") -> List[Path]:
     """
     Collect GeoTIFF files from a directory matching the given pattern.
+    Filters out old 3000m resolution files when 250m versions exist.
 
     Parameters
     ----------
@@ -143,12 +144,27 @@ def collect_geotiff_files(input_dir: Path, pattern: str = "*.tif") -> List[Path]
     Returns
     -------
     List[Path]
-        Sorted list of GeoTIFF file paths.
+        Sorted list of GeoTIFF file paths (preferring 250m over 3000m).
     """
     if not input_dir.exists():
         raise FileNotFoundError(f"Input directory not found: {input_dir}")
 
-    tif_files = sorted(input_dir.glob(pattern))
+    all_tif_files = sorted(input_dir.glob(pattern))
+    
+    # Filter: Prefer 250m over 3000m resolution files
+    # Find all 250m files
+    res_250_files = {f.name for f in all_tif_files if 'res_250' in f.name}
+    
+    tif_files = []
+    for tif in all_tif_files:
+        # If it's a 3000m file, check if a 250m version exists
+        if 'res_3000' in tif.name:
+            # Check if corresponding 250m file exists
+            potential_250m_name = tif.name.replace('res_3000', 'res_250')
+            if potential_250m_name in res_250_files:
+                continue  # Skip this 3000m file, use 250m version instead
+        tif_files.append(tif)
+    
     return tif_files
 
 

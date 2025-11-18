@@ -21,6 +21,17 @@ except ImportError:
         "Or install all dependencies: pip install -r requirements.txt"
     )
 
+# Import downscaling module (simple bicubic only - ML is separate)
+try:
+    from src.data.acquisition.smap_downscaling import downscale_smap_datasets
+except ImportError:
+    # Fallback when running as script
+    import sys
+    SCRIPT_ROOT = Path(__file__).resolve().parents[3]
+    if str(SCRIPT_ROOT) not in sys.path:
+        sys.path.insert(0, str(SCRIPT_ROOT))
+    from src.data.acquisition.smap_downscaling import downscale_smap_datasets
+
 
 # Ensure project root is on sys.path when running as a script
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
@@ -41,9 +52,11 @@ DATASET_NAME_MAPPING = {
 # Native resolutions for each dataset (in meters)
 # Datasets with native resolution > 250m will be exported at native resolution
 # Others will be exported at 250m
+# Note: SMAP datasets (soil_moisture, soil_temperature) are downscaled to 250m
+# before export, so they will export at 250m even though native is 3000m
 DATASET_NATIVE_RESOLUTIONS = {
-    'soil_moisture': 3000,      # NASA SMAP native ~3000m
-    'soil_temperature': 3000,   # NASA SMAP native ~3000m
+    'soil_moisture': 250,        # NASA SMAP native ~3000m, but downscaled to 250m
+    'soil_temperature': 250,     # NASA SMAP native ~3000m, but downscaled to 250m
     'soil_organic_carbon': 250,  # OpenLandMap native ~250m
     'soil_pH': 250,              # OpenLandMap native ~250m
     'soil_type': 250,            # OpenLandMap native ~250m
@@ -302,20 +315,37 @@ class GEEDataLoader:
         print("\nAll images standardized successfully")
         return standardized
 
-    def load_datasets(self) -> Dict[str, ee.Image]:
+    def load_datasets(self, downscale_smap: bool = True) -> Dict[str, ee.Image]:
         """
         Load and standardize all datasets from config.
+        
+        Optionally downscales SMAP datasets (soil moisture and temperature) 
+        from 3000m to 250m resolution using bicubic resampling.
+
+        Parameters
+        ----------
+        downscale_smap : bool, optional
+            If True (default), downscales SMAP datasets to 250m resolution using bicubic resampling.
+            If False, keeps SMAP datasets at native 3000m resolution.
 
         Returns
         -------
         Dict[str, ee.Image]
             Dictionary of standardized images ready for clipping/export
+            
         """
         # Get raw images from GEE
         raw_images = self.get_dataset_images()
         
         # Standardize projections
         standardized_images = self._standardize_images(raw_images)
+        
+        # Downscale SMAP datasets to 250m if requested (simple bicubic only)
+        if downscale_smap:
+            standardized_images = downscale_smap_datasets(
+                standardized_images,
+                method='bicubic'
+            )
         
         # Store images
         self.images = standardized_images
@@ -410,17 +440,17 @@ class GEEDataLoader:
             folder_name = self.config.get("gee", {}).get("export_folder", "1IIBYV68TBZ2evWnUYgBZY9mKI2PalciE")
 
         # Filter images by selected layers if provided
-        images_to_export = self.images
+        images_to_export = self.images.copy()
         if selected_layers is not None:
             # Validate that all selected layers exist
             missing_layers = [layer for layer in selected_layers if layer not in self.images]
             if missing_layers:
                 raise ValueError(f"Selected layers not found in loaded images: {missing_layers}")
             
-            images_to_export = {name: image for name, image in self.images.items() if name in selected_layers}
+            images_to_export = {name: image for name, image in images_to_export.items() if name in selected_layers}
             print(f"\nExporting {len(images_to_export)} of {len(self.images)} available layer(s)")
 
-        # Get region geometry
+        # Get region geometry for export
         region = self.get_region_geometry()
         
         print(f"\nCreating export tasks for {len(images_to_export)} dataset(s)...")

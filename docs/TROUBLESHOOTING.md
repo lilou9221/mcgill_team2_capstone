@@ -69,6 +69,7 @@ pip install earthengine-api rasterio pandas h3 folium pydeck shapely pyyaml pyar
 3. Wait for the exports to complete in Google Earth Engine
 4. **Automatic downloads**: Once Google Drive API is configured (see SETUP_GUIDE.md Step 4), files are automatically downloaded from Google Drive to `data/raw/` as export tasks complete. No manual step required.
 5. If downloads are not working automatically, re-run the acquisition tool once exports complete; it will automatically download any newly available rasters to `data/raw/`
+6. SMAP rasters should appear with `_res_250_...` filenames. If you still see `_res_3000_...` versions, wait for the bicubic exports to finish (only the 250 m rasters are used by the pipeline).
 
 ### Final merged data CSV is empty
 

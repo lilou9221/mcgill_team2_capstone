@@ -17,7 +17,6 @@ gee:
   export_folder: "1IIBYV68TBZ2evWnUYgBZY9mKI2PalciE"  # Google Drive folder ID
   default_scale: 250  # meters - default resolution for GeoTIFF export
   default_region: "mato_grosso"  # Options: "brazil", "mato_grosso"
-
 # Google Drive API configuration (for automated download)
 drive:
   credentials_file: "configs/credentials.json"
