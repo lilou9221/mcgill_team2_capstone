@@ -37,13 +37,18 @@ def generate_cache_key(lat: float, lon: float, radius_km: float, source_files: L
     str
         Cache key (hexadecimal hash)
     """
+    # Cache version: increment this to force cache invalidation across all instances
+    # Version 2: Added to force invalidation when switching from 3000m to 250m SMAP files
+    CACHE_VERSION = "v2"
+    
     # Normalize coordinates to fixed precision for consistent hashing
     lat_rounded = round(lat, 6)
     lon_rounded = round(lon, 6)
     radius_rounded = round(radius_km, 2)
     
-    # Create hash components: coordinates, radius, and source file info
+    # Create hash components: cache version, coordinates, radius, and source file info
     hash_components = [
+        f"cache_version_{CACHE_VERSION}",
         f"lat_{lat_rounded}",
         f"lon_{lon_rounded}",
         f"radius_{radius_rounded}",
@@ -491,8 +496,13 @@ def generate_dataframe_cache_key(
     str
         Cache key (hexadecimal hash)
     """
-    # Create hash components: conversion parameters and source file info
+    # Cache version: increment this to force cache invalidation across all instances
+    # Version 2: Added to force invalidation when switching from 3000m to 250m SMAP files
+    CACHE_VERSION = "v2"
+    
+    # Create hash components: cache version, conversion parameters, and source file info
     hash_components = [
+        f"cache_version_{CACHE_VERSION}",
         f"band_{band}",
         f"nodata_{nodata_handling}",
         f"pattern_{pattern}",
@@ -844,8 +854,13 @@ def generate_h3_cache_key(
     str
         Cache key (hexadecimal hash)
     """
-    # Create hash components: H3 parameters and DataFrame info
+    # Cache version: increment this to force cache invalidation across all instances
+    # Version 2: Added to force invalidation when switching from 3000m to 250m SMAP files
+    CACHE_VERSION = "v2"
+    
+    # Create hash components: cache version, H3 parameters, and DataFrame info
     hash_components = [
+        f"cache_version_{CACHE_VERSION}",
         f"resolution_{resolution}",
         f"lat_col_{lat_column}",
         f"lon_col_{lon_column}",
