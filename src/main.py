@@ -203,6 +203,17 @@ def main():
     
     scored_df = calculate_biochar_suitability_scores(merged_df)
     
+    # Save suitability scores CSV for Streamlit (with compatibility column name and scale)
+    suitability_csv_path = processed_dir / "suitability_scores.csv"
+    # Create a copy with 'suitability_score' column for Streamlit compatibility
+    # Scale from 0-100 to 0-10 for Streamlit display
+    scored_df_for_csv = scored_df.copy()
+    if 'biochar_suitability_score' in scored_df_for_csv.columns:
+        # Scale from 0-100 to 0-10 for Streamlit (which expects 0-10 scale)
+        scored_df_for_csv['suitability_score'] = scored_df_for_csv['biochar_suitability_score'] / 10.0
+    scored_df_for_csv.to_csv(suitability_csv_path, index=False)
+    print(f"\nSuitability scores saved to: {suitability_csv_path}")
+    
     # Step 6: Output biochar suitability map
     print("\nCreating biochar suitability map...")
     
@@ -212,6 +223,7 @@ def main():
     
     # Create biochar suitability map with new color scheme
     biochar_map_path = output_dir / "biochar_suitability_map.html"
+    suitability_map_path = output_dir / "suitability_map.html"  # For Streamlit compatibility
     
     create_biochar_suitability_map(
         df=scored_df,
@@ -223,7 +235,11 @@ def main():
         zoom_start=zoom
     )
     
+    # Also save a copy with the name Streamlit expects
+    shutil.copy2(biochar_map_path, suitability_map_path)
+    
     print(f"\nBiochar suitability map saved to: {biochar_map_path}")
+    print(f"Suitability map (Streamlit) saved to: {suitability_map_path}")
     
     # Auto-open biochar map if enabled
     if config.get("visualization", {}).get("auto_open_html", True):
