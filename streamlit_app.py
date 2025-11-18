@@ -183,7 +183,7 @@ if run_btn:
         ''', unsafe_allow_html=True)
 
     # ============================================================
-    # TABLE + DOWNLOAD + MAP – ALL WORKING
+    # INITIAL RESULTS TABLE
     # ============================================================
     st.subheader("Suitability Scores")
     st.dataframe(df.sort_values("suitability_score", ascending=False), use_container_width=True, hide_index=True)
@@ -196,13 +196,439 @@ if run_btn:
         use_container_width=True
     )
 
-    map_path = PROJECT_ROOT / config["output"]["html"] / "suitability_map.html"
-    if map_path.exists():
-        st.subheader("Interactive Suitability Map")
-        with open(map_path, "r", encoding="utf-8") as f:
-            st.components.v1.html(f.read(), height=750, scrolling=False)
-    else:
-        st.warning("Interactive map not generated.")
+    # ============================================================
+    # INTERACTIVE MAPS WITH BIOCHAR RECOMMENDATIONS
+    # ============================================================
+    st.subheader("Interactive Maps")
+    
+    # Load GeoJSON data
+    geojson_path = PROJECT_ROOT / config["data"]["processed"] / "hexagons_with_scores.geojson"
+    if not geojson_path.exists():
+        st.error(f"GeoJSON file not found: {geojson_path}")
+        st.stop()
+    
+    try:
+        import geopandas as gpd
+        import numpy as np
+        from branca.colormap import LinearColormap
+        import folium
+        from folium import plugins
+        
+        gdf = gpd.read_file(geojson_path)
+        
+        # Verify required columns
+        required_cols = ['h3_index', 'ph', 'soil_moisture', 'soc', 'suitability_score', 'geometry']
+        missing_cols = [col for col in required_cols if col not in gdf.columns]
+        if missing_cols:
+            st.error(f"Missing required columns in GeoJSON: {missing_cols}")
+            st.stop()
+        
+        # Calculate map center and zoom from geometry
+        bounds = gdf.total_bounds
+        center_lat = (bounds[1] + bounds[3]) / 2
+        center_lon = (bounds[0] + bounds[2]) / 2
+        
+        # Load biochar database and generate recommendations
+        biochar_db_path = PROJECT_ROOT / "data" / "pyrolysis" / "Dataset_feedstock_ML.xlsx"
+        if biochar_db_path.exists():
+            try:
+                biochar_df = pd.read_excel(biochar_db_path, sheet_name="Biochar Properties ")
+                
+                # Parse pore size column if it exists
+                def parse_pore_size(pore_str):
+                    """Parse pore size string like '0.05 m²/g; 0.34 cm³/g' into surface area and pore volume."""
+                    if pd.isna(pore_str) or not isinstance(pore_str, str):
+                        return None, None
+                    try:
+                        parts = pore_str.split(';')
+                        surface_area = None
+                        pore_volume = None
+                        for part in parts:
+                            part = part.strip()
+                            if 'm²/g' in part or 'm2/g' in part:
+                                surface_area = float(''.join(c for c in part if c.isdigit() or c == '.'))
+                            elif 'cm³/g' in part or 'cm3/g' in part:
+                                pore_volume = float(''.join(c for c in part if c.isdigit() or c == '.'))
+                        return surface_area, pore_volume
+                    except:
+                        return None, None
+                
+                # Biochar recommendation engine
+                def recommend_biochar(row):
+                    """Recommend best biochar feedstock based on soil conditions."""
+                    soc = row.get('soc', 0)
+                    ph = row.get('ph', 7.0)
+                    moisture = row.get('soil_moisture', 50.0)
+                    
+                    # Priority rule: If SOC > 5.0%, no biochar recommended
+                    if soc > 5.0:
+                        return "No biochar application recommended", "High SOC (>5.0%) - soil already has sufficient organic carbon"
+                    
+                    # Score all biochar entries
+                    best_score = -1
+                    best_feedstock = "No suitable biochar found"
+                    best_reason = "No match found"
+                    
+                    for _, biochar in biochar_df.iterrows():
+                        score = 0
+                        reasons = []
+                        
+                        # Extract biochar properties (handle missing values)
+                        fixed_carbon = pd.to_numeric(biochar.get('Fixed Carbon (%)', biochar.get('Fixed Carbon', 0)), errors='coerce') or 0
+                        volatile_matter = pd.to_numeric(biochar.get('Volatile Matter (%)', biochar.get('Volatile Matter', 0)), errors='coerce') or 0
+                        ash = pd.to_numeric(biochar.get('Ash (%)', biochar.get('Ash', 0)), errors='coerce') or 0
+                        biochar_ph = pd.to_numeric(biochar.get('pH', 0), errors='coerce') or 7.0
+                        surface_area, pore_volume = parse_pore_size(biochar.get('Pore Size', biochar.get('pore size', '')))
+                        porosity = pd.to_numeric(biochar.get('Porosity (%)', biochar.get('Porosity', 0)), errors='coerce') or 0
+                        
+                        feedstock_name = str(biochar.get('Feedstock', biochar.get('Feedstock Name', 'Unknown')))
+                        temp = biochar.get('Temperature (°C)', biochar.get('Temperature', ''))
+                        if temp:
+                            feedstock_name += f" ({temp}°C)"
+                        
+                        # High moisture (≥80%) conditions
+                        if moisture >= 80:
+                            if fixed_carbon < 50:
+                                score += 2
+                                reasons.append("low fixed carbon")
+                            if volatile_matter > 30:
+                                score += 2
+                                reasons.append("high volatile matter")
+                            if ash > 40:
+                                score += 2
+                                reasons.append("high ash")
+                            if biochar_ph > 10:
+                                score += 2
+                                reasons.append("high pH")
+                            if porosity < 50:
+                                score += 1
+                                reasons.append("low porosity")
+                        
+                        # Low moisture (<80%) conditions
+                        else:
+                            if 60 <= fixed_carbon <= 85:
+                                score += 3
+                                reasons.append("optimal fixed carbon")
+                            if volatile_matter > 20:
+                                score += 1
+                                reasons.append("adequate volatile matter")
+                            if ash < 20:
+                                score += 2
+                                reasons.append("low ash")
+                            if 7.0 <= biochar_ph <= 9.5:
+                                score += 2
+                                reasons.append("optimal pH range")
+                            if porosity > 50:
+                                score += 2
+                                reasons.append("high porosity")
+                        
+                        # Acidic soil (pH < 6.0)
+                        if ph < 6.0:
+                            if ash > 25:
+                                score += 3
+                                reasons.append("high ash for acidic soil")
+                            if biochar_ph > 10:
+                                score += 3
+                                reasons.append("very high pH for acidic soil")
+                            if surface_area and surface_area > 100:
+                                score += 2
+                                reasons.append("high surface area")
+                        
+                        # Alkaline soil (pH > 7.0)
+                        elif ph > 7.0:
+                            if ash < 10:
+                                score += 3
+                                reasons.append("very low ash for alkaline soil")
+                            if biochar_ph < 6.0:
+                                score += 2
+                                reasons.append("low pH for alkaline soil")
+                            if surface_area and surface_area > 100:
+                                score += 2
+                                reasons.append("high surface area")
+                        
+                        if score > best_score:
+                            best_score = score
+                            best_feedstock = feedstock_name
+                            best_reason = " + ".join(reasons[:3]) if reasons else "General match"
+                    
+                    return best_feedstock, best_reason
+                
+                # Apply recommendations to all hexagons
+                with st.spinner("Generating biochar recommendations..."):
+                    recommendations = gdf.apply(recommend_biochar, axis=1)
+                    gdf['Recommended Feedstock'] = [r[0] for r in recommendations]
+                    gdf['Recommendation Reason'] = [r[1] for r in recommendations]
+                
+                # Summary of top 5 feedstocks
+                feedstock_counts = gdf['Recommended Feedstock'].value_counts().head(5)
+                total_hexagons = len(gdf)
+                
+                st.info(f"""
+                **Top 5 Recommended Feedstocks in this Area:**
+                {chr(10).join([f"• {feedstock}: {count:,} hexagons ({count/total_hexagons*100:.1f}%)" 
+                              for feedstock, count in feedstock_counts.items()])}
+                """)
+                
+            except Exception as e:
+                st.warning(f"Could not load biochar database: {e}. Recommendations will be skipped.")
+                gdf['Recommended Feedstock'] = "Not available"
+                gdf['Recommendation Reason'] = "Database not loaded"
+        else:
+            st.warning("Biochar database not found. Recommendations will be skipped.")
+            gdf['Recommended Feedstock'] = "Not available"
+            gdf['Recommendation Reason'] = "Database not found"
+        
+        # Create map tabs
+        tab1, tab2, tab3, tab4 = st.tabs(["Suitability", "Soil pH", "Soil Moisture", "Soil Organic Carbon (SOC)"])
+        
+        with tab1:
+            # Original suitability map
+            map_path = PROJECT_ROOT / config["output"]["html"] / "suitability_map.html"
+            if map_path.exists():
+                st.markdown("**Biochar Suitability Score (0-10 scale)**")
+                st.caption("Higher scores (green) indicate areas where biochar application would be most beneficial for improving soil quality.")
+                with open(map_path, "r", encoding="utf-8") as f:
+                    st.components.v1.html(f.read(), height=750, scrolling=False)
+            else:
+                st.warning("Suitability map not generated.")
+        
+        with tab2:
+            st.markdown("**Soil pH**")
+            st.caption("Diverging color scheme: Red indicates acidic soils (<5.5), yellow indicates neutral (6.5-7.5), blue indicates alkaline soils (>7.5).")
+            
+            col_map, col_stats = st.columns([3, 1])
+            
+            with col_map:
+                # Create pH map with diverging colormap (RdYlBu_r)
+                m_ph = folium.Map(location=[center_lat, center_lon], zoom_start=6, tiles='CartoDB positron')
+                
+                # Create diverging colormap: Red (acidic) -> Yellow (neutral) -> Blue (alkaline)
+                ph_min, ph_max = gdf['ph'].min(), gdf['ph'].max()
+                ph_colormap = LinearColormap(
+                    colors=['#d73027', '#f46d43', '#fdae61', '#fee090', '#ffffbf', '#e0f3f8', '#abd9e9', '#74add1', '#4575b4'],
+                    vmin=ph_min,
+                    vmax=ph_max,
+                    caption='Soil pH'
+                )
+                
+                # Add hexagons to map
+                for idx, row in gdf.iterrows():
+                    if pd.notna(row['ph']) and row.geometry is not None:
+                        ph_val = float(row['ph'])
+                        color = ph_colormap(ph_val)
+                        h3_idx = str(row['h3_index'])
+                        
+                        def make_style(c):
+                            return lambda feature: {
+                                'fillColor': c,
+                                'color': 'black',
+                                'weight': 0.5,
+                                'fillOpacity': 0.7
+                            }
+                        
+                        folium.GeoJson(
+                            row.geometry.__geo_interface__,
+                            style_function=make_style(color),
+                            tooltip=folium.Tooltip(f"H3: {h3_idx}<br>pH: {ph_val:.2f}")
+                        ).add_to(m_ph)
+                
+                ph_colormap.add_to(m_ph)
+                folium_static = plugins.Fullscreen().add_to(m_ph)
+                
+                # Convert to HTML and display
+                try:
+                    from streamlit_folium import st_folium
+                    st_folium(m_ph, width=700, height=750)
+                except ImportError:
+                    # Fallback if streamlit_folium not available
+                    html_str = m_ph._repr_html_()
+                    st.components.v1.html(html_str, height=750, scrolling=False)
+            
+            with col_stats:
+                st.markdown("**Statistics**")
+                ph_stats = gdf['ph'].describe()
+                st.metric("Mean", f"{ph_stats['mean']:.2f}")
+                st.metric("Min", f"{ph_stats['min']:.2f}")
+                st.metric("Max", f"{ph_stats['max']:.2f}")
+                st.metric("Std Dev", f"{ph_stats['std']:.2f}")
+                
+                # Histogram
+                import matplotlib.pyplot as plt
+                fig, ax = plt.subplots(figsize=(3, 2))
+                ax.hist(gdf['ph'].dropna(), bins=20, color='#4575b4', edgecolor='black', alpha=0.7)
+                ax.set_xlabel('pH')
+                ax.set_ylabel('Frequency')
+                ax.set_title('pH Distribution')
+                plt.tight_layout()
+                st.pyplot(fig, use_container_width=True)
+                plt.close()
+        
+        with tab3:
+            st.markdown("**Soil Moisture (%)**")
+            st.caption("Sequential color scheme: Beige/yellow indicates dry soils, dark blue indicates wet soils. Higher moisture generally requires different biochar properties.")
+            
+            col_map, col_stats = st.columns([3, 1])
+            
+            with col_map:
+                m_moisture = folium.Map(location=[center_lat, center_lon], zoom_start=6, tiles='CartoDB positron')
+                
+                # Create sequential colormap (YlGnBu: yellow -> green -> blue)
+                moisture_min, moisture_max = gdf['soil_moisture'].min(), gdf['soil_moisture'].max()
+                moisture_colormap = LinearColormap(
+                    colors=['#ffffcc', '#c7e9b4', '#7fcdbb', '#41b6c4', '#2c7fb8', '#253494'],
+                    vmin=moisture_min,
+                    vmax=moisture_max,
+                    caption='Soil Moisture (%)'
+                )
+                
+                for idx, row in gdf.iterrows():
+                    if pd.notna(row['soil_moisture']) and row.geometry is not None:
+                        moisture_val = float(row['soil_moisture'])
+                        color = moisture_colormap(moisture_val)
+                        h3_idx = str(row['h3_index'])
+                        
+                        def make_style(c):
+                            return lambda feature: {
+                                'fillColor': c,
+                                'color': 'black',
+                                'weight': 0.5,
+                                'fillOpacity': 0.7
+                            }
+                        
+                        folium.GeoJson(
+                            row.geometry.__geo_interface__,
+                            style_function=make_style(color),
+                            tooltip=folium.Tooltip(f"H3: {h3_idx}<br>Moisture: {moisture_val:.2f}%")
+                        ).add_to(m_moisture)
+                
+                moisture_colormap.add_to(m_moisture)
+                plugins.Fullscreen().add_to(m_moisture)
+                
+                try:
+                    from streamlit_folium import st_folium
+                    st_folium(m_moisture, width=700, height=750)
+                except ImportError:
+                    html_str = m_moisture._repr_html_()
+                    st.components.v1.html(html_str, height=750, scrolling=False)
+            
+            with col_stats:
+                st.markdown("**Statistics**")
+                moisture_stats = gdf['soil_moisture'].describe()
+                st.metric("Mean", f"{moisture_stats['mean']:.2f}%")
+                st.metric("Min", f"{moisture_stats['min']:.2f}%")
+                st.metric("Max", f"{moisture_stats['max']:.2f}%")
+                st.metric("Std Dev", f"{moisture_stats['std']:.2f}%")
+                
+                fig, ax = plt.subplots(figsize=(3, 2))
+                ax.hist(gdf['soil_moisture'].dropna(), bins=20, color='#2c7fb8', edgecolor='black', alpha=0.7)
+                ax.set_xlabel('Moisture (%)')
+                ax.set_ylabel('Frequency')
+                ax.set_title('Moisture Distribution')
+                plt.tight_layout()
+                st.pyplot(fig, use_container_width=True)
+                plt.close()
+        
+        with tab4:
+            st.markdown("**Soil Organic Carbon (SOC) (%)**")
+            st.caption("Sequential color scheme: Beige indicates low SOC, dark green/brown indicates high SOC. Areas with SOC >5% typically don't require biochar application.")
+            
+            col_map, col_stats = st.columns([3, 1])
+            
+            with col_map:
+                m_soc = folium.Map(location=[center_lat, center_lon], zoom_start=6, tiles='CartoDB positron')
+                
+                # Create sequential colormap (YlOrBr: yellow -> orange -> brown)
+                soc_min, soc_max = gdf['soc'].min(), gdf['soc'].max()
+                soc_colormap = LinearColormap(
+                    colors=['#ffffd4', '#fed98e', '#fe9929', '#d95f0e', '#993404'],
+                    vmin=soc_min,
+                    vmax=soc_max,
+                    caption='SOC (%)'
+                )
+                
+                for idx, row in gdf.iterrows():
+                    if pd.notna(row['soc']) and row.geometry is not None:
+                        soc_val = float(row['soc'])
+                        color = soc_colormap(soc_val)
+                        h3_idx = str(row['h3_index'])
+                        
+                        def make_style(c):
+                            return lambda feature: {
+                                'fillColor': c,
+                                'color': 'black',
+                                'weight': 0.5,
+                                'fillOpacity': 0.7
+                            }
+                        
+                        folium.GeoJson(
+                            row.geometry.__geo_interface__,
+                            style_function=make_style(color),
+                            tooltip=folium.Tooltip(f"H3: {h3_idx}<br>SOC: {soc_val:.2f}%")
+                        ).add_to(m_soc)
+                
+                soc_colormap.add_to(m_soc)
+                plugins.Fullscreen().add_to(m_soc)
+                
+                try:
+                    from streamlit_folium import st_folium
+                    st_folium(m_soc, width=700, height=750)
+                except ImportError:
+                    html_str = m_soc._repr_html_()
+                    st.components.v1.html(html_str, height=750, scrolling=False)
+            
+            with col_stats:
+                st.markdown("**Statistics**")
+                soc_stats = gdf['soc'].describe()
+                st.metric("Mean", f"{soc_stats['mean']:.2f}%")
+                st.metric("Min", f"{soc_stats['min']:.2f}%")
+                st.metric("Max", f"{soc_stats['max']:.2f}%")
+                st.metric("Std Dev", f"{soc_stats['std']:.2f}%")
+                
+                fig, ax = plt.subplots(figsize=(3, 2))
+                ax.hist(gdf['soc'].dropna(), bins=20, color='#d95f0e', edgecolor='black', alpha=0.7)
+                ax.set_xlabel('SOC (%)')
+                ax.set_ylabel('Frequency')
+                ax.set_title('SOC Distribution')
+                plt.tight_layout()
+                st.pyplot(fig, use_container_width=True)
+                plt.close()
+        
+        # Update results table and CSV with new columns
+        # Convert GeoDataFrame to DataFrame for display (drop geometry)
+        df_display = gdf.drop(columns=['geometry']).copy()
+        
+        # Update the existing dataframe with new columns if they exist
+        if 'Recommended Feedstock' in df_display.columns:
+            df = df.merge(
+                df_display[['h3_index', 'ph', 'soil_moisture', 'soc', 'Recommended Feedstock', 'Recommendation Reason']],
+                on='h3_index',
+                how='left'
+            )
+        
+        # Re-display updated table
+        st.subheader("Detailed Results with Recommendations")
+        display_cols = ['suitability_score', 'ph', 'soil_moisture', 'soc']
+        if 'Recommended Feedstock' in df.columns:
+            display_cols.extend(['Recommended Feedstock', 'Recommendation Reason'])
+        display_cols.extend([col for col in df.columns if col not in display_cols and col != 'h3_index'])
+        
+        st.dataframe(df[display_cols].sort_values("suitability_score", ascending=False), use_container_width=True, hide_index=True)
+        
+        # Update download button
+        st.download_button(
+            label="Download Results as CSV (with Recommendations)",
+            data=df[display_cols].to_csv(index=False).encode(),
+            file_name="biochar_suitability_scores_with_recommendations.csv",
+            mime="text/csv",
+            use_container_width=True
+        )
+        
+    except ImportError as e:
+        st.error(f"Missing required library: {e}. Please install geopandas, folium, branca, and matplotlib.")
+    except Exception as e:
+        st.error(f"Error loading maps: {e}")
+        import traceback
+        st.code(traceback.format_exc())
 
 # ============================================================
 # FOOTER
