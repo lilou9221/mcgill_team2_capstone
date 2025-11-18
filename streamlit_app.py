@@ -33,103 +33,62 @@ st.set_page_config(
 )
 
 # ============================================================
-# FINAL CSS – ONLY CATARINA'S 5 COLORS
+# FINAL CSS 
+# ============================================================
+# ============================================================
+# FINAL CSS – ONLY CATARINA'S 5 COLORS + FIX WHITE TEXT
 # ============================================================
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
     
+    /* FORCE ALL TEXT TO BE DARK – THIS FIXES "Suitability Scores" disappearing */
+    .stMarkdown, h1, h2, h3, h4, h5, h6, p, div, span, label, .css-1d391kg, .css-1cpxqw2 {
+        color: #333333 !important;
+    }
+    /* Also fix subheaders specifically */
+    h2, h3 {color: #173a30 !important; font-weight: 600 !important;}
+
     html, body, .stApp {font-family: 'Inter', sans-serif;}
     .stApp {background-color: #f0f0f0;}
 
     /* Header */
     .header-title {
-        font-size: 3rem;
-        font-weight: 700;
-        text-align: center;
-        color: #173a30;
-        margin: 2rem 0 0.5rem 0;
-        letter-spacing: -0.8px;
+        font-size: 3rem; font-weight: 700; text-align: center;
+        color: #173a30; margin: 2rem 0 0.5rem 0; letter-spacing: -0.8px;
     }
-    .header-subtitle {
-        text-align: center;
-        color: #333333;
-        font-size: 1.15rem;
-        margin-bottom: 3rem;
-    }
+    .header-subtitle {text-align: center; color: #333333; font-size: 1.15rem; margin-bottom: 3rem;}
 
     /* Sidebar – dark teal */
-    section[data-testid="stSidebar"] {
-        background-color: #173a30 !important;
-        padding-top: 2rem;
-    }
+    section[data-testid="stSidebar"] {background-color: #173a30 !important; padding-top: 2rem;}
     section[data-testid="stSidebar"] * {color: #FFFFFF !important;}
 
     /* Sidebar buttons → purple */
     section[data-testid="stSidebar"] .stButton > button {
-        background-color: #4f1c53 !important;
-        color: #FFFFFF !important;
-        border-radius: 999px !important;
-        font-weight: 600 !important;
-        padding: 0.7rem 1.4rem !important;
+        background-color: #4f1c53 !important; color: #FFFFFF !important;
+        border-radius: 999px !important; font-weight: 600 !important;
     }
-    section[data-testid="stSidebar"] .stButton > button:hover {
-        background-color: #3d163f !important;
-    }
+    section[data-testid="stSidebar"] .stButton > button:hover {background-color: #3d163f !important;}
 
     /* Main buttons & download → fresh green */
-    .stButton > button,
-    .stDownloadButton > button {
-        background-color: #64955d !important;
-        color: #FFFFFF !important;
-        border-radius: 999px !important;
-        font-weight: 600 !important;
-        padding: 0.7rem 1.4rem !important;
-        border: none !important;
+    .stButton > button, .stDownloadButton > button {
+        background-color: #64955d !important; color: #FFFFFF !important;
+        border-radius: 999px !important; font-weight: 600 !important; border: none !important;
     }
-    .stButton > button:hover,
-    .stDownloadButton > button:hover {
-        background-color: #527a48 !important;
-    }
+    .stButton > button:hover, .stDownloadButton > button:hover {background-color: #527a48 !important;}
 
-    /* Metric cards – white with green left border */
+    /* Metric cards */
     .metric-card {
-        background: #FFFFFF;
-        padding: 1.8rem;
-        border-radius: 12px;
-        border-left: 6px solid #64955d;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.08);
-        transition: transform 0.2s;
+        background: #FFFFFF; padding: 1.8rem; border-radius: 12px;
+        border-left: 6px solid #64955d; box-shadow: 0 4px 15px rgba(0,0,0,0.08);
     }
     .metric-card:hover {transform: translateY(-4px);}
-    .metric-card h4 {
-        margin: 0 0 0.8rem 0;
-        color: #173a30;
-        font-weight: 600;
-        text-transform: uppercase;
-        font-size: 0.9rem;
-        letter-spacing: 0.8px;
-    }
-    .metric-card p {
-        margin: 0;
-        font-size: 2.5rem;
-        font-weight: 700;
-        color: #333333;
-    }
-
-    /* Table & code */
-    .stDataFrame {border-radius: 12px; overflow: hidden;}
-    code, pre, .stCodeBlock {background: #FFFFFF !important; color: #333333 !important;}
+    .metric-card h4 {margin: 0 0 0.8rem 0; color: #173a30; font-weight: 600; text-transform: uppercase; font-size: 0.9rem; letter-spacing: 0.8px;}
+    .metric-card p {margin: 0; font-size: 2.5rem; font-weight: 700; color: #333333;}
 
     /* Footer */
-    .footer {
-        text-align: center;
-        padding: 3rem 0 2rem;
-        color: #333333;
-        font-size: 0.95rem;
-        border-top: 1px solid #ddd;
-        margin-top: 4rem;
-    }
+    .footer {text-align: center; padding: 3rem 0 2rem; color: #333333; font-size: 0.95rem;
+             border-top: 1px solid #ddd; margin-top: 4rem;}
     .footer strong {color: #173a30;}
 </style>
 """, unsafe_allow_html=True)
