@@ -163,8 +163,9 @@ def _prepare_biochar_hexagon_data(df: pd.DataFrame) -> pd.DataFrame:
     # Format values for tooltip
     hexagon_data['lat_formatted'] = hexagon_data['lat'].apply(lambda x: f"{x:.2f}")
     hexagon_data['lon_formatted'] = hexagon_data['lon'].apply(lambda x: f"{x:.2f}")
+    # Display score on 0-10 scale (divide by 10)
     hexagon_data['biochar_suitability_score_formatted'] = hexagon_data['biochar_suitability_score'].apply(
-        lambda x: f"{x:.1f}" if pd.notna(x) else "N/A"
+        lambda x: f"{x/10.0:.2f}" if pd.notna(x) else "N/A"
     )
     
     # Add color as RGBA array
@@ -189,8 +190,9 @@ def _prepare_biochar_point_data(df: pd.DataFrame) -> pd.DataFrame:
     # Format values for tooltip
     point_data['lat_formatted'] = point_data['lat'].apply(lambda x: f"{x:.2f}")
     point_data['lon_formatted'] = point_data['lon'].apply(lambda x: f"{x:.2f}")
+    # Display score on 0-10 scale (divide by 10)
     point_data['biochar_suitability_score_formatted'] = point_data['biochar_suitability_score'].apply(
-        lambda x: f"{x:.1f}" if pd.notna(x) else "N/A"
+        lambda x: f"{x/10.0:.2f}" if pd.notna(x) else "N/A"
     )
     
     # Add color as RGBA array

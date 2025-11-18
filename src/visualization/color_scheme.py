@@ -106,67 +106,67 @@ def get_color_scheme_info() -> dict:
 
 def get_color_for_biochar_suitability(score: float) -> str:
     """
-    Get color for a biochar suitability score (0-100).
+    Get color for a biochar suitability score (0-100, displayed as 0-10).
     
-    Biochar suitability is inverse of soil quality:
-    - Red (76-100): High suitability - poor soil needs biochar
-    - Orange (51-75): Moderate suitability
-    - Yellow (26-50): Low suitability
-    - Green (0-25): Not suitable - healthy soil doesn't need biochar
+    Biochar suitability color scheme (inverted - green for high, red for low):
+    - Green (76-100 / 7.6-10.0): High suitability - poor soil needs biochar
+    - Yellow-Green (51-75 / 5.1-7.5): Moderate-high suitability
+    - Yellow-Orange (26-50 / 2.6-5.0): Low-moderate suitability
+    - Red (0-25 / 0-2.5): Not suitable - healthy soil doesn't need biochar
     
     Parameters
     ----------
     score : float
-        Biochar suitability score (0-100)
+        Biochar suitability score (0-100, internally converted to 0-10 scale)
     
     Returns
     -------
     str
-        Hex color code (e.g., "#d32f2f")
+        Hex color code (e.g., "#388e3c")
     """
     if np.isnan(score):
         return "#808080"  # Gray for NaN
     
     score = float(score)
     
-    if score >= 76:
-        # High Suitability - Red (#d32f2f)
-        # Interpolate from dark red (76) to bright red (100)
+    if score >= 76:  # 7.6-10.0 on 0-10 scale
+        # High Suitability - Green
+        # Interpolate from medium green (76/7.6) to dark green (100/10.0)
         ratio = (score - 76) / 24.0  # 0 to 1
-        # Dark red (#d32f2f) to bright red (#ff1744)
-        r = int(211 + (255 - 211) * ratio)
-        g = int(47 + (23 - 47) * ratio)
-        b = int(47 + (68 - 47) * ratio)
+        # Medium green (#388e3c) to dark green (#2e7d32)
+        r = int(56 - (56 - 46) * ratio)
+        g = int(142 - (142 - 125) * ratio)
+        b = int(60 - (60 - 50) * ratio)
         return f"#{r:02X}{g:02X}{b:02X}"
     
-    elif score >= 51:
-        # Moderate Suitability - Orange (#f57c00)
-        # Interpolate from orange (51) to red-orange (75)
+    elif score >= 51:  # 5.1-7.5 on 0-10 scale
+        # Moderate-High Suitability - Yellow to Yellow-Green
+        # Interpolate from yellow (51/5.1) to yellow-green (75/7.5)
         ratio = (score - 51) / 24.0  # 0 to 1
-        # Orange (#f57c00) to red-orange (#ff5722)
-        r = int(245 + (255 - 245) * ratio)
-        g = int(124 + (87 - 124) * ratio)
-        b = int(0 + (34 - 0) * ratio)
+        # Yellow (#FFD700) to yellow-green (#ADFF2F)
+        r = int(255 - (255 - 173) * ratio)
+        g = int(215 + (255 - 215) * ratio)
+        b = int(0 + (47 - 0) * ratio)
         return f"#{r:02X}{g:02X}{b:02X}"
     
-    elif score >= 26:
-        # Low Suitability - Yellow (#fbc02d)
-        # Interpolate from yellow (26) to orange-yellow (50)
+    elif score >= 26:  # 2.6-5.0 on 0-10 scale
+        # Low-Moderate Suitability - Orange to Yellow
+        # Interpolate from orange (26/2.6) to yellow (50/5.0)
         ratio = (score - 26) / 24.0  # 0 to 1
-        # Yellow (#fbc02d) to orange-yellow (#ffb300)
-        r = int(251 + (255 - 251) * ratio)
-        g = int(192 + (179 - 192) * ratio)
-        b = int(45 + (0 - 45) * ratio)
+        # Orange (#FF9800) to yellow (#FFD700)
+        r = int(255)  # Keep red at max
+        g = int(152 + (215 - 152) * ratio)  # Increase green
+        b = int(0)  # Keep blue at 0
         return f"#{r:02X}{g:02X}{b:02X}"
     
-    else:
-        # Not Suitable - Green (#388e3c)
-        # Interpolate from dark green (0) to medium green (25)
+    else:  # 0-25 / 0-2.5 on 0-10 scale
+        # Not Suitable - Red
+        # Interpolate from dark red (0) to light red (25/2.5)
         ratio = score / 25.0  # 0 to 1
-        # Dark green (#2e7d32) to medium green (#388e3c)
-        r = int(46 + (56 - 46) * ratio)
-        g = int(125 + (142 - 125) * ratio)
-        b = int(50 + (60 - 50) * ratio)
+        # Dark red (#8B0000) to light red (#FF6B6B)
+        r = int(139 + (255 - 139) * ratio)
+        g = int(0 + (107 - 0) * ratio)
+        b = int(0 + (107 - 0) * ratio)
         return f"#{r:02X}{g:02X}{b:02X}"
 
 
