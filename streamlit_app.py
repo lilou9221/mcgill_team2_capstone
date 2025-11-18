@@ -222,30 +222,35 @@ if run_btn:
     st.success("Analysis completed successfully!")
 
     # ============================================================
-    # METRICS
+    # METRICS – FINAL VERSION (as you requested)
     # ============================================================
     col1, col2, col3 = st.columns(3)
+
     with col1:
-        st.markdown(f'<div class="metric-card"><h4>Total Hexagons</h4><p>{len(df):,}</p></div>', unsafe_allow_html=True)
+        st.markdown(f'''
+        <div class="metric-card">
+            <h4>Total Hexagons Analyzed</h4>
+            <p>{len(df):,}</p>
+        </div>
+        </div>
+        ''', unsafe_allow_html=True)
+
     with col2:
-        st.markdown(f'<div class="metric-card"><h4>Mean Score</h4><p>{df["suitability_score"].mean():.2f}</p></div>', unsafe_allow_html=True)
+        st.markdown(f'''
+        <div class="metric-card">
+            <h4>Mean Suitability Score<br><small style="color:#173a30; font-weight:500;">(scale: 0–10)</small></h4>
+            <p>{df["suitability_score"].mean():.2f}</p>
+        </div>
+        ''', unsafe_allow_html=True)
+
     with col3:
-        st.markdown(f'<div class="metric-card"><h4>High Suitability (≥8)</h4><p>{(df["suitability_score"] >= 8).sum():,}</p></div>', unsafe_allow_html=True)
-
-    # ============================================================
-    # TABLE
-    # ============================================================
-    st.subheader("Suitability Scores")
-    st.dataframe(df.sort_values("suitability_score", ascending=False), use_container_width=True)
-
-    st.download_button(
-        "Download Results as CSV",
-        data=df.to_csv(index=False).encode(),
-        file_name="biochar_suitability_scores.csv",
-        mime="text/csv",
-        use_container_width=True
-    )
-
+        moderate_high_count = (df["suitability_score"] >= 7.0).sum()
+        st.markdown(f'''
+        <div class="metric-card">
+            <h4>Moderately to Highly Suitable<br><small style="color:#173a30; font-weight:500;">(≥ 7.0 / 10)</small></h4>
+            <p>{moderate_high_count:,}</p>
+        </div>
+        ''', unsafe_allow_html=True)
     # ============================================================
     # MAP
     # ============================================================
