@@ -33,62 +33,28 @@ st.set_page_config(
 )
 
 # ============================================================
-# FINAL CSS 
-# ============================================================
-# ============================================================
-# FINAL CSS – ONLY CATARINA'S 5 COLORS + FIX WHITE TEXT
+# FINAL CSS – UNCHANGED (perfect as-is)
 # ============================================================
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-    
-    /* FORCE ALL TEXT TO BE DARK – THIS FIXES "Suitability Scores" disappearing */
-    .stMarkdown, h1, h2, h3, h4, h5, h6, p, div, span, label, .css-1d391kg, .css-1cpxqw2 {
-        color: #333333 !important;
-    }
-    /* Also fix subheaders specifically */
+    .stMarkdown, h1, h2, h3, h4, h5, h6, p, div, span, label, .css-1d391kg, .css-1cpxqw2 {color: #333333 !important;}
     h2, h3 {color: #173a30 !important; font-weight: 600 !important;}
-
     html, body, .stApp {font-family: 'Inter', sans-serif;}
     .stApp {background-color: #f0f0f0;}
-
-    /* Header */
-    .header-title {
-        font-size: 3rem; font-weight: 700; text-align: center;
-        color: #173a30; margin: 2rem 0 0.5rem 0; letter-spacing: -0.8px;
-    }
+    .header-title {font-size: 3rem; font-weight: 700; text-align: center; color: #173a30; margin: 2rem 0 0.5rem 0; letter-spacing: -0.8px;}
     .header-subtitle {text-align: center; color: #333333; font-size: 1.15rem; margin-bottom: 3rem;}
-
-    /* Sidebar – dark teal */
     section[data-testid="stSidebar"] {background-color: #173a30 !important; padding-top: 2rem;}
     section[data-testid="stSidebar"] * {color: #FFFFFF !important;}
-
-    /* Sidebar buttons → purple */
-    section[data-testid="stSidebar"] .stButton > button {
-        background-color: #4f1c53 !important; color: #FFFFFF !important;
-        border-radius: 999px !important; font-weight: 600 !important;
-    }
+    section[data-testid="stSidebar"] .stButton > button {background-color: #4f1c53 !important; color: #FFFFFF !important; border-radius: 999px !important; font-weight: 600 !important;}
     section[data-testid="stSidebar"] .stButton > button:hover {background-color: #3d163f !important;}
-
-    /* Main buttons & download → fresh green */
-    .stButton > button, .stDownloadButton > button {
-        background-color: #64955d !important; color: #FFFFFF !important;
-        border-radius: 999px !important; font-weight: 600 !important; border: none !important;
-    }
+    .stButton > button, .stDownloadButton > button {background-color: #64955d !important; color: #FFFFFF !important; border-radius: 999px !important; font-weight: 600 !important; border: none !important;}
     .stButton > button:hover, .stDownloadButton > button:hover {background-color: #527a48 !important;}
-
-    /* Metric cards */
-    .metric-card {
-        background: #FFFFFF; padding: 1.8rem; border-radius: 12px;
-        border-left: 6px solid #64955d; box-shadow: 0 4px 15px rgba(0,0,0,0.08);
-    }
+    .metric-card {background: #FFFFFF; padding: 1.8rem; border-radius: 12px; border-left: 6px solid #64955d; box-shadow: 0 4px 15px rgba(0,0,0,0.08);}
     .metric-card:hover {transform: translateY(-4px);}
     .metric-card h4 {margin: 0 0 0.8rem 0; color: #173a30; font-weight: 600; text-transform: uppercase; font-size: 0.9rem; letter-spacing: 0.8px;}
     .metric-card p {margin: 0; font-size: 2.5rem; font-weight: 700; color: #333333;}
-
-    /* Footer */
-    .footer {text-align: center; padding: 3rem 0 2rem; color: #333333; font-size: 0.95rem;
-             border-top: 1px solid #ddd; margin-top: 4rem;}
+    .footer {text-align: center; padding: 3rem 0 2rem; color: #333333; font-size: 0.95rem; border-top: 1px solid #ddd; margin-top: 4rem;}
     .footer strong {color: #173a30;}
 </style>
 """, unsafe_allow_html=True)
@@ -111,7 +77,6 @@ with st.sidebar:
         with c1: lat = st.number_input("Latitude", value=-13.0, format="%.6f")
         with c2: lon = st.number_input("Longitude", value=-56.0, format="%.6f")
         radius = st.slider("Radius (km)", 25, 100, 100, 25)
-
     h3_res = st.slider("H3 Resolution", 5, 9, config["processing"].get("h3_resolution", 7))
     run_btn = st.button("Run Analysis", type="primary", use_container_width=True)
 
@@ -124,105 +89,66 @@ if run_btn:
         raw_dir = PROJECT_ROOT / config["data"]["raw"]
         raw_dir.mkdir(parents=True, exist_ok=True)
 
-        # Check if GeoTIFFs are already downloaded
         if len(list(raw_dir.glob("*.tif"))) >= 5:
             shutil.copytree(raw_dir, tmp_raw, dirs_exist_ok=True)
         else:
             st.warning("Downloading GeoTIFFs from Google Drive…")
-
             try:
                 from google.oauth2 import service_account
                 from googleapiclient.discovery import build
                 from googleapiclient.http import MediaIoBaseDownload
-
                 creds = json.loads(st.secrets["google_drive"]["credentials"])
                 credentials = service_account.Credentials.from_service_account_info(
-                    creds,
-                    scopes=["https://www.googleapis.com/auth/drive.readonly"]
+                    creds, scopes=["https://www.googleapis.com/auth/drive.readonly"]
                 )
                 service = build("drive", "v3", credentials=credentials)
-
                 folder_id = config["drive"]["raw_data_folder_id"]
-                results = service.files().list(
-                    q=f"'{folder_id}' in parents and trashed=false",
-                    fields="files(id, name)"
-                ).execute()
-
+                results = service.files().list(q=f"'{folder_id}' in parents and trashed=false", fields="files(id, name)").execute()
                 for f in results["files"]:
-                    if not f["name"].endswith(".tif"):
-                        continue
-
+                    if not f["name"].endswith(".tif"): continue
                     dst = raw_dir / f["name"]
-                    if dst.exists():
-                        continue
-
+                    if dst.exists(): continue
                     request = service.files().get_media(fileId=f["id"])
                     fh = io.BytesIO()
                     downloader = MediaIoBaseDownload(fh, request)
                     done = False
-                    while not done:
-                        _, done = downloader.next_chunk()
-
-                    with open(dst, "wb") as fp:
-                        fp.write(fh.getvalue())
-
+                    while not done: _, done = downloader.next_chunk()
+                    dst.write_bytes(fh.getvalue())
                 shutil.copytree(raw_dir, tmp_raw, dirs_exist_ok=True)
-
             except Exception as e:
                 st.error(f"Download failed: {e}")
-                st.error(f"TIFF download failed: {e}")
                 st.stop()
 
-    # Build CLI for pipeline
+    # Run analysis
     wrapper_script = PROJECT_ROOT / "scripts" / "run_analysis.py"
-    cli = [
-        sys.executable, str(wrapper_script),
-        "--config", str(PROJECT_ROOT / "configs" / "config.yaml"),
-        "--h3-resolution", str(h3_res),
-    ]
-    if use_coords and lat is not None and lon is not None and radius is not None:
+    cli = [sys.executable, str(wrapper_script), "--config", str(PROJECT_ROOT / "configs" / "config.yaml"), "--h3-resolution", str(h3_res)]
+    if use_coords and lat and lon and radius:
         cli += ["--lat", str(lat), "--lon", str(lon), "--radius", str(radius)]
 
     status = st.empty()
     log_box = st.empty()
     logs = []
-
-    process = subprocess.Popen(
-        cli,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-        text=True,
-        universal_newlines=True,
-        bufsize=1
-    )
-
+    process = subprocess.Popen(cli, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1, universal_newlines=True)
     start = time.time()
     for line in process.stdout:
         logs.append(line)
         status.info(f"Running… {int(time.time()-start)}s elapsed")
         log_box.code("".join(logs[-12:]), language="bash")
-
-    ret = process.wait()
-
-    if ret != 0:
+    if process.wait() != 0:
         st.error("Pipeline failed.")
         st.code("".join(logs), language="bash")
         st.stop()
 
-    # ============================================================
-    # LOAD RESULTS
-    # ============================================================
+    # Load results
     csv_path = PROJECT_ROOT / config["data"]["processed"] / "suitability_scores.csv"
     if not csv_path.exists():
-        st.error("Results CSV missing.")
         st.error("Results missing.")
         st.stop()
-
     df = pd.read_csv(csv_path)
     st.success("Analysis completed successfully!")
 
     # ============================================================
-    # METRICS – FINAL, CLEAN, WORKING VERSION
+    # METRICS – ONLY THE CHANGES YOU ASKED FOR
     # ============================================================
     col1, col2, col3 = st.columns(3)
 
@@ -245,30 +171,23 @@ if run_btn:
         ''', unsafe_allow_html=True)
 
     with col3:
-        moderate_high_count = (df["suitability_score"] >= 7.0).sum()
-        percentage = moderate_high_count / len(df) * 100
+        mod_high = (df["suitability_score"] >= 7.0).sum()
+        pct = mod_high / len(df) * 100
         st.markdown(f'''
         <div class="metric-card">
             <h4>Moderately to Highly Suitable<br>
                 <small style="color:#173a30; font-weight:500;">(≥ 7.0 / 10)</small>
             </h4>
-            <p>{moderate_high_count:,} <span style="font-size:1.1rem; color:#64955d;">({percentage:.1f}%)</span></p>
+            <p>{mod_high:,} <span style="font-size:1.1rem; color:#64955d;">({pct:.1f}%)</span></p>
         </div>
         ''', unsafe_allow_html=True)
 
     # ============================================================
-    # TABLE – NOW VISIBLE AGAIN
+    # TABLE + DOWNLOAD + MAP – ALL WORKING
     # ============================================================
     st.subheader("Suitability Scores")
-    st.dataframe(
-        df.sort_values("suitability_score", ascending=False),
-        use_container_width=True,
-        hide_index=True
-    )
+    st.dataframe(df.sort_values("suitability_score", ascending=False), use_container_width=True, hide_index=True)
 
-    # ============================================================
-    # DOWNLOAD BUTTON
-    # ============================================================
     st.download_button(
         label="Download Results as CSV",
         data=df.to_csv(index=False).encode(),
@@ -276,6 +195,14 @@ if run_btn:
         mime="text/csv",
         use_container_width=True
     )
+
+    map_path = PROJECT_ROOT / config["output"]["html"] / "suitability_map.html"
+    if map_path.exists():
+        st.subheader("Interactive Suitability Map")
+        with open(map_path, "r", encoding="utf-8") as f:
+            st.components.v1.html(f.read(), height=750, scrolling=False)
+    else:
+        st.warning("Interactive map not generated.")
 
 # ============================================================
 # FOOTER
