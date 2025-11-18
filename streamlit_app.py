@@ -226,7 +226,7 @@ with st.sidebar:
         value=config["processing"].get("h3_resolution", 7)
     )
 
-    run_btn = st.button("Run Analysis", use_container_width=True)
+    run_btn = st.button("Run Analysis", width="stretch")   # FIXED
 
 # ============================================================
 # MAIN ANALYSIS PIPELINE
@@ -249,8 +249,7 @@ if run_btn:
 
                 creds = json.loads(st.secrets["google_drive"]["credentials"])
                 credentials = service_account.Credentials.from_service_account_info(
-                    creds,
-                    scopes=["https://www.googleapis.com/auth/drive.readonly"]
+                    creds, scopes=["https://www.googleapis.com/auth/drive.readonly"]
                 )
                 service = build("drive", "v3", credentials=credentials)
 
@@ -287,10 +286,8 @@ if run_btn:
     cli = [
         sys.executable,
         str(PROJECT_ROOT / "run_analysis.py"),
-        "--config",
-        str(PROJECT_ROOT / "configs" / "config.yaml"),
-        "--h3-resolution",
-        str(h3_res)
+        "--config", str(PROJECT_ROOT / "configs" / "config.yaml"),
+        "--h3-resolution", str(h3_res)
     ]
 
     if use_coords:
@@ -365,14 +362,15 @@ if run_btn:
     st.subheader("Suitability Scores")
     st.dataframe(
         df.sort_values("suitability_score", ascending=False),
-        use_container_width=True
+        width="stretch"     # FIXED
     )
 
     st.download_button(
         "Download CSV",
         df.to_csv(index=False).encode(),
         "biochar_suitability_scores.csv",
-        "text/csv"
+        "text/csv",
+        width="stretch"     # FIXED
     )
 
     # ============================================================
