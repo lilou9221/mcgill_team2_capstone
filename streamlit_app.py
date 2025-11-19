@@ -197,9 +197,9 @@ if run_btn:
     )
 
     # ============================================================
-    # TABS: Biochar Suitability and Soil Organic Carbon
+    # TABS: Biochar Suitability, Soil Organic Carbon, and pH
     # ============================================================
-    tab1, tab2 = st.tabs(["Biochar Suitability", "Soil Organic Carbon"])
+    tab1, tab2, tab3 = st.tabs(["Biochar Suitability", "Soil Organic Carbon", "Soil pH"])
     
     with tab1:
         st.subheader("Interactive Suitability Map")
@@ -227,6 +227,24 @@ if run_btn:
                 st.components.v1.html(f.read(), height=750, scrolling=False)
         else:
             st.warning("SOC map not generated. Please run the analysis first.")
+    
+    with tab3:
+        st.subheader("Soil pH Map")
+        st.markdown("""
+        <p style="color: #333; margin-bottom: 1rem;">
+            This map displays Soil pH values aggregated by H3 hexagons. 
+            pH is calculated as the average of the ground layer (b0) and at 10 cm below the surface (b10): <strong>mean_pH = (mean(b0) + mean(b10)) / 2</strong>.
+            The color scheme uses a diverging scale: red for acidic soils (&lt;5.5), yellow for neutral (~7), and blue for alkaline soils (&gt;7.5).
+        </p>
+        """, unsafe_allow_html=True)
+        
+        # Load pre-generated pH map (created during analysis pipeline, same as suitability map)
+        ph_map_path = PROJECT_ROOT / config["output"]["html"] / "ph_map_streamlit.html"
+        if ph_map_path.exists():
+            with open(ph_map_path, "r", encoding="utf-8") as f:
+                st.components.v1.html(f.read(), height=750, scrolling=False)
+        else:
+            st.warning("pH map not generated. Please run the analysis first.")
 
 # ============================================================
 # FOOTER
