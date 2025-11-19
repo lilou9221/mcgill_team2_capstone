@@ -215,11 +215,6 @@ if run_btn:
         st.markdown("""
         <p style="color: #333; margin-bottom: 1rem;">
             This map displays Soil Organic Carbon (SOC) values aggregated by H3 hexagons. 
-<<<<<<< HEAD
-            SOC is calculated as the average of b0 and b10 depth layers: <strong>mean_SOC = (mean(b0) + mean(b10)) / 2</strong>.
-=======
-            SOC is calculated as the average of ground level (b0) and ten centimeters below the surface (b10): <strong>mean_SOC = (mean(b0) + mean(b10)) / 2</strong>.
->>>>>>> 3959ffc (Add Soil Organic Carbon (SOC) map functionality - Add SOC map generation in src/visualization/soc_map.py - Integrate SOC map into main.py pipeline (Step 7) - Add SOC map tab to Streamlit app with two-tab interface - Create Streamlit-compatible copy (soc_map_streamlit.html) matching suitability map pattern - Update all documentation (README, SETUP_GUIDE, TROUBLESHOOTING) to reflect SOC map feature - SOC map uses same processed data as suitability map for consistency - H3 resolution: 9 for full state, 7 (or slider) for clipped areas)
             Values are shown in g/kg (grams per kilogram).
         </p>
         """, unsafe_allow_html=True)
