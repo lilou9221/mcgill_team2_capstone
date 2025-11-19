@@ -252,7 +252,7 @@ if run_btn:
         <p style="color: #333; margin-bottom: 1rem;">
             This map displays Soil Moisture values aggregated by H3 hexagons. 
             Soil moisture is shown as a percentage (0-100%), converted from m³/m³ volume fraction. 
-            The color scheme uses a sequential scale: light brown/yellow for dry soils (low moisture), green for moderate moisture, and blue for wet soils (high moisture).
+            The color scheme uses a sequential scale: light brown/yellow for relatively drier soils, green for moderate moisture, and blue for relatively wetter soils.
         </p>
         """, unsafe_allow_html=True)
         
