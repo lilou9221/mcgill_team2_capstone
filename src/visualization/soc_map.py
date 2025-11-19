@@ -203,7 +203,6 @@ def create_soc_map(
     tooltip = {
         'html': '''
         <b>Soil Organic Carbon:</b> {soc_formatted} g/kg<br>
-        <b>H3 Index:</b> {h3_index}<br>
         <b>Location:</b> {lat_formatted}, {lon_formatted}<br>
         <b>Points:</b> {point_count}
         ''',

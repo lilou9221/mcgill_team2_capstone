@@ -95,7 +95,6 @@ def create_biochar_suitability_map(
             'html': '''
             <b>Biochar Suitability:</b> {biochar_suitability_score_formatted}<br>
             <b>Grade:</b> {suitability_grade}<br>
-            <b>H3 Index:</b> {h3_index}<br>
             <b>Location:</b> {lat_formatted}, {lon_formatted}<br>
             <b>Points:</b> {point_count}
             ''',

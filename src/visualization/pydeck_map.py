@@ -84,7 +84,6 @@ def create_pydeck_map(
                 'html': '''
                 <b>Score:</b> {suitability_score_formatted}<br>
                 <b>Value:</b> {value_formatted}<br>
-                <b>H3 Index:</b> {h3_index}<br>
                 <b>Location:</b> {lat_formatted}, {lon_formatted}<br>
                 <b>Points:</b> {point_count}
                 ''',
@@ -97,7 +96,6 @@ def create_pydeck_map(
             tooltip = {
                 'html': '''
                 <b>Suitability Score:</b> {suitability_score_formatted}<br>
-                <b>H3 Index:</b> {h3_index}<br>
                 <b>Location:</b> {lat_formatted}, {lon_formatted}<br>
                 <b>Points:</b> {point_count}
                 ''',
