@@ -487,231 +487,324 @@ if run_btn:
             st.markdown("**Soil pH**")
             st.caption("Diverging color scheme: Red indicates acidic soils (<5.5), yellow indicates neutral (6.5-7.5), blue indicates alkaline soils (>7.5).")
             
-            col_map, col_stats = st.columns([3, 1])
-            
-            with col_map:
-                # Create pH map with diverging colormap (RdYlBu_r)
-                m_ph = folium.Map(location=[center_lat, center_lon], zoom_start=6, tiles='CartoDB positron')
-                
-                # Create diverging colormap: Red (acidic) -> Yellow (neutral) -> Blue (alkaline)
-                ph_min, ph_max = gdf['ph'].min(), gdf['ph'].max()
-                ph_colormap = LinearColormap(
-                    colors=['#d73027', '#f46d43', '#fdae61', '#fee090', '#ffffbf', '#e0f3f8', '#abd9e9', '#74add1', '#4575b4'],
-                    vmin=ph_min,
-                    vmax=ph_max,
-                    caption='Soil pH'
-                )
-                
-                # Add hexagons to map using GeoJson with style function
-                def style_function_ph(feature):
-                    """Style function for pH map."""
-                    ph_val = feature['properties'].get('ph')
-                    if pd.isna(ph_val):
-                        return {
-                            'fillColor': '#808080',
-                            'color': 'black',
-                            'weight': 0.5,
-                            'fillOpacity': 0.3
-                        }
-                    color = ph_colormap(float(ph_val))
-                    return {
-                        'fillColor': color,
-                        'color': 'black',
-                        'weight': 0.5,
-                        'fillOpacity': 0.7
-                    }
-                
-                # Create GeoJSON layer
-                folium.GeoJson(
-                    gdf[['ph', 'h3_index', 'geometry']].to_json(),
-                    style_function=style_function_ph,
-                    tooltip=folium.GeoJsonTooltip(
-                        fields=['h3_index', 'ph'],
-                        aliases=['H3:', 'pH:'],
-                        localize=True
-                    )
-                ).add_to(m_ph)
-                
-                ph_colormap.add_to(m_ph)
-                folium_static = plugins.Fullscreen().add_to(m_ph)
-                
-                # Convert to HTML and display
-                try:
-                    from streamlit_folium import st_folium
-                    st_folium(m_ph, width=700, height=750)
-                except ImportError:
-                    # Fallback if streamlit_folium not available
-                    html_str = m_ph._repr_html_()
-                    st.components.v1.html(html_str, height=750, scrolling=False)
-            
-            with col_stats:
-                st.markdown("**Statistics**")
-                ph_stats = gdf['ph'].describe()
-                st.metric("Mean", f"{ph_stats['mean']:.2f}")
-                st.metric("Min", f"{ph_stats['min']:.2f}")
-                st.metric("Max", f"{ph_stats['max']:.2f}")
-                st.metric("Std Dev", f"{ph_stats['std']:.2f}")
-                
-                # Histogram
-                import matplotlib.pyplot as plt
-                fig, ax = plt.subplots(figsize=(3, 2))
-                ax.hist(gdf['ph'].dropna(), bins=20, color='#4575b4', edgecolor='black', alpha=0.7)
-                ax.set_xlabel('pH')
-                ax.set_ylabel('Frequency')
-                ax.set_title('pH Distribution')
-                plt.tight_layout()
-                st.pyplot(fig, use_container_width=True)
-                plt.close()
+            try:
+                # Check if ph column exists and has valid data
+                if 'ph' not in gdf.columns:
+                    st.error("pH column not found in data.")
+                else:
+                    ph_data = gdf['ph'].dropna()
+                    if len(ph_data) == 0:
+                        st.warning("No valid pH data available.")
+                    else:
+                        col_map, col_stats = st.columns([3, 1])
+                        
+                        with col_map:
+                            # Create pH map with diverging colormap (RdYlBu_r)
+                            m_ph = folium.Map(location=[center_lat, center_lon], zoom_start=6, tiles='CartoDB positron')
+                            
+                            # Create diverging colormap: Red (acidic) -> Yellow (neutral) -> Blue (alkaline)
+                            ph_min, ph_max = float(ph_data.min()), float(ph_data.max())
+                            
+                            # Handle edge case where min == max
+                            if ph_min == ph_max:
+                                ph_max = ph_min + 0.1
+                            
+                            ph_colormap = LinearColormap(
+                                colors=['#d73027', '#f46d43', '#fdae61', '#fee090', '#ffffbf', '#e0f3f8', '#abd9e9', '#74add1', '#4575b4'],
+                                vmin=ph_min,
+                                vmax=ph_max,
+                                caption='Soil pH'
+                            )
+                            
+                            # Add hexagons to map using GeoJson with style function
+                            def style_function_ph(feature):
+                                """Style function for pH map."""
+                                try:
+                                    ph_val = feature['properties'].get('ph')
+                                    if ph_val is None or pd.isna(ph_val):
+                                        return {
+                                            'fillColor': '#808080',
+                                            'color': 'black',
+                                            'weight': 0.5,
+                                            'fillOpacity': 0.3
+                                        }
+                                    ph_val = float(ph_val)
+                                    color = ph_colormap(ph_val)
+                                    return {
+                                        'fillColor': color,
+                                        'color': 'black',
+                                        'weight': 0.5,
+                                        'fillOpacity': 0.7
+                                    }
+                                except:
+                                    return {
+                                        'fillColor': '#808080',
+                                        'color': 'black',
+                                        'weight': 0.5,
+                                        'fillOpacity': 0.3
+                                    }
+                            
+                            # Create GeoJSON layer - only include rows with valid geometry
+                            gdf_ph = gdf[['ph', 'h3_index', 'geometry']].copy()
+                            gdf_ph = gdf_ph[gdf_ph['geometry'].notna()].copy()
+                            
+                            if len(gdf_ph) > 0:
+                                folium.GeoJson(
+                                    gdf_ph.to_json(),
+                                    style_function=style_function_ph,
+                                    tooltip=folium.GeoJsonTooltip(
+                                        fields=['h3_index', 'ph'],
+                                        aliases=['H3:', 'pH:'],
+                                        localize=True
+                                    )
+                                ).add_to(m_ph)
+                            
+                            ph_colormap.add_to(m_ph)
+                            plugins.Fullscreen().add_to(m_ph)
+                            
+                            # Convert to HTML and display
+                            try:
+                                from streamlit_folium import st_folium
+                                st_folium(m_ph, width=700, height=750)
+                            except ImportError:
+                                # Fallback if streamlit_folium not available
+                                html_str = m_ph._repr_html_()
+                                st.components.v1.html(html_str, height=750, scrolling=False)
+                        
+                        with col_stats:
+                            st.markdown("**Statistics**")
+                            ph_stats = gdf['ph'].describe()
+                            st.metric("Mean", f"{ph_stats['mean']:.2f}")
+                            st.metric("Min", f"{ph_stats['min']:.2f}")
+                            st.metric("Max", f"{ph_stats['max']:.2f}")
+                            st.metric("Std Dev", f"{ph_stats['std']:.2f}")
+                            
+                            # Histogram
+                            import matplotlib.pyplot as plt
+                            fig, ax = plt.subplots(figsize=(3, 2))
+                            ax.hist(ph_data, bins=20, color='#4575b4', edgecolor='black', alpha=0.7)
+                            ax.set_xlabel('pH')
+                            ax.set_ylabel('Frequency')
+                            ax.set_title('pH Distribution')
+                            plt.tight_layout()
+                            st.pyplot(fig, use_container_width=True)
+                            plt.close()
+            except Exception as e:
+                st.error(f"Error creating pH map: {e}")
+                import traceback
+                st.code(traceback.format_exc())
         
         with tab3:
             st.markdown("**Soil Moisture (%)**")
             st.caption("Sequential color scheme: Beige/yellow indicates dry soils, dark blue indicates wet soils. Higher moisture generally requires different biochar properties.")
             
-            col_map, col_stats = st.columns([3, 1])
-            
-            with col_map:
-                m_moisture = folium.Map(location=[center_lat, center_lon], zoom_start=6, tiles='CartoDB positron')
-                
-                # Create sequential colormap (YlGnBu: yellow -> green -> blue)
-                moisture_min, moisture_max = gdf['soil_moisture'].min(), gdf['soil_moisture'].max()
-                moisture_colormap = LinearColormap(
-                    colors=['#ffffcc', '#c7e9b4', '#7fcdbb', '#41b6c4', '#2c7fb8', '#253494'],
-                    vmin=moisture_min,
-                    vmax=moisture_max,
-                    caption='Soil Moisture (%)'
-                )
-                
-                # Add hexagons to map using GeoJson with style function
-                def style_function_moisture(feature):
-                    """Style function for moisture map."""
-                    moisture_val = feature['properties'].get('soil_moisture')
-                    if pd.isna(moisture_val):
-                        return {
-                            'fillColor': '#808080',
-                            'color': 'black',
-                            'weight': 0.5,
-                            'fillOpacity': 0.3
-                        }
-                    color = moisture_colormap(float(moisture_val))
-                    return {
-                        'fillColor': color,
-                        'color': 'black',
-                        'weight': 0.5,
-                        'fillOpacity': 0.7
-                    }
-                
-                # Create GeoJSON layer
-                folium.GeoJson(
-                    gdf[['soil_moisture', 'h3_index', 'geometry']].to_json(),
-                    style_function=style_function_moisture,
-                    tooltip=folium.GeoJsonTooltip(
-                        fields=['h3_index', 'soil_moisture'],
-                        aliases=['H3:', 'Moisture (%):'],
-                        localize=True
-                    )
-                ).add_to(m_moisture)
-                
-                moisture_colormap.add_to(m_moisture)
-                plugins.Fullscreen().add_to(m_moisture)
-                
-                try:
-                    from streamlit_folium import st_folium
-                    st_folium(m_moisture, width=700, height=750)
-                except ImportError:
-                    html_str = m_moisture._repr_html_()
-                    st.components.v1.html(html_str, height=750, scrolling=False)
-            
-            with col_stats:
-                st.markdown("**Statistics**")
-                moisture_stats = gdf['soil_moisture'].describe()
-                st.metric("Mean", f"{moisture_stats['mean']:.2f}%")
-                st.metric("Min", f"{moisture_stats['min']:.2f}%")
-                st.metric("Max", f"{moisture_stats['max']:.2f}%")
-                st.metric("Std Dev", f"{moisture_stats['std']:.2f}%")
-                
-                fig, ax = plt.subplots(figsize=(3, 2))
-                ax.hist(gdf['soil_moisture'].dropna(), bins=20, color='#2c7fb8', edgecolor='black', alpha=0.7)
-                ax.set_xlabel('Moisture (%)')
-                ax.set_ylabel('Frequency')
-                ax.set_title('Moisture Distribution')
-                plt.tight_layout()
-                st.pyplot(fig, use_container_width=True)
-                plt.close()
+            try:
+                # Check if soil_moisture column exists and has valid data
+                if 'soil_moisture' not in gdf.columns:
+                    st.error("Soil moisture column not found in data.")
+                else:
+                    moisture_data = gdf['soil_moisture'].dropna()
+                    if len(moisture_data) == 0:
+                        st.warning("No valid soil moisture data available.")
+                    else:
+                        col_map, col_stats = st.columns([3, 1])
+                        
+                        with col_map:
+                            m_moisture = folium.Map(location=[center_lat, center_lon], zoom_start=6, tiles='CartoDB positron')
+                            
+                            # Create sequential colormap (YlGnBu: yellow -> green -> blue)
+                            moisture_min, moisture_max = float(moisture_data.min()), float(moisture_data.max())
+                            
+                            # Handle edge case where min == max
+                            if moisture_min == moisture_max:
+                                moisture_max = moisture_min + 0.1
+                            
+                            moisture_colormap = LinearColormap(
+                                colors=['#ffffcc', '#c7e9b4', '#7fcdbb', '#41b6c4', '#2c7fb8', '#253494'],
+                                vmin=moisture_min,
+                                vmax=moisture_max,
+                                caption='Soil Moisture (%)'
+                            )
+                            
+                            # Add hexagons to map using GeoJson with style function
+                            def style_function_moisture(feature):
+                                """Style function for moisture map."""
+                                try:
+                                    moisture_val = feature['properties'].get('soil_moisture')
+                                    if moisture_val is None or pd.isna(moisture_val):
+                                        return {
+                                            'fillColor': '#808080',
+                                            'color': 'black',
+                                            'weight': 0.5,
+                                            'fillOpacity': 0.3
+                                        }
+                                    moisture_val = float(moisture_val)
+                                    color = moisture_colormap(moisture_val)
+                                    return {
+                                        'fillColor': color,
+                                        'color': 'black',
+                                        'weight': 0.5,
+                                        'fillOpacity': 0.7
+                                    }
+                                except:
+                                    return {
+                                        'fillColor': '#808080',
+                                        'color': 'black',
+                                        'weight': 0.5,
+                                        'fillOpacity': 0.3
+                                    }
+                            
+                            # Create GeoJSON layer - only include rows with valid geometry
+                            gdf_moisture = gdf[['soil_moisture', 'h3_index', 'geometry']].copy()
+                            gdf_moisture = gdf_moisture[gdf_moisture['geometry'].notna()].copy()
+                            
+                            if len(gdf_moisture) > 0:
+                                folium.GeoJson(
+                                    gdf_moisture.to_json(),
+                                    style_function=style_function_moisture,
+                                    tooltip=folium.GeoJsonTooltip(
+                                        fields=['h3_index', 'soil_moisture'],
+                                        aliases=['H3:', 'Moisture (%):'],
+                                        localize=True
+                                    )
+                                ).add_to(m_moisture)
+                            
+                            moisture_colormap.add_to(m_moisture)
+                            plugins.Fullscreen().add_to(m_moisture)
+                            
+                            try:
+                                from streamlit_folium import st_folium
+                                st_folium(m_moisture, width=700, height=750)
+                            except ImportError:
+                                html_str = m_moisture._repr_html_()
+                                st.components.v1.html(html_str, height=750, scrolling=False)
+                        
+                        with col_stats:
+                            st.markdown("**Statistics**")
+                            moisture_stats = gdf['soil_moisture'].describe()
+                            st.metric("Mean", f"{moisture_stats['mean']:.2f}%")
+                            st.metric("Min", f"{moisture_stats['min']:.2f}%")
+                            st.metric("Max", f"{moisture_stats['max']:.2f}%")
+                            st.metric("Std Dev", f"{moisture_stats['std']:.2f}%")
+                            
+                            fig, ax = plt.subplots(figsize=(3, 2))
+                            ax.hist(moisture_data, bins=20, color='#2c7fb8', edgecolor='black', alpha=0.7)
+                            ax.set_xlabel('Moisture (%)')
+                            ax.set_ylabel('Frequency')
+                            ax.set_title('Moisture Distribution')
+                            plt.tight_layout()
+                            st.pyplot(fig, use_container_width=True)
+                            plt.close()
+            except Exception as e:
+                st.error(f"Error creating moisture map: {e}")
+                import traceback
+                st.code(traceback.format_exc())
         
         with tab4:
             st.markdown("**Soil Organic Carbon (SOC) (%)**")
             st.caption("Sequential color scheme: Beige indicates low SOC, dark green/brown indicates high SOC. Areas with SOC >5% typically don't require biochar application.")
             
-            col_map, col_stats = st.columns([3, 1])
-            
-            with col_map:
-                m_soc = folium.Map(location=[center_lat, center_lon], zoom_start=6, tiles='CartoDB positron')
-                
-                # Create sequential colormap (YlOrBr: yellow -> orange -> brown)
-                soc_min, soc_max = gdf['soc'].min(), gdf['soc'].max()
-                soc_colormap = LinearColormap(
-                    colors=['#ffffd4', '#fed98e', '#fe9929', '#d95f0e', '#993404'],
-                    vmin=soc_min,
-                    vmax=soc_max,
-                    caption='SOC (%)'
-                )
-                
-                # Add hexagons to map using GeoJson with style function
-                def style_function_soc(feature):
-                    """Style function for SOC map."""
-                    soc_val = feature['properties'].get('soc')
-                    if pd.isna(soc_val):
-                        return {
-                            'fillColor': '#808080',
-                            'color': 'black',
-                            'weight': 0.5,
-                            'fillOpacity': 0.3
-                        }
-                    color = soc_colormap(float(soc_val))
-                    return {
-                        'fillColor': color,
-                        'color': 'black',
-                        'weight': 0.5,
-                        'fillOpacity': 0.7
-                    }
-                
-                # Create GeoJSON layer
-                folium.GeoJson(
-                    gdf[['soc', 'h3_index', 'geometry']].to_json(),
-                    style_function=style_function_soc,
-                    tooltip=folium.GeoJsonTooltip(
-                        fields=['h3_index', 'soc'],
-                        aliases=['H3:', 'SOC (%):'],
-                        localize=True
-                    )
-                ).add_to(m_soc)
-                
-                soc_colormap.add_to(m_soc)
-                plugins.Fullscreen().add_to(m_soc)
-                
-                try:
-                    from streamlit_folium import st_folium
-                    st_folium(m_soc, width=700, height=750)
-                except ImportError:
-                    html_str = m_soc._repr_html_()
-                    st.components.v1.html(html_str, height=750, scrolling=False)
-            
-            with col_stats:
-                st.markdown("**Statistics**")
-                soc_stats = gdf['soc'].describe()
-                st.metric("Mean", f"{soc_stats['mean']:.2f}%")
-                st.metric("Min", f"{soc_stats['min']:.2f}%")
-                st.metric("Max", f"{soc_stats['max']:.2f}%")
-                st.metric("Std Dev", f"{soc_stats['std']:.2f}%")
-                
-                fig, ax = plt.subplots(figsize=(3, 2))
-                ax.hist(gdf['soc'].dropna(), bins=20, color='#d95f0e', edgecolor='black', alpha=0.7)
-                ax.set_xlabel('SOC (%)')
-                ax.set_ylabel('Frequency')
-                ax.set_title('SOC Distribution')
-                plt.tight_layout()
-                st.pyplot(fig, use_container_width=True)
-                plt.close()
+            try:
+                # Check if soc column exists and has valid data
+                if 'soc' not in gdf.columns:
+                    st.error("SOC column not found in data.")
+                else:
+                    soc_data = gdf['soc'].dropna()
+                    if len(soc_data) == 0:
+                        st.warning("No valid SOC data available.")
+                    else:
+                        col_map, col_stats = st.columns([3, 1])
+                        
+                        with col_map:
+                            m_soc = folium.Map(location=[center_lat, center_lon], zoom_start=6, tiles='CartoDB positron')
+                            
+                            # Create sequential colormap (YlOrBr: yellow -> orange -> brown)
+                            soc_min, soc_max = float(soc_data.min()), float(soc_data.max())
+                            
+                            # Handle edge case where min == max
+                            if soc_min == soc_max:
+                                soc_max = soc_min + 0.1
+                            
+                            soc_colormap = LinearColormap(
+                                colors=['#ffffd4', '#fed98e', '#fe9929', '#d95f0e', '#993404'],
+                                vmin=soc_min,
+                                vmax=soc_max,
+                                caption='SOC (%)'
+                            )
+                            
+                            # Add hexagons to map using GeoJson with style function
+                            def style_function_soc(feature):
+                                """Style function for SOC map."""
+                                try:
+                                    soc_val = feature['properties'].get('soc')
+                                    if soc_val is None or pd.isna(soc_val):
+                                        return {
+                                            'fillColor': '#808080',
+                                            'color': 'black',
+                                            'weight': 0.5,
+                                            'fillOpacity': 0.3
+                                        }
+                                    soc_val = float(soc_val)
+                                    color = soc_colormap(soc_val)
+                                    return {
+                                        'fillColor': color,
+                                        'color': 'black',
+                                        'weight': 0.5,
+                                        'fillOpacity': 0.7
+                                    }
+                                except:
+                                    return {
+                                        'fillColor': '#808080',
+                                        'color': 'black',
+                                        'weight': 0.5,
+                                        'fillOpacity': 0.3
+                                    }
+                            
+                            # Create GeoJSON layer - only include rows with valid geometry
+                            gdf_soc = gdf[['soc', 'h3_index', 'geometry']].copy()
+                            gdf_soc = gdf_soc[gdf_soc['geometry'].notna()].copy()
+                            
+                            if len(gdf_soc) > 0:
+                                folium.GeoJson(
+                                    gdf_soc.to_json(),
+                                    style_function=style_function_soc,
+                                    tooltip=folium.GeoJsonTooltip(
+                                        fields=['h3_index', 'soc'],
+                                        aliases=['H3:', 'SOC (%):'],
+                                        localize=True
+                                    )
+                                ).add_to(m_soc)
+                            
+                            soc_colormap.add_to(m_soc)
+                            plugins.Fullscreen().add_to(m_soc)
+                            
+                            try:
+                                from streamlit_folium import st_folium
+                                st_folium(m_soc, width=700, height=750)
+                            except ImportError:
+                                html_str = m_soc._repr_html_()
+                                st.components.v1.html(html_str, height=750, scrolling=False)
+                        
+                        with col_stats:
+                            st.markdown("**Statistics**")
+                            soc_stats = gdf['soc'].describe()
+                            st.metric("Mean", f"{soc_stats['mean']:.2f}%")
+                            st.metric("Min", f"{soc_stats['min']:.2f}%")
+                            st.metric("Max", f"{soc_stats['max']:.2f}%")
+                            st.metric("Std Dev", f"{soc_stats['std']:.2f}%")
+                            
+                            fig, ax = plt.subplots(figsize=(3, 2))
+                            ax.hist(soc_data, bins=20, color='#d95f0e', edgecolor='black', alpha=0.7)
+                            ax.set_xlabel('SOC (%)')
+                            ax.set_ylabel('Frequency')
+                            ax.set_title('SOC Distribution')
+                            plt.tight_layout()
+                            st.pyplot(fig, use_container_width=True)
+                            plt.close()
+            except Exception as e:
+                st.error(f"Error creating SOC map: {e}")
+                import traceback
+                st.code(traceback.format_exc())
         
         # Update results table and CSV with new columns
         # Convert GeoDataFrame to DataFrame for display (drop geometry)
