@@ -390,11 +390,39 @@ def main():
             if 'h3_boundary_geojson' in gdf.columns:
                 gdf = gdf.drop(columns=['h3_boundary_geojson'])
             
-            # Save as GeoJSON
-            gdf.to_file(geojson_path, driver='GeoJSON')
-            print(f"GeoJSON file saved to: {geojson_path}")
-            print(f"  Features: {len(gdf):,} hexagons")
-            print(f"  Columns: {', '.join([c for c in gdf.columns if c != 'geometry'])}")
+            # Ensure essential columns are present and have correct data types
+            # Convert numeric columns to appropriate types to reduce file size
+            numeric_cols = ['ph', 'soil_moisture', 'soc', 'suitability_score', 'biochar_suitability_score']
+            for col in numeric_cols:
+                if col in gdf.columns:
+                    # Convert to float32 to save memory (if not already numeric)
+                    if gdf[col].dtype == 'object':
+                        gdf[col] = pd.to_numeric(gdf[col], errors='coerce')
+                    elif gdf[col].dtype == 'float64':
+                        gdf[col] = gdf[col].astype('float32')
+            
+            # Ensure h3_index is string type
+            if 'h3_index' in gdf.columns:
+                gdf['h3_index'] = gdf['h3_index'].astype(str)
+            
+            # Validate geometries before saving
+            invalid_count = gdf['geometry'].isna().sum()
+            if invalid_count > 0:
+                print(f"Warning: {invalid_count} rows with invalid geometry. Filtering them out.")
+                gdf = gdf[gdf['geometry'].notna()].copy()
+            
+            # Save as GeoJSON with proper encoding
+            try:
+                gdf.to_file(geojson_path, driver='GeoJSON')
+                file_size_mb = geojson_path.stat().st_size / (1024 * 1024)
+                print(f"GeoJSON file saved to: {geojson_path}")
+                print(f"  Features: {len(gdf):,} hexagons")
+                print(f"  File size: {file_size_mb:.2f} MB")
+                print(f"  Columns: {', '.join([c for c in gdf.columns if c != 'geometry'])}")
+            except Exception as e:
+                print(f"Error saving GeoJSON: {e}")
+                import traceback
+                traceback.print_exc()
         else:
             print("Warning: Could not create GeoJSON - no valid geometry found.")
     except ImportError:

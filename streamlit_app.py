@@ -183,20 +183,6 @@ if run_btn:
         ''', unsafe_allow_html=True)
 
     # ============================================================
-    # INITIAL RESULTS TABLE
-    # ============================================================
-    st.subheader("Suitability Scores")
-    st.dataframe(df.sort_values("suitability_score", ascending=False), width='stretch', hide_index=True)
-
-    st.download_button(
-        label="Download Results as CSV",
-        data=df.to_csv(index=False).encode(),
-        file_name="biochar_suitability_scores.csv",
-        mime="text/csv",
-        use_container_width=True  # Note: width parameter not yet available for download_button
-    )
-
-    # ============================================================
     # INTERACTIVE MAPS WITH BIOCHAR RECOMMENDATIONS
     # ============================================================
     st.subheader("Interactive Maps")
@@ -209,15 +195,47 @@ if run_btn:
         from folium import plugins
         import h3
         from shapely.geometry import Polygon
+        import gc  # For garbage collection
         
         # Load GeoJSON file (preferred - more efficient)
         geojson_path = PROJECT_ROOT / config["data"]["processed"] / "hexagons_with_scores.geojson"
         
         if geojson_path.exists():
-            # Load GeoJSON directly (most efficient)
+            # Load GeoJSON directly (most efficient) with memory checks
             with st.spinner("Loading hexagon data from GeoJSON..."):
-                gdf = gpd.read_file(geojson_path)
-                st.success(f"Loaded {len(gdf):,} hexagons from GeoJSON.")
+                try:
+                    # Check file size first
+                    file_size_mb = geojson_path.stat().st_size / (1024 * 1024)
+                    st.info(f"GeoJSON file size: {file_size_mb:.2f} MB")
+                    
+                    # Load with memory-efficient settings
+                    gdf = gpd.read_file(geojson_path)
+                    
+                    # Validate GeoJSON structure
+                    if 'geometry' not in gdf.columns:
+                        raise ValueError("GeoJSON missing 'geometry' column")
+                    
+                    # Check for valid geometries
+                    invalid_geom = gdf['geometry'].isna().sum()
+                    if invalid_geom > 0:
+                        st.warning(f"Found {invalid_geom} rows with invalid geometry. Filtering them out.")
+                        gdf = gdf[gdf['geometry'].notna()].copy()
+                    
+                    # Validate CRS
+                    if gdf.crs is None:
+                        gdf.set_crs('EPSG:4326', inplace=True)
+                    
+                    st.success(f"Loaded {len(gdf):,} hexagons from GeoJSON.")
+                    st.info(f"Available columns: {', '.join([c for c in gdf.columns if c != 'geometry'])}")
+                    
+                    # Force garbage collection after loading
+                    gc.collect()
+                    
+                except Exception as e:
+                    st.error(f"Error loading GeoJSON: {e}")
+                    import traceback
+                    st.code(traceback.format_exc())
+                    st.stop()
         else:
             # Fallback: reconstruct from CSV
             with st.spinner("Reconstructing hexagon geometry from CSV..."):
@@ -255,24 +273,24 @@ if run_btn:
                 st.success(f"Reconstructed geometry for {len(gdf):,} hexagons from CSV.")
         
         # Helper function to find column (case-insensitive, partial match)
-        def find_column(df, target_name, possible_names):
+        def find_column(dataframe, target_name, possible_names):
             """Find column name in DataFrame, trying exact match first, then case-insensitive, then partial match."""
             # First try exact matches
             for name in possible_names:
-                if name in df.columns:
+                if name in dataframe.columns:
                     return name
             
             # Then try case-insensitive
-            df_cols_lower = {col.lower(): col for col in df.columns}
+            df_cols_lower = {col.lower(): col for col in dataframe.columns}
             for name in possible_names:
                 if name.lower() in df_cols_lower:
                     return df_cols_lower[name.lower()]
             
             # Then try partial match (for columns like "SOC_res_250_b0 (g/kg)")
-            for col in df.columns:
+            for col in dataframe.columns:
                 col_lower = col.lower()
                 for name in possible_names:
-                    if name.lower() in col_lower and 'score' not in col_lower and col_lower not in ['lon', 'lat', 'h3_index']:
+                    if name.lower() in col_lower and 'score' not in col_lower and col_lower not in ['lon', 'lat', 'h3_index', 'geometry']:
                         return col
             
             return None
@@ -282,12 +300,19 @@ if run_btn:
             st.error("Missing 'geometry' column. Cannot create maps.")
             st.stop()
         
-        # Calculate map center and zoom from geometry
+        # Calculate map center and zoom from geometry (with memory check)
         try:
-            bounds = gdf.total_bounds
-            center_lat = (bounds[1] + bounds[3]) / 2
-            center_lon = (bounds[0] + bounds[2]) / 2
-        except:
+            # Use a sample for large datasets to avoid memory issues
+            if len(gdf) > 10000:
+                sample_gdf = gdf.sample(min(1000, len(gdf)))
+                bounds = sample_gdf.total_bounds
+                del sample_gdf  # Free memory
+            else:
+                bounds = gdf.total_bounds
+            center_lat = float((bounds[1] + bounds[3]) / 2)
+            center_lon = float((bounds[0] + bounds[2]) / 2)
+        except Exception as e:
+            st.warning(f"Could not calculate map center from geometry: {e}. Using default coordinates.")
             center_lat = -13.0
             center_lon = -56.0
         
@@ -531,10 +556,18 @@ if run_btn:
                             gdf_ph_map = gdf_ph_map[gdf_ph_map['geometry'].notna()].copy()
                             gdf_ph_map = gdf_ph_map[gdf_ph_map['ph'].notna()].copy()
                             
+                            # Limit dataset size for very large files (sample if needed)
+                            max_features = 50000  # Reasonable limit for Folium
+                            if len(gdf_ph_map) > max_features:
+                                st.warning(f"Dataset has {len(gdf_ph_map):,} features. Sampling {max_features:,} for map display.")
+                                gdf_ph_map = gdf_ph_map.sample(n=max_features).copy()
+                            
                             if len(gdf_ph_map) > 0:
                                 try:
+                                    # Convert to JSON with proper encoding
+                                    geojson_str = gdf_ph_map.to_json()
                                     folium.GeoJson(
-                                        gdf_ph_map.to_json(),
+                                        geojson_str,
                                         style_function=style_function_ph,
                                         tooltip=folium.GeoJsonTooltip(
                                             fields=['h3_index', 'ph'],
@@ -542,6 +575,8 @@ if run_btn:
                                             localize=True
                                         )
                                     ).add_to(m_ph)
+                                    del geojson_str  # Free memory
+                                    gc.collect()  # Force garbage collection
                                 except Exception as e:
                                     st.warning(f"Could not add GeoJSON layer: {e}")
                             
@@ -560,6 +595,8 @@ if run_btn:
                                 try:
                                     html_str = m_ph._repr_html_()
                                     st.components.v1.html(html_str, height=750, scrolling=False)
+                                    del html_str  # Free memory
+                                    gc.collect()
                                 except Exception as e:
                                     st.error(f"Could not render map: {e}")
                                     import traceback
@@ -666,10 +703,17 @@ if run_btn:
                             gdf_moisture_map = gdf_moisture_map[gdf_moisture_map['geometry'].notna()].copy()
                             gdf_moisture_map = gdf_moisture_map[gdf_moisture_map['soil_moisture'].notna()].copy()
                             
+                            # Limit dataset size for very large files
+                            max_features = 50000
+                            if len(gdf_moisture_map) > max_features:
+                                st.warning(f"Dataset has {len(gdf_moisture_map):,} features. Sampling {max_features:,} for map display.")
+                                gdf_moisture_map = gdf_moisture_map.sample(n=max_features).copy()
+                            
                             if len(gdf_moisture_map) > 0:
                                 try:
+                                    geojson_str = gdf_moisture_map.to_json()
                                     folium.GeoJson(
-                                        gdf_moisture_map.to_json(),
+                                        geojson_str,
                                         style_function=style_function_moisture,
                                         tooltip=folium.GeoJsonTooltip(
                                             fields=['h3_index', 'soil_moisture'],
@@ -677,6 +721,8 @@ if run_btn:
                                             localize=True
                                         )
                                     ).add_to(m_moisture)
+                                    del geojson_str  # Free memory
+                                    gc.collect()  # Force garbage collection
                                 except Exception as e:
                                     st.warning(f"Could not add GeoJSON layer: {e}")
                             
@@ -693,6 +739,8 @@ if run_btn:
                                 try:
                                     html_str = m_moisture._repr_html_()
                                     st.components.v1.html(html_str, height=750, scrolling=False)
+                                    del html_str  # Free memory
+                                    gc.collect()
                                 except Exception as e:
                                     st.error(f"Could not render map: {e}")
                                     import traceback
@@ -798,10 +846,17 @@ if run_btn:
                             gdf_soc_map = gdf_soc_map[gdf_soc_map['geometry'].notna()].copy()
                             gdf_soc_map = gdf_soc_map[gdf_soc_map['soc'].notna()].copy()
                             
+                            # Limit dataset size for very large files
+                            max_features = 50000
+                            if len(gdf_soc_map) > max_features:
+                                st.warning(f"Dataset has {len(gdf_soc_map):,} features. Sampling {max_features:,} for map display.")
+                                gdf_soc_map = gdf_soc_map.sample(n=max_features).copy()
+                            
                             if len(gdf_soc_map) > 0:
                                 try:
+                                    geojson_str = gdf_soc_map.to_json()
                                     folium.GeoJson(
-                                        gdf_soc_map.to_json(),
+                                        geojson_str,
                                         style_function=style_function_soc,
                                         tooltip=folium.GeoJsonTooltip(
                                             fields=['h3_index', 'soc'],
@@ -809,6 +864,8 @@ if run_btn:
                                             localize=True
                                         )
                                     ).add_to(m_soc)
+                                    del geojson_str  # Free memory
+                                    gc.collect()  # Force garbage collection
                                 except Exception as e:
                                     st.warning(f"Could not add GeoJSON layer: {e}")
                             
@@ -825,6 +882,8 @@ if run_btn:
                                 try:
                                     html_str = m_soc._repr_html_()
                                     st.components.v1.html(html_str, height=750, scrolling=False)
+                                    del html_str  # Free memory
+                                    gc.collect()
                                 except Exception as e:
                                     st.error(f"Could not render map: {e}")
                                     import traceback
@@ -854,31 +913,36 @@ if run_btn:
                 import traceback
                 st.code(traceback.format_exc())
         
-        # Update results table and CSV with new columns
+        # Display results table with recommendations
         # Convert GeoDataFrame to DataFrame for display (drop geometry)
         df_display = gdf.drop(columns=['geometry']).copy()
         
-        # Update the existing dataframe with new columns if they exist
+        # Build display columns list
+        display_cols = []
+        priority_cols = ['h3_index', 'suitability_score', 'ph', 'soil_moisture', 'soc']
+        for col in priority_cols:
+            if col in df_display.columns:
+                display_cols.append(col)
+        
+        # Add recommendation columns if they exist
         if 'Recommended Feedstock' in df_display.columns:
-            df = df.merge(
-                df_display[['h3_index', 'ph', 'soil_moisture', 'soc', 'Recommended Feedstock', 'Recommendation Reason']],
-                on='h3_index',
-                how='left'
-            )
-        
-        # Re-display updated table
-        st.subheader("Detailed Results with Recommendations")
-        display_cols = ['suitability_score', 'ph', 'soil_moisture', 'soc']
-        if 'Recommended Feedstock' in df.columns:
             display_cols.extend(['Recommended Feedstock', 'Recommendation Reason'])
-        display_cols.extend([col for col in df.columns if col not in display_cols and col != 'h3_index'])
         
-        st.dataframe(df[display_cols].sort_values("suitability_score", ascending=False), width='stretch', hide_index=True)
+        # Add any other columns (excluding geometry which was already dropped)
+        other_cols = [col for col in df_display.columns if col not in display_cols]
+        display_cols.extend(other_cols)
         
-        # Update download button
+        # Display table
+        st.subheader("Detailed Results with Recommendations")
+        if 'suitability_score' in df_display.columns:
+            st.dataframe(df_display[display_cols].sort_values("suitability_score", ascending=False), width='stretch', hide_index=True)
+        else:
+            st.dataframe(df_display[display_cols], width='stretch', hide_index=True)
+        
+        # Download button
         st.download_button(
             label="Download Results as CSV (with Recommendations)",
-            data=df[display_cols].to_csv(index=False).encode(),
+            data=df_display[display_cols].to_csv(index=False).encode(),
             file_name="biochar_suitability_scores_with_recommendations.csv",
             mime="text/csv",
             use_container_width=True  # Note: width parameter not yet available for download_button
