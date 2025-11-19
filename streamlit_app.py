@@ -70,7 +70,7 @@ st.markdown('<div class="header-subtitle">Precision mapping for sustainable bioc
 # ============================================================
 with st.sidebar:
     st.markdown("### Analysis Scope")
-    use_coords = st.checkbox("Analyze area around a point", value=False)
+    use_coords = st.checkbox("Analyze area around a point", value=True)
     lat = lon = radius = None
     if use_coords:
         c1, c2 = st.columns(2)
