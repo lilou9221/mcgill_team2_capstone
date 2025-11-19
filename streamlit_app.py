@@ -196,13 +196,37 @@ if run_btn:
         use_container_width=True
     )
 
-    map_path = PROJECT_ROOT / config["output"]["html"] / "suitability_map.html"
-    if map_path.exists():
+    # ============================================================
+    # TABS: Biochar Suitability and Soil Organic Carbon
+    # ============================================================
+    tab1, tab2 = st.tabs(["Biochar Suitability", "Soil Organic Carbon"])
+    
+    with tab1:
         st.subheader("Interactive Suitability Map")
-        with open(map_path, "r", encoding="utf-8") as f:
-            st.components.v1.html(f.read(), height=750, scrolling=False)
-    else:
-        st.warning("Interactive map not generated.")
+        map_path = PROJECT_ROOT / config["output"]["html"] / "suitability_map.html"
+        if map_path.exists():
+            with open(map_path, "r", encoding="utf-8") as f:
+                st.components.v1.html(f.read(), height=750, scrolling=False)
+        else:
+            st.warning("Interactive map not generated.")
+    
+    with tab2:
+        st.subheader("Soil Organic Carbon Map")
+        st.markdown("""
+        <p style="color: #333; margin-bottom: 1rem;">
+            This map displays Soil Organic Carbon (SOC) values aggregated by H3 hexagons. 
+            SOC is calculated as the average of b0 and b10 depth layers: <strong>mean_SOC = (mean(b0) + mean(b10)) / 2</strong>.
+            Values are shown in g/kg (grams per kilogram).
+        </p>
+        """, unsafe_allow_html=True)
+        
+        # Load pre-generated SOC map (created during analysis pipeline, same as suitability map)
+        soc_map_path = PROJECT_ROOT / config["output"]["html"] / "soc_map_streamlit.html"
+        if soc_map_path.exists():
+            with open(soc_map_path, "r", encoding="utf-8") as f:
+                st.components.v1.html(f.read(), height=750, scrolling=False)
+        else:
+            st.warning("SOC map not generated. Please run the analysis first.")
 
 # ============================================================
 # FOOTER

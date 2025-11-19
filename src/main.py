@@ -29,6 +29,7 @@ from src.data.processing.raster_to_csv import convert_all_rasters_to_dataframes
 from src.data.processing.h3_converter import process_dataframes_with_h3
 from src.analysis.suitability import merge_and_aggregate_soil_data
 from src.visualization.biochar_map import create_biochar_suitability_map
+from src.visualization.soc_map import create_soc_map
 from src.analysis.biochar_suitability import calculate_biochar_suitability_scores
 from src.utils.browser import open_html_in_browser
 
@@ -368,9 +369,46 @@ def main():
     print(f"\nBiochar suitability map saved to: {biochar_map_path}")
     print(f"Suitability map (Streamlit) saved to: {suitability_map_path}")
     
-    # Auto-open biochar map if enabled
+    # Step 7: Output SOC map
+    print("\nCreating SOC map...")
+    soc_map_path = output_dir / "soc_map.html"
+    soc_map_streamlit_path = output_dir / "soc_map_streamlit.html"  # For Streamlit compatibility
+    
+    try:
+        # Determine H3 resolution for SOC map (same logic as suitability map)
+        # Full state uses resolution 5 (but SOC map should use 9 per user requirement)
+        # Clipped area uses the specified resolution
+        if area.use_full_state:
+            soc_h3_resolution = 9  # Full state uses resolution 9 for SOC map
+        else:
+            soc_h3_resolution = h3_resolution  # Use same resolution as suitability map for clipped area
+        
+        create_soc_map(
+            processed_dir=processed_dir,
+            output_path=soc_map_path,
+            h3_resolution=soc_h3_resolution,
+            use_coords=not area.use_full_state,
+            center_lat=center_lat,
+            center_lon=center_lon,
+            zoom_start=zoom
+        )
+        
+        # Also save a copy with the name Streamlit expects
+        shutil.copy2(soc_map_path, soc_map_streamlit_path)
+        
+        print(f"SOC map saved to: {soc_map_path}")
+        print(f"SOC map (Streamlit) saved to: {soc_map_streamlit_path}")
+    except Exception as e:
+        print(f"Error creating SOC map: {e}")
+        import traceback
+        traceback.print_exc()
+        print("  Skipping SOC map generation.")
+    
+    # Auto-open maps if enabled
     if config.get("visualization", {}).get("auto_open_html", True):
         open_html_in_browser(biochar_map_path)
+        if soc_map_path.exists():
+            open_html_in_browser(soc_map_path)
     
     print(f"\nAll maps saved to: {output_dir}")
     return 0

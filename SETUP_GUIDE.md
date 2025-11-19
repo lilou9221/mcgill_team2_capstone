@@ -144,7 +144,7 @@ Edit `configs/config.yaml` to customize:
 
 - **GEE Project Name**: Your Google Earth Engine project name
 - **Export Resolution**: Default 250m for SMAP datasets (soil moisture, temperature), native resolution for other datasets
-- **H3 Resolution**: Default 7 for clipped areas (higher = finer hexagons). Full state uses resolution 5 automatically.
+- **H3 Resolution**: Default 7 for clipped areas (higher = finer hexagons). Full state uses resolution 5 for suitability map and resolution 9 for SOC map automatically.
 - **Export Folder**: Must match in both `gee.export_folder` and `drive.download_folder`
 - **Persist Snapshots**: Set `processing.persist_snapshots` to `true` to keep intermediate CSV tables for debugging
 - **Cache Cleanup**: Set `processing.cleanup_old_cache` to `false` to disable automatic cleanup of old coordinate-specific caches (default: `true`)
@@ -342,10 +342,14 @@ Once setup is complete, you can:
    After running the analysis, you should see:
    - `data/processed/merged_soil_data.csv` - Merged and aggregated soil data
    - `data/processed/suitability_scores.csv` - Biochar suitability scores (0-10 scale) for Streamlit
-   - `output/html/biochar_suitability_map.html` - Main interactive map
-   - `output/html/suitability_map.html` - Streamlit-compatible map (copy of main map)
+   - `output/html/biochar_suitability_map.html` - Main interactive biochar suitability map
+   - `output/html/suitability_map.html` - Streamlit-compatible copy of suitability map
+   - `output/html/soc_map.html` - Interactive Soil Organic Carbon map (generated on-demand in Streamlit)
    
-   For Streamlit integration, both `suitability_scores.csv` and `suitability_map.html` are automatically generated.
+   For Streamlit integration:
+   - `suitability_scores.csv` and `suitability_map.html` are automatically generated during analysis
+   - Streamlit interface includes two tabs: "Biochar Suitability" and "Soil Organic Carbon"
+   - SOC map is generated on-demand when the "Soil Organic Carbon" tab is opened
 
 6. **Check project status:**
    - Review `README.md` for project overview and features

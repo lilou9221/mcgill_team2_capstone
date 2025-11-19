@@ -200,11 +200,12 @@ pip install earthengine-api rasterio pandas h3 pydeck shapely pyyaml pyarrow
 **Problem**: Auto-open fails or map doesn't display correctly.
 
 **Solution**:
-- Manually open the HTML file: `output/html/biochar_suitability_map.html` or `output/html/suitability_map.html`
+- Manually open the HTML file: `output/html/biochar_suitability_map.html`, `output/html/suitability_map.html`, or `output/html/soc_map.html`
 - Check browser console for JavaScript errors
 - Try a different browser
 - Disable auto-open in config and open manually
 - Confirm that the HTML file is under 100 MB; larger files can take a while to open on slower machines
+- Both suitability and SOC maps should auto-open after pipeline completion if `auto_open_html: true` in config
 
 ### Map shows no data
 
@@ -218,7 +219,9 @@ pip install earthengine-api rasterio pandas h3 pydeck shapely pyyaml pyarrow
 - Ensure the H3 resolution you selected matches what the visualisation expects (defaults to 7)
 - For Streamlit: Verify that `suitability_scores.csv` exists with `suitability_score` column (0-10 scale)
 
-**Note**: When using H3 hexagons, clicking or hovering over a hexagon displays a tooltip with the biochar suitability score, suitability grade, recommendation, H3 index, location coordinates, and point count.
+**Note**: 
+- **Suitability Map**: When using H3 hexagons, clicking or hovering over a hexagon displays a tooltip with the biochar suitability score, suitability grade, H3 index, location coordinates, and point count.
+- **SOC Map**: Tooltip displays SOC value (g/kg), H3 index, location coordinates, and point count.
 
 ### Streamlit: Results not displayed
 
@@ -226,11 +229,15 @@ pip install earthengine-api rasterio pandas h3 pydeck shapely pyyaml pyarrow
 
 **Solution**:
 - Verify that `data/processed/suitability_scores.csv` exists and contains the `suitability_score` column
-- Check that `output/html/suitability_map.html` exists (this is the Streamlit-compatible map file)
+- Check that `output/html/suitability_map.html` exists (this is the Streamlit-compatible suitability map file)
 - Ensure scores are in 0-10 range (the CSV file should have scores scaled from 0-100 to 0-10)
 - Check the Streamlit console/logs for any file path errors
 - Verify the config paths match: `config["data"]["processed"]` and `config["output"]["html"]`
-- The program automatically generates both files during analysis - if they're missing, re-run the analysis
+- The program automatically generates suitability map files during analysis - if they're missing, re-run the analysis
+- **SOC Map**: The SOC map is generated on-demand when you click the "Soil Organic Carbon" tab. If it fails to generate:
+  - Verify that `data/processed/merged_soil_data.csv` exists and contains SOC columns (`SOC_res_250_b0 (g/kg)` and `SOC_res_250_b10 (g/kg)`)
+  - Check Streamlit error messages in the tab
+  - Ensure the analysis completed successfully before opening the SOC tab
 
 ### PYTHONPATH / import issues outside PyCharm
 

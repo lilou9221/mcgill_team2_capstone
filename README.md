@@ -4,7 +4,9 @@ A tool for mapping biochar application suitability in Mato Grosso, Brazil, based
 
 ## Project Overview
 
-This tool analyzes soil properties (moisture, type, temperature, organic carbon, pH, and land cover) from Google Earth Engine to calculate biochar suitability scores across Mato Grosso state. The tool generates interactive maps with color-coded suitability scores (0-100 scale) where red indicates high suitability (poor soil needs biochar) and green indicates low suitability (healthy soil doesn't need biochar).
+This tool analyzes soil properties (moisture, temperature, organic carbon, pH) from Google Earth Engine to calculate biochar suitability scores across Mato Grosso state. The tool generates two interactive maps:
+- **Biochar Suitability Map**: Color-coded suitability scores (0-100 scale) where green indicates high suitability (poor soil needs biochar) and red indicates low suitability (healthy soil doesn't need biochar)
+- **Soil Organic Carbon (SOC) Map**: Displays SOC values (g/kg) aggregated by H3 hexagons, calculated as the average of b0 and b10 depth layers
 
 ## Features
 
@@ -16,7 +18,10 @@ This tool analyzes soil properties (moisture, type, temperature, organic carbon,
 - **H3 Hexagonal Grid**: Adds hex indexes for efficient aggregation using vectorized operations (5-10x faster than previous implementation). Boundary geometry is generated after merge and aggregation to optimize memory usage (prevents memory crashes with large datasets).
 - **Biochar Suitability Scoring**: Calculates biochar suitability scores (0-100 scale) based on soil quality metrics. Uses weighted scoring for moisture, organic carbon (averages b0 and b10 depth layers), pH (averages b0 and b10 depth layers), and temperature properties. Lower soil quality = higher biochar suitability.
 - **Smart Dataset Filtering**: Automatically filters to only scoring-required datasets during processing. All datasets are exported to Google Drive, but only scoring-required files (soil_moisture, SOC b0/b10, pH b0/b10, soil_temperature) are imported for processing, reducing memory usage and processing time.
-- **Interactive Maps**: Generates PyDeck-based HTML visualisations with interactive tooltips showing biochar suitability scores, suitability grades, recommendations, H3 hexagon indexes, location coordinates, and point counts. Maps are generated directly from CSV data using PyDeck. Maps auto-open in browser (configurable).
+- **Interactive Maps**: Generates two PyDeck-based HTML visualisations:
+  - **Biochar Suitability Map**: Interactive map with color-coded suitability scores (0-100 scale), suitability grades, H3 hexagon indexes, location coordinates, and point counts
+  - **Soil Organic Carbon (SOC) Map**: Interactive map showing SOC values (g/kg) aggregated by H3 hexagons, calculated as the average of b0 and b10 depth layers
+  - Both maps are generated directly from CSV data using PyDeck and auto-open in browser (configurable)
 - **Auditable Workflow**: Each stage can be run independently, and helper utilities exist to verify intermediate results.
 
 ## Installation
@@ -97,7 +102,7 @@ Edit `configs/config.yaml` to customize:
 
 - Google Earth Engine project name
 - Export resolution (default: 250m for SMAP datasets, native resolution for others)
-- H3 resolution (default: 7 for clipped areas, 5 for full state)
+- H3 resolution (default: 7 for clipped areas, 9 for full state SOC map, 5 for full state suitability map)
 - Output directories
 - Optional snapshot persistence for intermediate DataFrames
 
@@ -141,7 +146,7 @@ python src/main.py --help
 Key processing flags:
 
 - `--lat / --lon / --radius` — Skip prompts and inject AOI coordinates directly. Default radius is 100 km.
-- `--h3-resolution` — Choose aggregation granularity (higher = more hexes, default 7). Full state uses resolution 5 automatically.
+- `--h3-resolution` — Choose aggregation granularity for clipped areas (higher = more hexes, default 7). Full state uses resolution 5 for suitability map and resolution 9 for SOC map automatically.
 - `--config` — Point the pipeline at an alternate configuration document.
 
 ## Project Structure
@@ -192,7 +197,10 @@ The core pipeline lives in `src/main.py` and wires high-level helpers from each 
 5. **Hex indexing** (`process_dataframes_with_h3`) — injects `h3_index` at the requested resolution using vectorized operations (5-10x faster than previous implementation). Boundary geometry is excluded during indexing and merging to optimize memory usage. **Cached** to speed up re-runs (see Caching System section).
 6. **Data merging and aggregation** (`merge_and_aggregate_soil_data`) — merges property tables (without boundaries), aggregates by hex, and generates boundaries for aggregated hexagons only.
 7. **Biochar suitability scoring** (`calculate_biochar_suitability_scores`) — calculates biochar suitability scores based on soil quality metrics. For SOC and pH, averages both b0 (surface) and b10 (10cm depth) layers to provide a more representative soil profile assessment. Uses weighted scoring for moisture, organic carbon, pH, and temperature properties.
-8. **Visualisation** (`create_biochar_suitability_map`) — renders an interactive PyDeck map directly from CSV data with biochar suitability scores and saves it under `output/html/`.
+8. **Visualisation** — renders two interactive PyDeck maps directly from CSV data:
+   - **Biochar Suitability Map** (`create_biochar_suitability_map`) — saves `biochar_suitability_map.html` and `suitability_map.html` (Streamlit-compatible copy)
+   - **Soil Organic Carbon Map** (`create_soc_map`) — saves `soc_map.html` showing SOC values aggregated by H3 hexagons
+   - Both maps are saved under `output/html/` and auto-open in browser (configurable)
 
 Verification helpers such as `verify_clipping_success` and `verify_clipped_data_integrity` can be run independently when you need to inspect intermediate outputs.
 
@@ -202,7 +210,10 @@ Verification helpers such as `verify_clipping_success` and `verify_clipped_data_
 2. **Task Review**: Inspect task summaries and start jobs with confidence.
 3. **Automatic Download**: Files are automatically downloaded from Google Drive to `data/raw/` as export tasks complete (requires Google Drive API setup from Step 5).
 4. **Processing**: Run `python src/main.py` with or without coordinates.
-5. **Score & Map**: Review the returned DataFrame (optionally written to `data/processed/merged_soil_data.csv`), suitability scores CSV (`data/processed/suitability_scores.csv`), and interactive maps (`output/html/biochar_suitability_map.html` and `output/html/suitability_map.html`).
+5. **Score & Map**: Review the returned DataFrame (optionally written to `data/processed/merged_soil_data.csv`), suitability scores CSV (`data/processed/suitability_scores.csv`), and interactive maps:
+   - `output/html/biochar_suitability_map.html` — Biochar suitability map
+   - `output/html/suitability_map.html` — Streamlit-compatible copy of suitability map
+   - `output/html/soc_map.html` — Soil Organic Carbon map
 6. **Validate (optional)**: Run the helper verification functions if you need to sanity-check inputs or radius coverage.
 
 ## Data Sources
@@ -311,17 +322,23 @@ The tool generates:
   - `merged_soil_data.csv` - Merged and aggregated soil data in `data/processed/`
   - `suitability_scores.csv` - Biochar suitability scores with `suitability_score` column (0-10 scale) for Streamlit compatibility in `data/processed/`
 - **Cache files**: Cached clipped rasters, DataFrames, and H3 indexes in `data/processed/cache/`
-- **HTML maps**: Interactive biochar suitability maps in `output/html/`:
-  - `biochar_suitability_map.html` - Main interactive map with biochar suitability scores (0-100 scale)
-  - `suitability_map.html` - Streamlit-compatible map (copy of main map)
+- **HTML maps**: Interactive maps in `output/html/`:
+  - `biochar_suitability_map.html` - Main interactive biochar suitability map with scores (0-100 scale)
+  - `suitability_map.html` - Streamlit-compatible copy of suitability map
+  - `soc_map.html` - Main interactive Soil Organic Carbon map showing SOC values (g/kg) aggregated by H3 hexagons
+  - `soc_map_streamlit.html` - Streamlit-compatible copy of SOC map
 - **Logs**: Application logs in `logs/`
 
 ### Streamlit Integration
 
 The tool generates files specifically for Streamlit web interface compatibility:
 - `suitability_scores.csv` contains scores scaled to 0-10 (from internal 0-100 scale) with `suitability_score` column
-- `suitability_map.html` is a copy of the main map file for Streamlit to display
-- Both files are automatically generated during the analysis pipeline
+- `suitability_map.html` is a copy of the main suitability map file for Streamlit to display
+- `soc_map_streamlit.html` is a Streamlit-compatible copy of the SOC map (pre-generated during analysis)
+- Streamlit interface includes two tabs:
+  - **Biochar Suitability**: Displays the suitability map with metrics and results table
+  - **Soil Organic Carbon**: Displays the SOC map showing organic carbon values aggregated by H3 hexagons
+- All files are automatically generated during the analysis pipeline
 
 ## Troubleshooting Highlights
 
