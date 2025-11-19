@@ -201,26 +201,116 @@ if run_btn:
     # ============================================================
     st.subheader("Interactive Maps")
     
-    # Load GeoJSON data
-    geojson_path = PROJECT_ROOT / config["data"]["processed"] / "hexagons_with_scores.geojson"
-    if not geojson_path.exists():
-        st.error(f"GeoJSON file not found: {geojson_path}")
-        st.stop()
-    
     try:
         import geopandas as gpd
         import numpy as np
         from branca.colormap import LinearColormap
         import folium
         from folium import plugins
+        import h3
+        from shapely.geometry import Polygon
         
-        gdf = gpd.read_file(geojson_path)
+        # Use the same df that was already loaded (same data source as suitability map)
+        # Reconstruct geometry from h3_index if needed
+        with st.spinner("Preparing hexagon geometry for maps..."):
+            # Check if h3_index exists in the already-loaded df
+            if 'h3_index' not in df.columns:
+                st.error("Data missing 'h3_index' column. Cannot create maps.")
+                st.stop()
+            
+            # Check if geometry already exists (from GeoJSON)
+            if 'geometry' in df.columns and hasattr(df, 'geometry'):
+                # Already a GeoDataFrame with geometry
+                gdf = df.copy() if isinstance(df, gpd.GeoDataFrame) else gpd.GeoDataFrame(df, geometry='geometry', crs='EPSG:4326')
+            else:
+                # Reconstruct geometry from h3_index (same logic as suitability map uses)
+                def h3_to_polygon(h3_index):
+                    """Convert H3 index to Shapely Polygon."""
+                    try:
+                        if pd.isna(h3_index):
+                            return None
+                        boundary = h3.cell_to_boundary(str(h3_index))
+                        # h3 returns (lat, lon), but Shapely needs (lon, lat)
+                        coords = [(lon, lat) for lat, lon in boundary]
+                        # Close the polygon
+                        coords.append(coords[0])
+                        return Polygon(coords)
+                    except:
+                        return None
+                
+                df_with_geom = df.copy()
+                df_with_geom['geometry'] = df_with_geom['h3_index'].apply(h3_to_polygon)
+                
+                # Filter out rows with None geometry
+                df_with_geom = df_with_geom[df_with_geom['geometry'].notna()].copy()
+                
+                if len(df_with_geom) == 0:
+                    st.error("Could not reconstruct geometry from h3_index. Please check your data.")
+                    st.stop()
+                
+                # Convert to GeoDataFrame
+                gdf = gpd.GeoDataFrame(df_with_geom, geometry='geometry', crs='EPSG:4326')
+                
+                st.success(f"Prepared {len(gdf):,} hexagons for mapping.")
         
-        # Verify required columns
-        required_cols = ['h3_index', 'ph', 'soil_moisture', 'soc', 'suitability_score', 'geometry']
-        missing_cols = [col for col in required_cols if col not in gdf.columns]
-        if missing_cols:
-            st.error(f"Missing required columns in GeoJSON: {missing_cols}")
+        # Verify and map required columns (handle variations in column names)
+        # Use the same column detection logic as the suitability scoring function
+        column_mapping = {}
+        required_cols = {
+            'h3_index': ['h3_index', 'h3', 'hex_id'],
+            'ph': ['ph', 'soil_ph', 'soil_pH', 'pH', 'soil_pH_res_250_b0', 'soil_pH_res_250_b10'],
+            'soil_moisture': ['soil_moisture', 'moisture', 'soil_moisture_percent', 'sm_surface'],
+            'soc': ['soc', 'soil_organic_carbon', 'soil_organic_carbon_percent', 'organic_carbon', 
+                    'SOC_res_250_b0', 'SOC_res_250_b10', 'soil_organic'],
+            'suitability_score': ['suitability_score', 'biochar_suitability_score', 'score']
+        }
+        
+        # Helper function to find column (case-insensitive, partial match)
+        def find_column(target_name, possible_names):
+            """Find column name in DataFrame, trying exact match first, then case-insensitive, then partial match."""
+            # First try exact matches
+            for name in possible_names:
+                if name in gdf.columns:
+                    return name
+            
+            # Then try case-insensitive
+            gdf_cols_lower = {col.lower(): col for col in gdf.columns}
+            for name in possible_names:
+                if name.lower() in gdf_cols_lower:
+                    return gdf_cols_lower[name.lower()]
+            
+            # Then try partial match (for columns like "SOC_res_250_b0 (g/kg)")
+            for col in gdf.columns:
+                col_lower = col.lower()
+                for name in possible_names:
+                    if name.lower() in col_lower and 'score' not in col_lower and col_lower not in ['lon', 'lat', 'h3_index']:
+                        return col
+            
+            return None
+        
+        for target_col, possible_names in required_cols.items():
+            found_col = find_column(target_col, possible_names)
+            if found_col:
+                if target_col != found_col:
+                    # Map original name to target name
+                    column_mapping[found_col] = target_col
+            else:
+                st.warning(f"Could not find column for '{target_col}'. Available columns: {list(gdf.columns)}")
+                # For ph, soil_moisture, soc - create placeholder columns with NaN if missing
+                if target_col in ['ph', 'soil_moisture', 'soc']:
+                    gdf[target_col] = np.nan
+                    st.info(f"Created placeholder column '{target_col}' with NaN values. Maps may not display correctly.")
+                else:
+                    st.error(f"Missing required column: {target_col}")
+                    st.stop()
+        
+        # Rename columns to standard names if needed
+        if column_mapping:
+            gdf = gdf.rename(columns=column_mapping)
+        
+        # Ensure geometry column exists
+        if 'geometry' not in gdf.columns:
+            st.error("Missing 'geometry' column. Cannot create maps.")
             st.stop()
         
         # Calculate map center and zoom from geometry
