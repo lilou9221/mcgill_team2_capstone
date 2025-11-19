@@ -215,6 +215,7 @@ if run_btn:
         st.markdown("""
         <p style="color: #333; margin-bottom: 1rem;">
             This map displays Soil Organic Carbon (SOC) values aggregated by H3 hexagons. 
+            SOC is calculated as the average of the ground layer (b0) and at 10 cm below the surface (b10): <strong>mean_SOC = (mean(b0) + mean(b10)) / 2</strong>.
             Values are shown in g/kg (grams per kilogram).
         </p>
         """, unsafe_allow_html=True)
