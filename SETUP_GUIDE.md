@@ -344,12 +344,15 @@ Once setup is complete, you can:
    - `data/processed/suitability_scores.csv` - Biochar suitability scores (0-10 scale) for Streamlit
    - `output/html/biochar_suitability_map.html` - Main interactive biochar suitability map
    - `output/html/suitability_map.html` - Streamlit-compatible copy of suitability map
-   - `output/html/soc_map.html` - Interactive Soil Organic Carbon map (generated on-demand in Streamlit)
+   - `output/html/soc_map.html` - Interactive Soil Organic Carbon map
+   - `output/html/soc_map_streamlit.html` - Streamlit-compatible copy of SOC map
+   - `output/html/ph_map.html` - Interactive Soil pH map
+   - `output/html/ph_map_streamlit.html` - Streamlit-compatible copy of pH map
    
    For Streamlit integration:
-   - `suitability_scores.csv` and `suitability_map.html` are automatically generated during analysis
-   - Streamlit interface includes two tabs: "Biochar Suitability" and "Soil Organic Carbon"
-   - SOC map is generated on-demand when the "Soil Organic Carbon" tab is opened
+   - `suitability_scores.csv` and all map files are automatically generated during analysis
+   - Streamlit interface includes three tabs: "Biochar Suitability", "Soil Organic Carbon", and "Soil pH"
+   - All maps are pre-generated during analysis and ready to display in Streamlit
 
 6. **Check project status:**
    - Review `README.md` for project overview and features

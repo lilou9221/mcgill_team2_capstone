@@ -234,7 +234,7 @@ if run_btn:
         <p style="color: #333; margin-bottom: 1rem;">
             This map displays Soil pH values aggregated by H3 hexagons. 
             pH is calculated as the average of the ground layer (b0) and at 10 cm below the surface (b10): <strong>mean_pH = (mean(b0) + mean(b10)) / 2</strong>.
-            The color scheme uses a diverging scale: red for acidic soils (&lt;5.5), yellow for neutral (~7), and blue for alkaline soils (&gt;7.5).
+            The color scheme uses a diverging scale: light orange-yellow for acidic soils (&lt;5.5), yellow for neutral (~7), and blue for alkaline soils (&gt;7.5).
         </p>
         """, unsafe_allow_html=True)
         

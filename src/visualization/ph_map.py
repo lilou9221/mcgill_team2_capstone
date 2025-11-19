@@ -17,10 +17,10 @@ from src.data.processing.h3_converter import add_h3_to_dataframe
 
 def get_ph_color_rgb(ph_value: float, min_ph: float, max_ph: float) -> tuple:
     """
-    Get RGB color for pH value using a diverging color scheme (red = acidic, yellow = neutral, blue = alkaline).
+    Get RGB color for pH value using a diverging color scheme (light orange-yellow = acidic, yellow = neutral, blue = alkaline).
     
     Color mapping:
-    - Red for acidic soils (<5.5)
+    - Light orange-yellow for acidic soils (<5.5)
     - Yellow for neutral (~7)
     - Blue for alkaline soils (>7.5)
     
@@ -42,7 +42,7 @@ def get_ph_color_rgb(ph_value: float, min_ph: float, max_ph: float) -> tuple:
         return (128, 128, 128)  # Gray for NaN or constant values
     
     # Map pH to color based on actual pH values, not normalized range
-    # Red for acidic (<5.5), Yellow for neutral (~7), Blue for alkaline (>7.5)
+    # Light orange-yellow for acidic (<5.5), Yellow for neutral (~7), Blue for alkaline (>7.5)
     
     if ph_value < 5.5:
         # Acidic: Light orange-red to orange-yellow

@@ -222,6 +222,7 @@ pip install earthengine-api rasterio pandas h3 pydeck shapely pyyaml pyarrow
 **Note**: 
 - **Suitability Map**: When using H3 hexagons, clicking or hovering over a hexagon displays a tooltip with the biochar suitability score, suitability grade, H3 index, location coordinates, and point count.
 - **SOC Map**: Tooltip displays SOC value (g/kg), H3 index, location coordinates, and point count.
+- **pH Map**: Tooltip displays pH value, H3 index, location coordinates, and point count.
 
 ### Streamlit: Results not displayed
 
@@ -233,11 +234,31 @@ pip install earthengine-api rasterio pandas h3 pydeck shapely pyyaml pyarrow
 - Ensure scores are in 0-10 range (the CSV file should have scores scaled from 0-100 to 0-10)
 - Check the Streamlit console/logs for any file path errors
 - Verify the config paths match: `config["data"]["processed"]` and `config["output"]["html"]`
-- The program automatically generates suitability map files during analysis - if they're missing, re-run the analysis
-- **SOC Map**: The SOC map is generated on-demand when you click the "Soil Organic Carbon" tab. If it fails to generate:
+- The program automatically generates all map files during analysis - if they're missing, re-run the analysis
+- **SOC Map**: The SOC map is pre-generated during analysis. If it fails to display:
   - Verify that `data/processed/merged_soil_data.csv` exists and contains SOC columns (`SOC_res_250_b0 (g/kg)` and `SOC_res_250_b10 (g/kg)`)
+  - Check that `output/html/soc_map_streamlit.html` exists
   - Check Streamlit error messages in the tab
   - Ensure the analysis completed successfully before opening the SOC tab
+- **pH Map**: The pH map is pre-generated during analysis. If it fails to display:
+  - Verify that `data/processed/merged_soil_data.csv` exists and contains pH columns (`soil_pH_res_250_b0` and `soil_pH_res_250_b10`)
+  - Check that `output/html/ph_map_streamlit.html` exists
+  - Check Streamlit error messages in the tab
+  - Ensure the analysis completed successfully before opening the pH tab
+
+### pH Map colors too dark or too red
+
+**Problem**: pH map shows colors that are too dark red for acidic soils, making it hard to distinguish from neutral/alkaline areas.
+
+**Solution**:
+- This issue was fixed by updating the color scheme in `src/visualization/ph_map.py`
+- The pH map now uses lighter, more yellow-tinted colors for acidic soils:
+  - Acidic soils (<5.5): Light orange-yellow (255, 140-200, 0) instead of dark red
+  - Neutral (~7): Yellow (255, 255, 0)
+  - Alkaline (>7.5): Blue (173-49, 216-54, 230-149)
+- If you're seeing old dark red colors, ensure you have the latest version of the code
+- The color scheme uses a diverging scale that transitions smoothly from acidic (light orange-yellow) through neutral (yellow) to alkaline (blue)
+- Regenerate the pH map by re-running the analysis to see the updated colors
 
 ### PYTHONPATH / import issues outside PyCharm
 
@@ -255,6 +276,32 @@ pip install earthengine-api rasterio pandas h3 pydeck shapely pyyaml pyarrow
   ```
 - Restart the shell so the new variable is picked up.
 
+### Map generation issues
+
+**Problem**: Maps fail to generate or show incorrect data.
+
+**Solution**:
+- **All maps are generated during analysis**: The pipeline automatically generates suitability, SOC, and pH maps during the analysis step. They are not generated on-demand in Streamlit.
+- **Check map files exist**: Verify that map HTML files exist in `output/html/`:
+  - `suitability_map.html` and `biochar_suitability_map.html` (suitability map)
+  - `soc_map.html` and `soc_map_streamlit.html` (SOC map)
+  - `ph_map.html` and `ph_map_streamlit.html` (pH map)
+- **Missing pH or SOC maps**: If pH or SOC maps are missing:
+  - Ensure the analysis completed successfully (check for errors in the console)
+  - Verify that `data/processed/merged_soil_data.csv` contains the required columns:
+    - For SOC: `SOC_res_250_b0 (g/kg)` and `SOC_res_250_b10 (g/kg)`
+    - For pH: `soil_pH_res_250_b0` and `soil_pH_res_250_b10`
+  - Check that both b0 and b10 layers are present in `data/raw/` for SOC and pH datasets
+  - Re-run the analysis if maps are missing
+- **Map colors incorrect**: If map colors don't match expectations:
+  - For pH map: Ensure you have the latest version with updated color scheme (lighter, more yellow-tinted for acidic soils)
+  - Regenerate maps by re-running the analysis
+- **Streamlit map display issues**: If maps don't display in Streamlit:
+  - Check that Streamlit-compatible versions exist (`*_streamlit.html` files)
+  - Verify file paths in config match actual file locations
+  - Check Streamlit console for JavaScript errors
+  - Try refreshing the Streamlit page
+
 ## Getting Help
 
 If you encounter issues not covered here:
@@ -264,4 +311,5 @@ If you encounter issues not covered here:
 3. Check the progress file: `.progress.json` to see which steps completed
 4. Review error messages and stack traces for specific error details
 5. Use the verification helpers to isolate whether the issue lies in clipping, table conversion, or scoring
+6. Verify that all required map files are generated during analysis (suitability, SOC, and pH maps)
 

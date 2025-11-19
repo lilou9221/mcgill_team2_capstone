@@ -9,7 +9,7 @@ Simple workflow:
 4. Get H3 index for each point
 5. Aggregate within hexagons -> final score per hexagon
 6. Save results to CSV
-7. Output HTML map (PyDeck format, generated from CSV data)
+7. Output HTML maps (PyDeck format, generated from CSV data): suitability, SOC, and pH maps
 """
 
 import argparse
