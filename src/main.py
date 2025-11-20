@@ -24,6 +24,9 @@ from src.visualization.ph_map import create_ph_map
 from src.visualization.moisture_map import create_moisture_map
 from src.analysis.biochar_suitability import calculate_biochar_suitability_scores
 from src.utils.browser import open_html_in_browser
+from src.visualization.pydeck_maps.municipality_waste_map import (
+    build_investor_waste_deck,
+)
 
 # ←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←
 # ADD THIS IMPORT + RECOMMENDER CALL BELOW
@@ -146,15 +149,16 @@ def main():
     # ===================================================================
     # ADD BIOCHAR FEEDSTOCK RECOMMENDATIONS (THIS IS THE ONLY NEW PART)
     # ===================================================================
-    print("Adding recommended biochar feedstock for each hexagon...")
-    try:
-        scored_df = recommend_biochar(scored_df)
-        print(f"Successfully added recommendations for {len(scored_df)} hexagons!")
-    except Exception as e:
-        print(f"Could not add biochar recommendations: {e}")
-        import traceback
-        traceback.print_exc()
+    # Biochar recommender currently disabled (phantom implementation)
     # ===================================================================
+#    print("Adding recommended biochar feedstock for each hexagon...")
+#    try:
+#        scored_df = recommend_biochar(scored_df)
+#        print(f"Successfully added recommendations for {len(scored_df)} hexagons!")
+#    except Exception as e:
+#        print(f"Could not add biochar recommendations: {e}")
+#        import traceback
+#        traceback.print_exc()
 
     # Save final CSV for Streamlit
     suitability_csv_path = processed_dir / "suitability_scores.csv"
@@ -182,8 +186,37 @@ def main():
 
     # ... (your SOC, pH, moisture maps - unchanged) ...
 
+    # Investor crop area map (municipality-level)
+    investor_map_path = output_dir / "investor_crop_area_map.html"
+    boundaries_dir = project_root / "data" / "boundaries" / "BR_Municipios_2024"
+    waste_csv_path = project_root / "data" / "crop_data" / "Brazil_Municipality_Crop_Area_2024.csv"
+    if boundaries_dir.exists() and waste_csv_path.exists():
+        try:
+            deck, _ = build_investor_waste_deck(
+                boundaries_dir, waste_csv_path, simplify_tolerance=0.01
+            )
+            deck.to_html(str(investor_map_path))
+            print(f"Investor crop area map saved to: {investor_map_path}")
+        except Exception as exc:
+            print(f"Could not create investor waste map: {exc}")
+    else:
+        print("Skipping investor crop area map (boundary or crop data missing).")
+
     print(f"\nAll done! Results in: {processed_dir}")
     print(f"Maps in: {output_dir}")
+
+    if config.get("visualization", {}).get("auto_open_html", True):
+        print("Opening maps in browser...")
+        open_html_in_browser(biochar_map_path)
+        for extra_map in [
+            output_dir / "soc_map_streamlit.html",
+            output_dir / "ph_map_streamlit.html",
+            output_dir / "moisture_map_streamlit.html",
+            investor_map_path,
+        ]:
+            if extra_map.exists():
+                open_html_in_browser(extra_map)
+
     return 0
 
 

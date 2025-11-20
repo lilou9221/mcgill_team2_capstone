@@ -96,3 +96,11 @@ dmypy.json
 
 # Personal files
 TODO.md
+
+# Large data files (exceed GitHub's 100MB limit)
+data/boundaries/**/*.zip
+data/boundaries/**/*.shp
+data/boundaries/**/*.dbf
+data/boundaries/**/*.shx
+data/boundaries/**/*.prj
+data/boundaries/**/*.cpg

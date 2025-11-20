@@ -11,12 +11,15 @@ import json
 import io
 import time
 import yaml
+import pydeck as pdk
 
 # ============================================================
 # PROJECT SETUP
 # ============================================================
 PROJECT_ROOT = Path(__file__).parent.resolve()
 sys.path.insert(0, str(PROJECT_ROOT))
+
+from src.visualization.pydeck_maps.municipality_waste_map import build_investor_waste_deck
 
 @st.cache_data
 def load_config():
@@ -230,7 +233,9 @@ if run_btn:
     # ============================================================
     # MAP TABS (unchanged)
     # ============================================================
-    tab1, tab2, tab3, tab4 = st.tabs(["Biochar Suitability", "Soil Organic Carbon", "Soil pH", "Soil Moisture"])
+    tab1, tab2, tab3, tab4, investor_tab = st.tabs(
+        ["Biochar Suitability", "Soil Organic Carbon", "Soil pH", "Soil Moisture", "Investor Waste Map"]
+    )
     # ... (your map tabs stay exactly the same)
 
     with tab1:
@@ -271,6 +276,47 @@ if run_btn:
                 st.components.v1.html(f.read(), height=750, scrolling=False)
         else:
             st.warning("Soil moisture map not generated.")
+
+    with investor_tab:
+        st.subheader("Investor Crop Area Map")
+        boundaries_dir = PROJECT_ROOT / "data" / "boundaries" / "BR_Municipios_2024"
+        waste_csv_path = PROJECT_ROOT / "data" / "crop_data" / "Brazil_Municipality_Crop_Area_2024.csv"
+
+        if not boundaries_dir.exists():
+            st.warning("Municipality boundaries not found. Please add files to data/boundaries/BR_Municipios_2024/.")
+        elif not waste_csv_path.exists():
+            st.warning("Municipality crop CSV missing. Expected data/crop_data/Brazil_Municipality_Crop_Area_2024.csv")
+        else:
+            try:
+                deck, waste_gdf = build_investor_waste_deck(
+                    boundaries_dir, waste_csv_path, simplify_tolerance=0.01
+                )
+                st.pydeck_chart(deck, use_container_width=True)
+
+                total_area = waste_gdf["display_value"].sum()
+                top_municipalities = (
+                    waste_gdf.sort_values("display_value", ascending=False)
+                    .head(5)[["NM_MUN", "SIGLA_UF", "display_value"]]
+                )
+
+                c1, c2 = st.columns([1, 1])
+                with c1:
+                    st.metric("Total crop area tracked (ha)", f"{total_area:,.0f}")
+                with c2:
+                    st.write("Top municipalities by crop area (ha):")
+                    st.dataframe(
+                        top_municipalities.rename(
+                            columns={
+                                "NM_MUN": "Municipality",
+                                "SIGLA_UF": "State",
+                                "display_value": "Crop area (ha)",
+                            }
+                        )
+                        .style.format({"Crop area (ha)": "{:,.0f}"}),
+                        use_container_width=True,
+                    )
+            except Exception as e:
+                st.error(f"Unable to render investor waste map: {e}")
 
 # ============================================================
 # FOOTER
