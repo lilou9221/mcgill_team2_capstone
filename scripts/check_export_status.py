@@ -1,7 +1,13 @@
 """
-Check Export Task Status
+Optional: Check Google Earth Engine Export Task Status
 
-Checks the status of GEE export tasks. Reuses GEEDataLoader initialization.
+NOTE: This script is OPTIONAL. Data acquisition is done manually outside the codebase.
+GeoTIFF files should be manually placed in data/raw/ directory.
+
+This script can be used to check GEE export task status if needed,
+but it is not required for the core pipeline to function.
+
+See CLOUD_DEPENDENCIES.md for more information.
 """
 
 import sys

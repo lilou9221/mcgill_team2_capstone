@@ -73,6 +73,54 @@ def _load_config_from_env() -> Dict[str, Any]:
     return config
 
 
+def _get_default_config(project_root: Path) -> Dict[str, Any]:
+    """
+    Get default configuration that works with data files from Git LFS.
+    No sensitive information required - all data is already in the repository.
+    
+    Parameters
+    ----------
+    project_root : Path
+        Project root directory
+    
+    Returns
+    -------
+    Dict[str, Any]
+        Default configuration dictionary
+    """
+    return {
+        "data": {
+            "raw": "data/raw",
+            "processed": "data/processed",
+            "external": "data/external"
+        },
+        "output": {
+            "maps": "output/maps",
+            "html": "output/html"
+        },
+        "processing": {
+            "h3_resolution": 7,
+            "enable_clipping": True,
+            "persist_snapshots": False,
+            "cleanup_old_cache": True
+        },
+        "visualization": {
+            "auto_open_html": False,
+            "map_title": "Biochar Suitability Map - Mato Grosso, Brazil",
+            "default_zoom": 6
+        },
+        "logging": {
+            "level": "INFO",
+            "file": "logs/residual_carbon.log",
+            "console": True
+        },
+        # GEE and Drive settings are optional - only needed for exporting/downloading new data
+        # Since data files are in Git LFS, these are not required
+        "gee": {},
+        "drive": {}
+    }
+
+
 def _merge_configs(base: Dict[str, Any], override: Dict[str, Any]) -> Dict[str, Any]:
     """
     Deep merge two configuration dictionaries.
@@ -161,33 +209,17 @@ def load_config(config_path: Optional[str] = None) -> Dict[str, Any]:
             config = env_config
             config_source = "environment variables"
     
-    # Fallback 3: Try config.example.yaml (with warning)
+    # Fallback 3: Try config.example.yaml (silently, just for structure)
     if config is None:
         example_path = config_path.parent / "config.example.yaml"
         if example_path.exists():
             with open(example_path, 'r', encoding='utf-8') as f:
                 config = yaml.safe_load(f)
             config_source = str(example_path)
-            print(
-                f"WARNING: Using example configuration from {example_path}\n"
-                f"This contains placeholder values. For production:\n"
-                f"  1. Copy {example_path} to {config_path}\n"
-                f"  2. Fill in your actual values (GEE project ID, Google Drive folder IDs, etc.)\n"
-                f"  3. Or set environment variables with RC_ prefix (e.g., RC_GEE__PROJECT_NAME)\n",
-                file=sys.stderr
-            )
         else:
-            # No config found anywhere
-            error_msg = (
-                f"Configuration file not found: {config_path}\n"
-                f"Project root: {project_root}\n"
-                f"Current working directory: {Path.cwd()}\n"
-                f"\nPlease do one of the following:\n"
-                f"  1. Copy configs/config.example.yaml to {config_path} and fill in your values\n"
-                f"  2. Set environment variables with RC_ prefix (e.g., RC_GEE__PROJECT_NAME)\n"
-                f"  3. Create {config_path} manually"
-            )
-            raise FileNotFoundError(error_msg)
+            # Fallback 4: Use defaults (works with data files from Git LFS)
+            config = _get_default_config(project_root)
+            config_source = "defaults (works with data files from Git LFS)"
     
     # Override sensitive values from environment variables (even if config file exists)
     env_config = _load_config_from_env()

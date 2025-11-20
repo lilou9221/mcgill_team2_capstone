@@ -7,8 +7,6 @@ import subprocess
 import shutil
 import tempfile
 import os
-import json
-import io
 import time
 import yaml
 import pydeck as pdk
@@ -25,38 +23,35 @@ from src.utils.config_loader import load_config
 @st.cache_data
 def get_config():
     """
-    Load configuration with fallback system:
-    1. config.yaml (local file)
-    2. Environment variables (RC_ prefix)
-    3. Streamlit Secrets (st.secrets)
-    4. config.example.yaml (template)
+    Load configuration with fallback system.
+    Works with local data files only - no cloud services required.
     """
     try:
         config = load_config()
         
-        # Merge Streamlit Secrets if available (highest priority)
-        if "gee" in st.secrets:
-            if "gee" not in config:
-                config["gee"] = {}
-            if "project_name" in st.secrets["gee"]:
-                config["gee"]["project_name"] = st.secrets["gee"]["project_name"]
-            if "export_folder" in st.secrets["gee"]:
-                config["gee"]["export_folder"] = st.secrets["gee"]["export_folder"]
-        
-        if "drive" in st.secrets:
-            if "drive" not in config:
-                config["drive"] = {}
-            if "raw_data_folder_id" in st.secrets["drive"]:
-                config["drive"]["raw_data_folder_id"] = st.secrets["drive"]["raw_data_folder_id"]
+        # Ensure all required sections exist with defaults
+        if "data" not in config:
+            config["data"] = {"raw": "data/raw", "processed": "data/processed", "external": "data/external"}
+        if "output" not in config:
+            config["output"] = {"maps": "output/maps", "html": "output/html"}
+        if "processing" not in config:
+            config["processing"] = {"h3_resolution": 7, "enable_clipping": True, "persist_snapshots": False, "cleanup_old_cache": True}
+        if "gee" not in config:
+            config["gee"] = {}
+        if "drive" not in config:
+            config["drive"] = {}
         
         return config
-    except FileNotFoundError as e:
-        st.error(f"Configuration error: {e}")
-        st.info("**Tip:** Set up your configuration using Streamlit Secrets. See `STREAMLIT_CLOUD_SETUP.md` for instructions.")
-        st.stop()
     except Exception as e:
-        st.error(f"Unexpected error loading configuration: {e}")
-        st.stop()
+        # Even if config loading fails, provide minimal defaults
+        st.warning(f"Using default configuration: {e}")
+        return {
+            "data": {"raw": "data/raw", "processed": "data/processed", "external": "data/external"},
+            "output": {"maps": "output/maps", "html": "output/html"},
+            "processing": {"h3_resolution": 7, "enable_clipping": True, "persist_snapshots": False, "cleanup_old_cache": True},
+            "gee": {},
+            "drive": {}
+        }
 
 config = get_config()
 
@@ -124,35 +119,15 @@ if run_btn:
         tmp_raw = Path(tempfile.mkdtemp(prefix="rc_raw_"))
         raw_dir = PROJECT_ROOT / config["data"]["raw"]
         raw_dir.mkdir(parents=True, exist_ok=True)
-        if len(list(raw_dir.glob("*.tif"))) >= 5:
+        # Check for local GeoTIFF files
+        tif_files = list(raw_dir.glob("*.tif"))
+        if len(tif_files) >= 5:
+            st.info("Using local GeoTIFF files from data/raw/ directory.")
             shutil.copytree(raw_dir, tmp_raw, dirs_exist_ok=True)
         else:
-            st.warning("Downloading GeoTIFFs from Google Drive…")
-            try:
-                from google.oauth2 import service_account
-                from googleapiclient.discovery import build
-                from googleapiclient.http import MediaIoBaseDownload
-                creds = json.loads(st.secrets["google_drive"]["credentials"])
-                credentials = service_account.Credentials.from_service_account_info(
-                    creds, scopes=["https://www.googleapis.com/auth/drive.readonly"]
-                )
-                service = build("drive", "v3", credentials=credentials)
-                folder_id = config["drive"]["raw_data_folder_id"]
-                results = service.files().list(q=f"'{folder_id}' in parents and trashed=false", fields="files(id, name)").execute()
-                for f in results["files"]:
-                    if not f["name"].endswith(".tif"): continue
-                    dst = raw_dir / f["name"]
-                    if dst.exists(): continue
-                    request = service.files().get_media(fileId=f["id"])
-                    fh = io.BytesIO()
-                    downloader = MediaIoBaseDownload(fh, request)
-                    done = False
-                    while not done: _, done = downloader.next_chunk()
-                    dst.write_bytes(fh.getvalue())
-                shutil.copytree(raw_dir, tmp_raw, dirs_exist_ok=True)
-            except Exception as e:
-                st.error(f"Download failed: {e}")
-                st.stop()
+            st.error("No GeoTIFF files found in data/raw/ directory.")
+            st.info("Please ensure GeoTIFF data files are manually placed in the data/raw/ directory.")
+            st.stop()
 
     wrapper_script = PROJECT_ROOT / "scripts" / "run_analysis.py"
     cli = [sys.executable, str(wrapper_script), "--config", str(PROJECT_ROOT / "configs" / "config.yaml"), "--h3-resolution", str(h3_res)]

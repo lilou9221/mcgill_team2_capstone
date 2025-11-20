@@ -4,7 +4,7 @@ A tool for mapping biochar application suitability in Mato Grosso, Brazil, based
 
 ## Project Overview
 
-This tool analyzes soil properties (moisture, temperature, organic carbon, pH) from Google Earth Engine to calculate biochar suitability scores across Mato Grosso state. The tool generates three interactive maps:
+This tool analyzes soil properties (moisture, temperature, organic carbon, pH) to calculate biochar suitability scores across Mato Grosso state. The tool generates interactive maps from manually provided GeoTIFF data files:
 - **Biochar Suitability Map**: Color-coded suitability scores (0-100 scale) where green indicates high suitability (poor soil needs biochar) and red indicates low suitability (healthy soil doesn't need biochar)
 - **Soil Organic Carbon (SOC) Map**: Displays SOC values (g/kg) aggregated by H3 hexagons, calculated as the average of b0 and b10 depth layers
 - **Soil pH Map**: Displays pH values aggregated by H3 hexagons, calculated as the average of b0 and b10 depth layers, using a diverging color scheme (light orange-yellow for acidic, yellow for neutral, blue for alkaline)
@@ -31,9 +31,8 @@ This tool analyzes soil properties (moisture, temperature, organic carbon, pH) f
 ### Prerequisites
 
 - Python 3.9 or higher
-- Google Earth Engine account
-- Google Cloud Project with Drive API enabled
-- Git (optional)
+- GeoTIFF data files (manually placed in `data/raw/` directory)
+- Git (optional, for cloning repository)
 
 ### Step 1: Clone or Navigate to Project
 
@@ -66,113 +65,92 @@ conda install -c conda-forge geopandas rasterio shapely fiona pyproj gdal
 pip install -r requirements.txt
 ```
 
-### Step 4: Configuration Setup
+### Step 4: Prepare Data Files
 
-The application uses a fallback system for configuration:
+**Manual Data Placement:**
 
-1. **Primary: `configs/config.yaml`** (local file with your secrets - gitignored)
-2. **Fallback: Environment variables** (for CI/CD and deployments)
-3. **Last resort: `configs/config.example.yaml`** (template with placeholders)
+1. Place your GeoTIFF data files in the `data/raw/` directory:
+   ```bash
+   data/raw/
+   ├── SOC_res_250_b0.tif
+   ├── SOC_res_250_b10.tif
+   ├── soil_moisture_res_250_sm_surface.tif
+   ├── soil_pH_res_250_b0.tif
+   ├── soil_pH_res_250_b10.tif
+   └── soil_temp_res_250_soil_temp_layer1.tif
+   ```
 
-**Option A: Local Development (Recommended)**
+2. **Required files for scoring:**
+   - Soil moisture: `soil_moisture_res_250_sm_surface.tif`
+   - Soil Organic Carbon: `SOC_res_250_b0.tif`, `SOC_res_250_b10.tif`
+   - Soil pH: `soil_pH_res_250_b0.tif`, `soil_pH_res_250_b10.tif`
+   - Soil temperature: `soil_temp_res_250_soil_temp_layer1.tif`
+
+3. **Optional files:**
+   - Land cover, soil type (not used in scoring but can be included)
+
+**Note:** Data files can be obtained from any source (Google Earth Engine, other providers, or existing datasets). The tool processes whatever GeoTIFF files are placed in `data/raw/`.
+
+### Step 5: Configuration (Optional - Only for Data Acquisition)
+
+**No configuration is required for core functionality** - the tool works with sensible defaults.
+
+The `config.yaml` file is **only needed** if you want to use the optional GEE export scripts to export data from Google Earth Engine. For normal usage with manually placed data files, you don't need any configuration.
+
+**If you need to export data from GEE:**
 
 1. Copy the example configuration:
    ```bash
    cp configs/config.example.yaml configs/config.yaml
    ```
 
-2. Edit `configs/config.yaml` and fill in your values:
+2. Edit `configs/config.yaml` and fill in your GEE/Drive values:
    ```yaml
    gee:
      project_name: "your-gee-project-id"
      export_folder: "your-google-drive-folder-id"
-   drive:
-     raw_data_folder_id: "your-raw-data-folder-id"
    ```
 
-**Option B: Environment Variables (For CI/CD/Streamlit Cloud)**
+3. See `src/data/acquisition/README_TEMPLATE.md` for detailed instructions.
 
-Set environment variables with `RC_` prefix:
-```bash
-export RC_GEE__PROJECT_NAME="your-gee-project-id"
-export RC_GEE__EXPORT_FOLDER="your-google-drive-folder-id"
-export RC_DRIVE__RAW_DATA_FOLDER_ID="your-raw-data-folder-id"
-```
-
-Or use a `.env` file (gitignored):
-```bash
-# .env
-RC_GEE__PROJECT_NAME=your-gee-project-id
-RC_GEE__EXPORT_FOLDER=your-google-drive-folder-id
-RC_DRIVE__RAW_DATA_FOLDER_ID=your-raw-data-folder-id
-```
-
-**Note:** Use double underscore `__` for nested keys (e.g., `RC_GEE__PROJECT_NAME` maps to `gee.project_name`)
-
-### Step 5: Google Earth Engine Setup
-
-1. **Authenticate with Google Earth Engine:**
-   ```bash
-   python -c "import ee; ee.Authenticate()"
-   ```
-
-### Step 6: Google Drive API Setup (Required for Automatic Downloads)
-
-The tool automatically downloads exported GeoTIFF files from Google Drive once configured. Set up the Google Drive API to enable automatic downloads:
-
-1. **Enable Google Drive API:**
-   - Go to [Google Cloud Console](https://console.cloud.google.com/)
-   - Create a new project or select existing one
-   - Enable Google Drive API
-   - Create OAuth 2.0 credentials (Desktop application)
-
-2. **Download credentials:**
-   - Download `client_secrets.json` from Google Cloud Console
-   - Place it in `configs/client_secrets.json`
-
-3. **First-time authentication:**
-   - The first time you run the acquisition tool, it will open a browser for OAuth authentication
-   - A `credentials.json` file will be created automatically in `configs/`
-   - Once configured, all exported files will be automatically downloaded to `data/raw/`
+**Note:** The core pipeline processes local GeoTIFF files and doesn't require any configuration.
 
 ## Configuration
 
-The application uses a **fallback system** for configuration (see Step 4 above):
+**No configuration is required for core functionality** - the tool works with sensible defaults.
 
-1. **`configs/config.yaml`** - Local file with your secrets (gitignored, not in repository)
-2. **Environment variables** - For CI/CD and deployments (use `RC_` prefix)
-3. **`configs/config.example.yaml`** - Template file (committed to repository)
+The `config.yaml` file is **only needed** if you want to use the optional GEE export scripts (see `src/data/acquisition/README_TEMPLATE.md`). For normal usage with manually placed data files, no configuration is needed.
 
-Edit `configs/config.yaml` (or set environment variables) to customize:
-
-- Google Earth Engine project name (`gee.project_name`)
-- Google Drive folder IDs (`gee.export_folder`, `drive.raw_data_folder_id`)
-- Export resolution (default: 250m for SMAP datasets, native resolution for others)
-- H3 resolution (default: 7 for clipped areas, 9 for full state SOC map, 5 for full state suitability map)
-- Output directories
-- Optional snapshot persistence for intermediate DataFrames
+**Default Settings (work out of the box):**
+- Data directories: `data/raw`, `data/processed`
+- Output directories: `output/html`
+- H3 resolution: 7 for clipped areas, 9 for full state SOC map, 5 for full state suitability map
+- Processing: Caching enabled, snapshots disabled
 
 **Note**: 
 - The pipeline automatically filters out old 3000m resolution SMAP files when 250m versions are available. Only the higher-resolution 250m files are used for processing.
-- Only scoring-required datasets are imported for processing (soil_moisture, SOC b0/b10, pH b0/b10, soil_temperature). All datasets are exported to Google Drive, but unused datasets (land_cover, soil_type) are automatically excluded from processing to optimize performance.
-- **Security**: `config.yaml` is gitignored to protect your secrets. Never commit it to the repository. Use `config.example.yaml` as a template.
+- Only scoring-required datasets are processed (soil_moisture, SOC b0/b10, pH b0/b10, soil_temperature). Other datasets (land_cover, soil_type) are automatically excluded from processing to optimize performance.
+- **Configuration is optional**: The tool works entirely with local data files and default settings. `config.yaml` is only needed for optional GEE export features.
 
 ## Usage
 
-### 1. Acquire GeoTIFFs from Google Earth Engine
+### 1. Prepare Data Files
 
-Run the acquisition script to create Drive export tasks. It prompts for how many datasets to export, shows a detailed summary (dataset, depth band, filename, resolution, folder), reminds you which files will be generated, and then asks whether to start the tasks.
+**Manually place GeoTIFF files in `data/raw/` directory:**
 
-```bash
-python src/data/acquisition/gee_loader.py
-```
+The tool processes GeoTIFF files that you manually place in the `data/raw/` directory. Data acquisition is done outside the codebase - you can obtain data from any source (Google Earth Engine, other providers, or existing datasets).
 
-- Use `--layers soil_pH,soil_organic_carbon` to target specific datasets.
-- Add `--start-tasks` to skip the confirmation prompt and immediately launch the Drive exports.
-- OpenLandMap layers (`soil_pH`, `soil_organic_carbon`) are exported with depth bands `b0` and `b10` (used in scoring). Deeper layers (`b30`, `b60`) are not exported as they are not used in the scoring system.
-- All datasets are exported to Google Drive, but only scoring-required datasets are imported for processing (see Smart Dataset Filtering feature).
+**Required files for biochar suitability scoring:**
+- `soil_moisture_res_250_sm_surface.tif`
+- `SOC_res_250_b0.tif`
+- `SOC_res_250_b10.tif`
+- `soil_pH_res_250_b0.tif`
+- `soil_pH_res_250_b10.tif`
+- `soil_temp_res_250_soil_temp_layer1.tif`
 
-**Automatic Downloads**: Once Google Drive API is configured (Step 5), exported files are automatically downloaded from Google Drive to `data/raw/` as soon as the GEE export tasks complete. No manual download step is required. The GeoTIFFs will appear in `data/raw/` automatically.
+**File naming:** The tool recognizes files by keywords in their names (e.g., "moisture", "SOC", "ph", "temp"). Files should be GeoTIFF format (.tif or .tiff extension).
+
+**Note:** If you need to export data from Google Earth Engine, you can use the optional scripts in `src/data/acquisition/`. However, this is not required - you can use data from any source as long as it's in GeoTIFF format.
 
 ### 2. Process and Map
 
@@ -200,7 +178,7 @@ Key processing flags:
 
 ```
 Residual_Carbon/
-├── scripts/           # Helper CLI utilities (run_analysis, retry_exports, task checks)
+├── scripts/           # Helper CLI utilities (run_analysis, optional GEE export scripts)
 ├── src/
 │   ├── data/           # Data retrieval and processing
 │   ├── analysis/       # Suitability scoring
@@ -227,9 +205,9 @@ Residual_Carbon/
 
 All helper/automation scripts now live under `scripts/` to keep the repository root tidy:
 
-- `scripts/run_analysis.py` – wrapper used by Streamlit/CI to invoke `src/main.py` in a controlled environment.
-- `scripts/retry_exports.py` – requeues failed GEE exports (defaults to SMAP layers).
-- `scripts/check_export_status.py` – quick status dashboard for current/past GEE tasks.
+- `scripts/run_analysis.py` – wrapper script to invoke `src/main.py`.
+- `scripts/retry_exports.py` – optional script for GEE exports (not required for local use).
+- `scripts/check_export_status.py` – optional script for checking GEE export status (not required for local use).
 
 Call them with `python scripts/<script_name>.py [...]` from the project root.
 
@@ -237,7 +215,7 @@ Call them with `python scripts/<script_name>.py [...]` from the project root.
 
 The core pipeline lives in `src/main.py` and wires high-level helpers from each submodule:
 
-1. **Acquisition check** (`ensure_rasters_acquired`) — confirms GeoTIFFs exist in `data/raw/` before doing any expensive work.
+1. **Data validation** (`ensure_rasters_acquired`) — confirms GeoTIFFs exist in `data/raw/` before doing any expensive work. Files should be manually placed in this directory.
 2. **AOI selection** (`get_user_area_of_interest`) — validates coordinates, radius, and provides a full-state fallback.
 3. **Optional clipping** (`clip_all_rasters_to_circle`) — trims rasters to the requested buffer and reports size deltas. **Cached** to speed up re-runs (see Caching System section).
 4. **Raster ➜ Table** (`convert_all_rasters_to_dataframes`) — flattens rasters into pandas DataFrames with coordinates, nodata handling, and unit inference. **Cached** as Parquet files for fast loading (see Caching System section).
@@ -254,11 +232,9 @@ Verification helpers such as `verify_clipping_success` and `verify_clipped_data_
 
 ## Workflow Summary
 
-1. **Data Retrieval**: Launch Drive exports from Google Earth Engine using `gee_loader.py`.
-2. **Task Review**: Inspect task summaries and start jobs with confidence.
-3. **Automatic Download**: Files are automatically downloaded from Google Drive to `data/raw/` as export tasks complete (requires Google Drive API setup from Step 5).
-4. **Processing**: Run `python src/main.py` with or without coordinates.
-5. **Score & Map**: Review the returned DataFrame (optionally written to `data/processed/merged_soil_data.csv`), suitability scores CSV (`data/processed/suitability_scores.csv`), and interactive maps:
+1. **Data Preparation**: Manually place GeoTIFF data files in `data/raw/` directory (data acquisition is done outside the codebase).
+2. **Processing**: Run `python src/main.py` with or without coordinates to process the local data files.
+3. **Score & Map**: Review the returned DataFrame (optionally written to `data/processed/merged_soil_data.csv`), suitability scores CSV (`data/processed/suitability_scores.csv`), and interactive maps:
    - `output/html/biochar_suitability_map.html` — Biochar suitability map
    - `output/html/suitability_map.html` — Streamlit-compatible copy of suitability map
    - `output/html/soc_map.html` — Soil Organic Carbon map
@@ -355,11 +331,11 @@ The pipeline includes several optimizations to handle large datasets efficiently
   - **Result**: Prevents memory crashes when processing large areas (100km+ radius)
 
 ### Smart Dataset Filtering
-- **Automatic filtering**: Only scoring-required datasets are imported for processing
+- **Automatic filtering**: Only scoring-required datasets are processed
 - **Scoring-required datasets**: soil_moisture, SOC (b0 and b10), pH (b0 and b10), soil_temperature
-- **Excluded from processing**: land_cover, soil_type (available in Google Drive but not imported)
+- **Excluded from processing**: land_cover, soil_type (can be included but not used in scoring)
 - **Benefits**: Reduces memory usage, processing time, and cache size
-- **Note**: All datasets are still exported to Google Drive, but only scoring-required files are processed
+- **Note**: Only scoring-required files are processed from the manually placed GeoTIFF files in `data/raw/`
 
 ### Automatic
 All optimizations are built-in and require no configuration. The pipeline automatically handles these optimizations at the optimal stages.
@@ -397,10 +373,8 @@ The tool generates files specifically for Streamlit web interface compatibility:
 
 ## Troubleshooting Highlights
 
-- **Re-authenticate GEE**: `python -c "import ee; ee.Authenticate()"`.
-- **Drive API hiccups**: confirm `configs/client_secrets.json` exists, delete `configs/credentials.json`, and re-run the acquisition tool.
-- **Automatic downloads not working**: Ensure Google Drive API is enabled and `client_secrets.json` is properly configured. Downloads happen automatically once GEE export tasks complete.
-- **Missing rasters**: rerun `src/data/acquisition/gee_loader.py` and wait for automatic downloads to complete, or manually download from Google Drive if automatic download is not configured.
+- **Missing rasters**: Ensure GeoTIFF files are manually placed in `data/raw/` directory. Files should be GeoTIFF format and contain keywords like "moisture", "SOC", "ph", or "temp" in their names.
+- **No data found**: Check that required files are present: `soil_moisture_res_250_sm_surface.tif`, `SOC_res_250_b0.tif`, `SOC_res_250_b10.tif`, `soil_pH_res_250_b0.tif`, `soil_pH_res_250_b10.tif`, `soil_temp_res_250_soil_temp_layer1.tif`
 - **Empty CSV outputs**: make sure the clipping circle overlaps the raster (edge circles often produce sparse data—use the verification helpers to confirm coverage).
 - **Cache issues**: If you suspect cache problems, delete `data/processed/cache/` directory to force regeneration. Cache automatically invalidates when source files change, but manual deletion can help troubleshoot.
 - **Parquet file errors**: Ensure `pyarrow>=10.0.0` is installed (`pip install pyarrow`). Parquet files are used for efficient DataFrame caching.

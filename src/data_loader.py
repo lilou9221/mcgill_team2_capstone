@@ -1,12 +1,17 @@
 """
-Data Loader Script
+Optional Data Acquisition Script (Template/Reference Only)
 
-Downloads and exports soil property datasets from Google Earth Engine.
-This script handles Steps 2, 3, and 4 of the workflow.
+NOTE: This script is OPTIONAL. Data acquisition is done manually outside the codebase.
+GeoTIFF files should be manually placed in data/raw/ directory.
 
-Usage:
+This script serves as a TEMPLATE/REFERENCE showing how to export data from Google Earth Engine
+if you need to obtain new data. It is NOT required for the core pipeline to function.
+
+Usage (if you need to export from GEE):
     python src/data_loader.py
     python src/data_loader.py --config configs/config.yaml
+
+See src/data/acquisition/README_TEMPLATE.md for detailed instructions.
 """
 
 import argparse

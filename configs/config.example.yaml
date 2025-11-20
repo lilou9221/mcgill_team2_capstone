@@ -1,6 +1,12 @@
 # Residual_Carbon - Biochar Suitability Mapping Tool Configuration
 # 
-# This is a template file. Copy this to config.yaml and fill in your own values.
+# NOTE: This configuration file is OPTIONAL and only needed for data acquisition.
+# The core pipeline works with default settings - no config.yaml required.
+# 
+# This template is only needed if you want to use the optional GEE export scripts
+# to export data from Google Earth Engine. See src/data/acquisition/README_TEMPLATE.md
+# 
+# To use: Copy this file to config.yaml and fill in your GEE/Drive values.
 # The config.yaml file is gitignored to protect your private information.
 
 # Data directories

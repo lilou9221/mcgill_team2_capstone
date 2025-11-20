@@ -5,10 +5,8 @@
 - [ ] Python 3.9+ installed
 - [ ] Virtual environment created and activated
 - [ ] Dependencies installed (including raster libraries)
-- [ ] Google Earth Engine authenticated
-- [ ] Google Drive API credentials configured
-- [ ] Configuration file updated (`configs/config.yaml`)
-- [ ] Sample rasters exported to `data/raw/`
+- [ ] GeoTIFF data files manually placed in `data/raw/` directory
+- [ ] (Optional) Configuration file updated (`configs/config.yaml`) for custom settings
 
 ## Detailed Setup Instructions
 
@@ -40,82 +38,59 @@ pip install -r requirements.txt
 
 **Note**: The tool requires `pyarrow>=10.0.0` for efficient DataFrame caching (Parquet file support). This is automatically installed via `requirements.txt`, but if you encounter Parquet-related errors, ensure it's installed: `pip install pyarrow>=10.0.0`.
 
-### 3. Google Earth Engine Setup
+### 3. Prepare Data Files
 
-1. **Authenticate:**
+**Manual Data Placement:**
+
+1. **Obtain GeoTIFF data files** from any source (Google Earth Engine, other providers, or existing datasets).
+
+2. **Place files in `data/raw/` directory:**
    ```bash
-   python -c "import ee; ee.Authenticate()"
+   data/raw/
+   ├── SOC_res_250_b0.tif
+   ├── SOC_res_250_b10.tif
+   ├── soil_moisture_res_250_sm_surface.tif
+   ├── soil_pH_res_250_b0.tif
+   ├── soil_pH_res_250_b10.tif
+   └── soil_temp_res_250_soil_temp_layer1.tif
    ```
-   This will open a browser for authentication.
 
-2. **Set project name in `configs/config.yaml`:**
-   ```yaml
-   gee:
-     project_name: "your-project-name"
-   ```
+3. **Required files for biochar suitability scoring:**
+   - `soil_moisture_res_250_sm_surface.tif` - Soil moisture
+   - `SOC_res_250_b0.tif` - Soil Organic Carbon (surface)
+   - `SOC_res_250_b10.tif` - Soil Organic Carbon (10cm depth)
+   - `soil_pH_res_250_b0.tif` - Soil pH (surface)
+   - `soil_pH_res_250_b10.tif` - Soil pH (10cm depth)
+   - `soil_temp_res_250_soil_temp_layer1.tif` - Soil temperature
 
-### 4. Google Drive API Setup (Required for Automatic Downloads)
+4. **File naming:** The tool recognizes files by keywords in their names (e.g., "moisture", "SOC", "ph", "temp"). Files should be GeoTIFF format (.tif or .tiff extension).
 
-The tool automatically downloads exported GeoTIFF files from Google Drive once configured. Set up the Google Drive API to enable automatic downloads:
+**Note:** Data acquisition is done manually outside the codebase. You can obtain data from any source as long as files are in GeoTIFF format and placed in `data/raw/`.
 
-#### Step 4.1: Enable Google Drive API
+### 4. (Optional) Configuration
 
-1. Go to [Google Cloud Console](https://console.cloud.google.com/)
-2. Create a new project or select an existing one
-3. Enable the **Google Drive API**:
-   - Navigate to "APIs & Services" > "Library"
-   - Search for "Google Drive API"
-   - Click "Enable"
+Configuration is optional - the tool works with sensible defaults. If you want to customize settings:
 
-#### Step 4.2: Create OAuth 2.0 Credentials
-
-1. Go to "APIs & Services" > "Credentials"
-2. Click "Create Credentials" > "OAuth client ID"
-3. If prompted, configure OAuth consent screen:
-   - User Type: External (or Internal if using Google Workspace)
-   - App name: "Residual_Carbon"
-   - Scopes: Add `https://www.googleapis.com/auth/drive.readonly`
-   - Save and continue
-4. Application type: **Desktop application**
-5. Name: "Residual_Carbon Desktop Client"
-6. Click "Create"
-7. Download the JSON file (it will be named something like `client_secret_xxxxx.json`)
-
-#### Step 4.3: Configure PyDrive
-
-1. **Rename the downloaded file:**
+1. Copy the example configuration:
    ```bash
-   # Rename the downloaded JSON file to:
-   configs/client_secrets.json
+   cp configs/config.example.yaml configs/config.yaml
    ```
 
-2. **First-time authentication:**
-   - When you first run the acquisition tool, it will automatically:
-     - Open a browser for OAuth authentication
-     - Create `configs/credentials.json` (stores your access token)
-     - Create `configs/settings.yaml` (PyDrive configuration)
-   - You only need to do this once
-   - Once configured, all exported files will be automatically downloaded to `data/raw/` as GEE export tasks complete
-
-#### Alternative: Manual PyDrive Setup
-
-If you prefer to set up PyDrive manually:
-
-1. Copy `configs/settings.yaml.template` to `configs/settings.yaml`
-2. Extract `client_id` and `client_secret` from your `client_secrets.json`
-3. Update `configs/settings.yaml` with your credentials
+2. Edit `configs/config.yaml` to customize:
+   - Data directories (default: `data/raw`, `data/processed`)
+   - Output directories (default: `output/html`)
+   - H3 resolution (default: 7)
+   - Processing options
 
 ### 5. Verify Installation
 
 ```bash
 # Test critical imports
-python -c "import ee, h3, rasterio, shapely; print('Core imports OK')"
+python -c "import h3, rasterio, shapely, geopandas; print('Core imports OK')"
 
-# Confirm Google Earth Engine access
-python -c "import ee; ee.Initialize(); print('GEE initialized successfully!')"
+# Verify data files are present
+python -c "from pathlib import Path; files = list(Path('data/raw').glob('*.tif')); print(f'Found {len(files)} GeoTIFF files')"
 ```
-
-> Tip: you can run `python src/data/acquisition/gee_loader.py` and answer "n" when prompted to leave tasks pending while reviewing the export summary.
 
 ### 6. (Optional) Add Project to PYTHONPATH
 
@@ -138,59 +113,33 @@ If you run scripts from terminals outside PyCharm, add the project root to `PYTH
    export PYTHONPATH="/path/to/Residual_Carbon"
    ```
 
-### 7. Configuration
+### 6. (Optional) Configuration
 
-Edit `configs/config.yaml` to customize:
+Configuration is optional - the tool works with sensible defaults. If you want to customize settings, edit `configs/config.yaml`:
 
-- **GEE Project Name**: Your Google Earth Engine project name
-- **Export Resolution**: Default 250m for SMAP datasets (soil moisture, temperature), native resolution for other datasets
+- **Data Directories**: Default `data/raw` and `data/processed`
+- **Output Directories**: Default `output/html`
 - **H3 Resolution**: Default 7 for clipped areas (higher = finer hexagons). Full state uses resolution 5 for suitability map and resolution 9 for SOC map automatically.
-- **Export Folder**: Must match in both `gee.export_folder` and `drive.download_folder`
 - **Persist Snapshots**: Set `processing.persist_snapshots` to `true` to keep intermediate CSV tables for debugging
 - **Cache Cleanup**: Set `processing.cleanup_old_cache` to `false` to disable automatic cleanup of old coordinate-specific caches (default: `true`)
-- **SMAP Resampling**: Soil moisture and soil temperature are always bicubic-resampled from ~3000 m to 250 m inside `load_datasets()`. The pipeline automatically prefers 250m files over 3000m files if both exist in `data/raw/`.
-- **Dataset Filtering**: Only scoring-required datasets are imported for processing (soil_moisture, SOC b0/b10, pH b0/b10, soil_temperature). All datasets are exported to Google Drive, but unused datasets (land_cover, soil_type) are automatically excluded from processing.
-- **Depth Layers**: For SOC and pH, both b0 (surface) and b10 (10cm depth) layers are used and averaged in the scoring calculation. Deeper layers (b30, b60) are not exported as they are not used in scoring.
+- **Dataset Filtering**: Only scoring-required datasets are processed (soil_moisture, SOC b0/b10, pH b0/b10, soil_temperature). Other datasets (land_cover, soil_type) are automatically excluded from processing.
+- **Depth Layers**: For SOC and pH, both b0 (surface) and b10 (10cm depth) layers are used and averaged in the scoring calculation. Deeper layers (b30, b60) are not processed as they are not used in scoring.
 
 ## Troubleshooting
 
-### Issue: "No module named 'pydrive2'"
+### Issue: "No GeoTIFF files found"
 
 **Solution:**
-```bash
-pip install pydrive2
-```
-
-### Issue: Google Earth Engine Authentication Error
-
-**Solution:**
-```bash
-# Re-authenticate
-python -c "import ee; ee.Authenticate()"
-```
-
-### Issue: Google Drive API Authentication Error
-
-**Solution:**
-1. Delete `configs/credentials.json` if it exists
-2. Ensure `configs/client_secrets.json` is present
-3. Run the tool again - it will re-authenticate
-
-### Issue: "Drive API not enabled"
-
-**Solution:**
-1. Go to Google Cloud Console
-2. Enable Google Drive API (see Step 4.1 above)
-
-### Issue: GeoTIFF files not downloading automatically
-
-**Solution:**
-1. Check that export tasks completed in Google Earth Engine Code Editor
-2. Verify folder name matches in `config.yaml` (`gee.export_folder` and `drive.download_folder`)
-3. Check Google Drive for the exported files
-4. Verify Drive API credentials are correct (`client_secrets.json` and `credentials.json`)
-5. Ensure Google Drive API is enabled in Google Cloud Console
-6. Downloads happen automatically once configured - rerun `python src/data/acquisition/gee_loader.py`; the script will automatically download any completed Drive exports to `data/raw/`
+1. Ensure GeoTIFF files are manually placed in `data/raw/` directory
+2. Check that files have `.tif` or `.tiff` extension
+3. Verify required files are present:
+   - `soil_moisture_res_250_sm_surface.tif`
+   - `SOC_res_250_b0.tif`
+   - `SOC_res_250_b10.tif`
+   - `soil_pH_res_250_b0.tif`
+   - `soil_pH_res_250_b10.tif`
+   - `soil_temp_res_250_soil_temp_layer1.tif`
+4. Files are recognized by keywords in their names (e.g., "moisture", "SOC", "ph", "temp")
 
 ### Issue: Cache not working or Parquet errors
 

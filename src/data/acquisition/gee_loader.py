@@ -1,8 +1,13 @@
 """
-Google Earth Engine Data Loader Module
+Optional Google Earth Engine Data Loader Module (Template/Reference Only)
 
-Retrieves soil property datasets from Google Earth Engine.
-Handles authentication, image retrieval, and standardization.
+NOTE: This module is OPTIONAL. Data acquisition is done manually outside the codebase.
+GeoTIFF files should be manually placed in data/raw/ directory.
+
+This module serves as a TEMPLATE/REFERENCE showing how to export data from Google Earth Engine
+if you need to obtain new data. It is NOT required for the core pipeline to function.
+
+See README_TEMPLATE.md in this directory for usage instructions.
 """
 
 import argparse

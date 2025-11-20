@@ -1,6 +1,9 @@
 """
 Residual_Carbon - Main Entry Point
 Biochar Suitability Mapping Tool
+
+Processes manually provided GeoTIFF data files from data/raw/ directory.
+Data acquisition is done manually outside the codebase.
 """
 import argparse
 import sys
@@ -27,6 +30,7 @@ from src.utils.browser import open_html_in_browser
 from src.visualization.pydeck_maps.municipality_waste_map import (
     build_investor_waste_deck,
 )
+import shutil
 
 # ←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←
 # ADD THIS IMPORT + RECOMMENDER CALL BELOW
@@ -42,8 +46,7 @@ def ensure_rasters_acquired(raw_dir: Path) -> List[Path]:
     all_tif_files.extend(sorted(raw_dir.glob("*.tiff")))
     if not all_tif_files:
         raise FileNotFoundError(f"No GeoTIFF files found in '{raw_dir}'.")
-    from src.data.acquisition.gee_loader import get_scoring_required_datasets
-    scoring_datasets = get_scoring_required_datasets()
+    # Filter scoring datasets (no GEE dependency - just file name matching)
     tif_files = []
     excluded_files = []
     res_250_files = {f.name for f in all_tif_files if 'res_250' in f.name}
@@ -184,7 +187,62 @@ def main():
     except Exception as e:
         print(f"Map error: {e}")
 
-    # ... (your SOC, pH, moisture maps - unchanged) ...
+    # Create SOC map
+    soc_map_path = output_dir / "soc_map.html"
+    soc_map_streamlit_path = output_dir / "soc_map_streamlit.html"
+    try:
+        create_soc_map(
+            processed_dir=processed_dir,
+            output_path=soc_map_path,
+            h3_resolution=h3_resolution,
+            use_coords=not area.use_full_state,
+            center_lat=center_lat,
+            center_lon=center_lon,
+            zoom_start=zoom
+        )
+        # Copy for Streamlit
+        shutil.copy2(soc_map_path, soc_map_streamlit_path)
+        print(f"SOC map saved to: {soc_map_path}")
+    except Exception as e:
+        print(f"SOC map error: {e}")
+
+    # Create pH map
+    ph_map_path = output_dir / "ph_map.html"
+    ph_map_streamlit_path = output_dir / "ph_map_streamlit.html"
+    try:
+        create_ph_map(
+            processed_dir=processed_dir,
+            output_path=ph_map_path,
+            h3_resolution=h3_resolution,
+            use_coords=not area.use_full_state,
+            center_lat=center_lat,
+            center_lon=center_lon,
+            zoom_start=zoom
+        )
+        # Copy for Streamlit
+        shutil.copy2(ph_map_path, ph_map_streamlit_path)
+        print(f"pH map saved to: {ph_map_path}")
+    except Exception as e:
+        print(f"pH map error: {e}")
+
+    # Create moisture map
+    moisture_map_path = output_dir / "moisture_map.html"
+    moisture_map_streamlit_path = output_dir / "moisture_map_streamlit.html"
+    try:
+        create_moisture_map(
+            processed_dir=processed_dir,
+            output_path=moisture_map_path,
+            h3_resolution=h3_resolution,
+            use_coords=not area.use_full_state,
+            center_lat=center_lat,
+            center_lon=center_lon,
+            zoom_start=zoom
+        )
+        # Copy for Streamlit
+        shutil.copy2(moisture_map_path, moisture_map_streamlit_path)
+        print(f"Moisture map saved to: {moisture_map_path}")
+    except Exception as e:
+        print(f"Moisture map error: {e}")
 
     # Investor crop area map (municipality-level)
     investor_map_path = output_dir / "investor_crop_area_map.html"

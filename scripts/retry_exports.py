@@ -1,7 +1,13 @@
 """
-Retry Export Tasks
+Optional: Retry Google Earth Engine Export Tasks
 
-Retries export tasks for SMAP datasets. Reuses GEEDataLoader from the main pipeline.
+NOTE: This script is OPTIONAL. Data acquisition is done manually outside the codebase.
+GeoTIFF files should be manually placed in data/raw/ directory.
+
+This script can be used to retry GEE export tasks if needed,
+but it is not required for the core pipeline to function.
+
+See CLOUD_DEPENDENCIES.md for more information.
 """
 
 import sys

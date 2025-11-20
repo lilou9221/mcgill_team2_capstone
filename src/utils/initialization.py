@@ -43,11 +43,10 @@ def initialize_project(config_path: str = "configs/config.yaml") -> Tuple[Dict, 
     # Use module-level project root (calculated once)
     project_root = _PROJECT_ROOT
     
-    # Load configuration
-    try:
-        config = load_config(config_path)
-    except FileNotFoundError as e:
-        raise FileNotFoundError(f"Configuration file not found: {e}")
+    # Load configuration (works with defaults if config.yaml doesn't exist)
+    # config.yaml is only needed for optional data acquisition features (GEE/Drive)
+    # Core pipeline works with default configuration
+    config = load_config(config_path)
     
     # Get data directories from config
     data_config = config.get("data", {})
