@@ -63,6 +63,7 @@ configs/settings.yaml
 configs/config.yaml
 settings.yaml
 *.env
+.env
 .env.*
 
 # Temporary files

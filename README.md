@@ -66,20 +66,57 @@ conda install -c conda-forge geopandas rasterio shapely fiona pyproj gdal
 pip install -r requirements.txt
 ```
 
-### Step 4: Google Earth Engine Setup
+### Step 4: Configuration Setup
+
+The application uses a fallback system for configuration:
+
+1. **Primary: `configs/config.yaml`** (local file with your secrets - gitignored)
+2. **Fallback: Environment variables** (for CI/CD and deployments)
+3. **Last resort: `configs/config.example.yaml`** (template with placeholders)
+
+**Option A: Local Development (Recommended)**
+
+1. Copy the example configuration:
+   ```bash
+   cp configs/config.example.yaml configs/config.yaml
+   ```
+
+2. Edit `configs/config.yaml` and fill in your values:
+   ```yaml
+   gee:
+     project_name: "your-gee-project-id"
+     export_folder: "your-google-drive-folder-id"
+   drive:
+     raw_data_folder_id: "your-raw-data-folder-id"
+   ```
+
+**Option B: Environment Variables (For CI/CD/Streamlit Cloud)**
+
+Set environment variables with `RC_` prefix:
+```bash
+export RC_GEE__PROJECT_NAME="your-gee-project-id"
+export RC_GEE__EXPORT_FOLDER="your-google-drive-folder-id"
+export RC_DRIVE__RAW_DATA_FOLDER_ID="your-raw-data-folder-id"
+```
+
+Or use a `.env` file (gitignored):
+```bash
+# .env
+RC_GEE__PROJECT_NAME=your-gee-project-id
+RC_GEE__EXPORT_FOLDER=your-google-drive-folder-id
+RC_DRIVE__RAW_DATA_FOLDER_ID=your-raw-data-folder-id
+```
+
+**Note:** Use double underscore `__` for nested keys (e.g., `RC_GEE__PROJECT_NAME` maps to `gee.project_name`)
+
+### Step 5: Google Earth Engine Setup
 
 1. **Authenticate with Google Earth Engine:**
    ```bash
    python -c "import ee; ee.Authenticate()"
    ```
 
-2. **Set your GEE project name** in `configs/config.yaml`:
-   ```yaml
-   gee:
-     project_name: "your-project-name"
-   ```
-
-### Step 5: Google Drive API Setup (Required for Automatic Downloads)
+### Step 6: Google Drive API Setup (Required for Automatic Downloads)
 
 The tool automatically downloads exported GeoTIFF files from Google Drive once configured. Set up the Google Drive API to enable automatic downloads:
 
@@ -100,9 +137,16 @@ The tool automatically downloads exported GeoTIFF files from Google Drive once c
 
 ## Configuration
 
-Edit `configs/config.yaml` to customize:
+The application uses a **fallback system** for configuration (see Step 4 above):
 
-- Google Earth Engine project name
+1. **`configs/config.yaml`** - Local file with your secrets (gitignored, not in repository)
+2. **Environment variables** - For CI/CD and deployments (use `RC_` prefix)
+3. **`configs/config.example.yaml`** - Template file (committed to repository)
+
+Edit `configs/config.yaml` (or set environment variables) to customize:
+
+- Google Earth Engine project name (`gee.project_name`)
+- Google Drive folder IDs (`gee.export_folder`, `drive.raw_data_folder_id`)
 - Export resolution (default: 250m for SMAP datasets, native resolution for others)
 - H3 resolution (default: 7 for clipped areas, 9 for full state SOC map, 5 for full state suitability map)
 - Output directories
@@ -111,6 +155,7 @@ Edit `configs/config.yaml` to customize:
 **Note**: 
 - The pipeline automatically filters out old 3000m resolution SMAP files when 250m versions are available. Only the higher-resolution 250m files are used for processing.
 - Only scoring-required datasets are imported for processing (soil_moisture, SOC b0/b10, pH b0/b10, soil_temperature). All datasets are exported to Google Drive, but unused datasets (land_cover, soil_type) are automatically excluded from processing to optimize performance.
+- **Security**: `config.yaml` is gitignored to protect your secrets. Never commit it to the repository. Use `config.example.yaml` as a template.
 
 ## Usage
 
