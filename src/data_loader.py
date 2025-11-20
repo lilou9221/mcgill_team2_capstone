@@ -177,11 +177,12 @@ Layer Selection
                 task_ids = loader.start_export_tasks()
                 
                 # Export tasks completed - user will download manually
-                print("""
+                export_folder_id = config.get("gee", {}).get("export_folder", "YOUR_FOLDER_ID")
+                print(f"""
 ------------------------------------------------------------
 Export tasks started successfully!
 Files will be exported to Google Drive folder:
-  https://drive.google.com/drive/folders/1IIBYV68TBZ2evWnUYgBZY9mKI2PalciE
+  https://drive.google.com/drive/folders/{export_folder_id}
 ------------------------------------------------------------
 
 To download files manually:
@@ -209,11 +210,12 @@ Troubleshooting:
                 print("\nStarting export tasks...")
                 task_ids = loader.start_export_tasks()
                 
-                print("""
+                export_folder_id = config.get("gee", {}).get("export_folder", "YOUR_FOLDER_ID")
+                print(f"""
 ------------------------------------------------------------
 Export tasks started successfully!
 Files will be exported to Google Drive folder:
-  https://drive.google.com/drive/folders/1IIBYV68TBZ2evWnUYgBZY9mKI2PalciE
+  https://drive.google.com/drive/folders/{export_folder_id}
 ------------------------------------------------------------
 
 To download files manually:

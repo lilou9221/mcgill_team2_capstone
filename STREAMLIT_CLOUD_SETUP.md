@@ -39,15 +39,7 @@ export_folder = "your-google-drive-folder-id"
 raw_data_folder_id = "your-raw-data-folder-id"
 ```
 
-**Example with actual values:**
-```toml
-[gee]
-project_name = "sigma-lane-472616-j4"
-export_folder = "1IIBYV68TBZ2evWnUYgBZY9mKI2PalciE"
-
-[drive]
-raw_data_folder_id = "1oHYjcJgUXYdmYabdw4K7QjXQsYl6nZpK"
-```
+**Note:** Replace the placeholder values with your actual values. Never commit actual values to Git.
 
 ### Step 5: Save and Redeploy
 
@@ -204,17 +196,19 @@ After saving secrets/environment variables:
 
 ## Security Best Practices
 
-✅ **DO:**
+**DO:**
 - Use Streamlit Secrets for sensitive information
 - Keep `config.yaml` out of Git (already in `.gitignore`)
 - Use environment variables in CI/CD pipelines
 - Rotate credentials periodically
+- Only use placeholder values in documentation
 
-❌ **DON'T:**
+**DON'T:**
 - Commit `config.yaml` to Git
 - Share secrets in public repositories
 - Hardcode credentials in your code
 - Use placeholder values in production
+- Include actual sensitive values in any files committed to Git
 
 ---
 
@@ -222,10 +216,10 @@ After saving secrets/environment variables:
 
 | Configuration Method | Best For | Security Level |
 |---------------------|----------|----------------|
-| Streamlit Secrets | Production apps | ⭐⭐⭐⭐⭐ |
-| Environment Variables | CI/CD, automation | ⭐⭐⭐⭐ |
-| config.yaml (local) | Local development | ⭐⭐⭐ |
-| config.example.yaml | Testing only | ⭐ (placeholders) |
+| Streamlit Secrets | Production apps | High |
+| Environment Variables | CI/CD, automation | High |
+| config.yaml (local) | Local development | Medium |
+| config.example.yaml | Testing only | Low (placeholders) |
 
 ---
 

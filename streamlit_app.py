@@ -52,7 +52,7 @@ def get_config():
         return config
     except FileNotFoundError as e:
         st.error(f"Configuration error: {e}")
-        st.info("💡 **Tip:** Set up your configuration using Streamlit Secrets. See `STREAMLIT_CLOUD_SETUP.md` for instructions.")
+        st.info("**Tip:** Set up your configuration using Streamlit Secrets. See `STREAMLIT_CLOUD_SETUP.md` for instructions.")
         st.stop()
     except Exception as e:
         st.error(f"Unexpected error loading configuration: {e}")

@@ -465,7 +465,9 @@ class GEEDataLoader:
             raise ValueError("No images loaded. Call load_datasets() and clip_to_mato_grosso() first.")
 
         if folder_name is None:
-            folder_name = self.config.get("gee", {}).get("export_folder", "1IIBYV68TBZ2evWnUYgBZY9mKI2PalciE")
+            folder_name = self.config.get("gee", {}).get("export_folder")
+            if folder_name is None:
+                raise ValueError("Google Drive export folder ID not configured. Set 'gee.export_folder' in config.yaml or environment variables.")
 
         # Filter images by selected layers if provided
         images_to_export = self.images.copy()
