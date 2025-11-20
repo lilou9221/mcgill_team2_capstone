@@ -331,6 +331,6 @@ if run_btn:
 st.markdown("""
 <div class="footer">
     <strong>Residual Carbon</strong> • McGill University Capstone<br>
-    Data-driven biochar deployment for ecological impact.
+    Data-driven biochar suitability mapping for ecological impact.
 </div>
 """, unsafe_allow_html=True)

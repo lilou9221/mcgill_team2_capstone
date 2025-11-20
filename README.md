@@ -8,21 +8,25 @@ This tool analyzes soil properties (moisture, temperature, organic carbon, pH) t
 - **Biochar Suitability Map**: Color-coded suitability scores (0-100 scale) where green indicates high suitability (poor soil needs biochar) and red indicates low suitability (healthy soil doesn't need biochar)
 - **Soil Organic Carbon (SOC) Map**: Displays SOC values (g/kg) aggregated by H3 hexagons, calculated as the average of b0 and b10 depth layers
 - **Soil pH Map**: Displays pH values aggregated by H3 hexagons, calculated as the average of b0 and b10 depth layers, using a diverging color scheme (light orange-yellow for acidic, yellow for neutral, blue for alkaline)
+- **Soil Moisture Map**: Displays soil moisture values aggregated by H3 hexagons
+- **Investor Crop Area Map**: Municipality-level map showing total crop area per municipality
 
 ## Features
 
-- **Automated Data Retrieval**: Launches parameterized Google Earth Engine exports with per-layer summaries and optional auto-start. Downloads from Google Drive are automatic once configured.
+- **Manual Data Input**: GeoTIFF data files are manually placed in `data/raw/` directory. The tool processes these local files - no cloud services required.
 - **Targeted Spatial Analysis**: Works on the full Mato Grosso extent or user-specified circular AOIs with validation and graceful edge handling.
 - **Robust GeoTIFF Processing**: Clips, converts, and validates rasters before tabularisation, with an in-memory pandas pipeline and optional snapshots.
 - **SMAP Bicubic Downscaling**: Soil moisture and soil temperature rasters (native ~3 km) are automatically resampled to 250 m using bicubic interpolation so they align with the rest of the stack.
 - **Performance Caching**: Intelligent caching system speeds up re-runs by caching clipped rasters and DataFrame conversions. Automatically detects changes and invalidates cache when source files are updated.
 - **H3 Hexagonal Grid**: Adds hex indexes for efficient aggregation using vectorized operations (5-10x faster than previous implementation). Boundary geometry is generated after merge and aggregation to optimize memory usage (prevents memory crashes with large datasets).
 - **Biochar Suitability Scoring**: Calculates biochar suitability scores (0-100 scale) based on soil quality metrics. Uses weighted scoring for moisture, organic carbon (averages b0 and b10 depth layers), pH (averages b0 and b10 depth layers), and temperature properties. Lower soil quality = higher biochar suitability.
-- **Smart Dataset Filtering**: Automatically filters to only scoring-required datasets during processing. All datasets are exported to Google Drive, but only scoring-required files (soil_moisture, SOC b0/b10, pH b0/b10, soil_temperature) are imported for processing, reducing memory usage and processing time.
-- **Interactive Maps**: Generates three PyDeck-based HTML visualisations:
+- **Smart Dataset Filtering**: Automatically filters to only scoring-required datasets during processing. Only scoring-required files (soil_moisture, SOC b0/b10, pH b0/b10, soil_temperature) are processed, reducing memory usage and processing time.
+- **Interactive Maps**: Generates five PyDeck-based HTML visualisations:
   - **Biochar Suitability Map**: Interactive map with color-coded suitability scores (0-100 scale), suitability grades, H3 hexagon indexes, location coordinates, and point counts
   - **Soil Organic Carbon (SOC) Map**: Interactive map showing SOC values (g/kg) aggregated by H3 hexagons, calculated as the average of b0 and b10 depth layers
   - **Soil pH Map**: Interactive map showing pH values aggregated by H3 hexagons, calculated as the average of b0 and b10 depth layers, with a diverging color scheme (light orange-yellow for acidic soils <5.5, yellow for neutral ~7, blue for alkaline soils >7.5)
+  - **Soil Moisture Map**: Interactive map showing soil moisture values aggregated by H3 hexagons
+  - **Investor Crop Area Map**: Municipality-level map showing total crop area per municipality
   - All maps are generated directly from CSV data using PyDeck and auto-open in browser (configurable)
 - **Auditable Workflow**: Each stage can be run independently, and helper utilities exist to verify intermediate results.
 

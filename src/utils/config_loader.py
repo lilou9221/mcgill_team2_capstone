@@ -7,7 +7,7 @@ Loads and validates configuration from YAML files.
 try:
     import yaml
 except ImportError:
-    # Try to install PyYAML automatically (for Streamlit Cloud compatibility)
+    # Try to install PyYAML automatically if missing
     import subprocess
     import sys
     try:
@@ -24,7 +24,7 @@ except ImportError:
             "PyYAML is not installed and could not be installed automatically.\n"
             "Please install it using: pip install pyyaml\n"
             "Or install all dependencies: pip install -r requirements.txt\n"
-            "For Streamlit Cloud, ensure 'pyyaml>=6.0' is in requirements.txt and restart deployment."
+                   "Please install PyYAML using: pip install pyyaml"
         )
 
 from pathlib import Path

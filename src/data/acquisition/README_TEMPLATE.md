@@ -10,17 +10,21 @@ This directory contains **optional utility scripts** that can be used to export 
 
 ## How to Use (If Needed)
 
+**IMPORTANT:** These scripts are **non-functional templates** until you provide your credentials.
+
 If you want to export new data from Google Earth Engine:
 
-### Step 1: Set Up Configuration
+### Step 1: Set Up Configuration (REQUIRED)
 
 1. Copy `configs/config.example.yaml` to `configs/config.yaml`
-2. Fill in your Google Earth Engine project ID:
+2. **Fill in your actual credentials** (replace placeholders):
    ```yaml
    gee:
-     project_name: "your-gee-project-id"
-     export_folder: "your-google-drive-folder-id"
+     project_name: "your-actual-gee-project-id"  # Replace YOUR_GEE_PROJECT_ID
+     export_folder: "your-actual-google-drive-folder-id"  # Replace YOUR_GOOGLE_DRIVE_FOLDER_ID
    ```
+   
+   **Without these credentials, the scripts will fail with clear error messages.**
 
 ### Step 2: Authenticate with Google Earth Engine
 
@@ -49,16 +53,31 @@ After exports complete:
 
 ## Files in This Directory
 
-- `gee_loader.py` - Google Earth Engine data loader (requires `earthengine-api`)
+- `gee_loader.py` - Google Earth Engine data loader template (requires `earthengine-api` and credentials)
 - `smap_downscaling.py` - SMAP dataset downscaling utilities
-- `data_loader.py` (in parent `src/` directory) - Main export script
+- `data_loader.py` (in parent `src/` directory) - Main export script template
+- `README_TEMPLATE.md` - This file (usage instructions)
+
+## Required Configuration Files
+
+To make these scripts functional, you need:
+
+1. **`configs/config.yaml`** - Copy from `configs/config.example.yaml` and fill in:
+   - `gee.project_name` - Your GEE project ID (replace `YOUR_GEE_PROJECT_ID`)
+   - `gee.export_folder` - Your Google Drive folder ID (replace `YOUR_GOOGLE_DRIVE_FOLDER_ID`)
+
+2. **`configs/settings.yaml`** (optional, for Google Drive API) - Copy from `configs/settings.yaml.template` and fill in:
+   - `client_id` - Google OAuth client ID (replace `YOUR_CLIENT_ID_HERE`)
+   - `client_secret` - Google OAuth client secret (replace `YOUR_CLIENT_SECRET_HERE`)
+
+**Without these files and credentials, the scripts will NOT function and will show clear error messages.**
 
 ## Important Notes
 
-- **These scripts are optional** - The core pipeline works with manually placed GeoTIFF files
-- **No cloud services required** - The main application processes local files only
-- **Data acquisition is manual** - Export scripts are utilities, not part of the core workflow
-- **Configuration is optional** - Only needed if you want to use these export utilities
+- **These scripts are templates** - They are non-functional until you provide credentials
+- **Core pipeline is independent** - The main application works with manually placed GeoTIFF files
+- **No cloud services required for core** - Only needed if you want to export new data from GEE
+- **Data acquisition is manual** - Export scripts are optional utilities, not part of the core workflow
 
 ## Alternative Data Sources
 

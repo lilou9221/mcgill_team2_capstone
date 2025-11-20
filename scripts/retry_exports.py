@@ -1,13 +1,13 @@
 """
-Optional: Retry Google Earth Engine Export Tasks
+Optional: Retry Google Earth Engine Export Tasks (Template)
 
-NOTE: This script is OPTIONAL. Data acquisition is done manually outside the codebase.
+NOTE: This script is OPTIONAL and is a TEMPLATE. Data acquisition is done manually outside the codebase.
 GeoTIFF files should be manually placed in data/raw/ directory.
 
-This script can be used to retry GEE export tasks if needed,
-but it is not required for the core pipeline to function.
+This script is a TEMPLATE that can be used to retry GEE export tasks if needed,
+but it is NOT FUNCTIONAL until you provide credentials in configs/config.yaml.
 
-See CLOUD_DEPENDENCIES.md for more information.
+See src/data/acquisition/README_TEMPLATE.md for setup instructions.
 """
 
 import sys

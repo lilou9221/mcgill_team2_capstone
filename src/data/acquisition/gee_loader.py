@@ -191,9 +191,37 @@ class GEEDataLoader:
         self.task_details: List[Dict[str, Optional[str]]] = []
 
     def _load_config(self) -> Dict:
-        """Load configuration from YAML file."""
+        """
+        Load configuration from YAML file.
+        
+        TEMPLATE: This will fail if config.yaml doesn't exist or doesn't have GEE credentials.
+        User must create config.yaml from config.example.yaml and fill in their credentials.
+        """
+        if not self.config_path.exists():
+            raise FileNotFoundError(
+                f"Configuration file not found: {self.config_path}\n"
+                f"To use GEE export features:\n"
+                f"  1. Copy configs/config.example.yaml to configs/config.yaml\n"
+                f"  2. Fill in your GEE project_name and export_folder values\n"
+                f"  3. See src/data/acquisition/README_TEMPLATE.md for instructions"
+            )
         with open(self.config_path, 'r', encoding='utf-8') as f:
-            return yaml.safe_load(f)
+            config = yaml.safe_load(f)
+            # Verify GEE credentials are present
+            gee_config = config.get("gee", {})
+            if not gee_config.get("project_name") or gee_config.get("project_name") == "YOUR_GEE_PROJECT_ID":
+                raise ValueError(
+                    "GEE project_name not configured in config.yaml\n"
+                    "Please fill in your Google Earth Engine project ID in configs/config.yaml\n"
+                    "See src/data/acquisition/README_TEMPLATE.md for instructions"
+                )
+            if not gee_config.get("export_folder") or gee_config.get("export_folder") == "YOUR_GOOGLE_DRIVE_FOLDER_ID":
+                raise ValueError(
+                    "GEE export_folder not configured in config.yaml\n"
+                    "Please fill in your Google Drive folder ID in configs/config.yaml\n"
+                    "See src/data/acquisition/README_TEMPLATE.md for instructions"
+                )
+            return config
 
     def initialize(self, project_name: Optional[str] = None) -> None:
         """

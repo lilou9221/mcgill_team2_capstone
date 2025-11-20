@@ -32,16 +32,15 @@ from src.visualization.pydeck_maps.municipality_waste_map import (
 )
 import shutil
 
-# ←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←
-# ADD THIS IMPORT + RECOMMENDER CALL BELOW
-# ←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←
-from src.analysis.biochar_recommender import recommend_biochar
-# ←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←
+# Biochar recommender available for future integration
+# from src.analysis.biochar_recommender import recommend_biochar
 
 def ensure_rasters_acquired(raw_dir: Path) -> List[Path]:
-    # ... (your existing function - unchanged) ...
-    # (I kept it exactly as you had it - no changes needed)
-    # ... (full function stays 100% the same) ...
+    """
+    Validate that required GeoTIFF files are present in data/raw/ directory.
+    
+    Filters to only scoring-required datasets and preferred resolutions.
+    """
     all_tif_files = sorted(raw_dir.glob("*.tif"))
     all_tif_files.extend(sorted(raw_dir.glob("*.tiff")))
     if not all_tif_files:
@@ -97,7 +96,7 @@ def main():
     filtered_tif_files = ensure_rasters_acquired(raw_dir)
     area = get_user_area_of_interest(lat=args.lat, lon=args.lon, radius_km=args.radius, interactive=False)
 
-    # ... (all your clipping, conversion, H3, merging code stays 100% unchanged) ...
+    # Process data: clip rasters, convert to DataFrames, add H3 indexes, merge and aggregate
     if area.use_full_state:
         tif_dir = Path(tempfile.mkdtemp(prefix="residual_carbon_filtered_"))
         for tif_file in filtered_tif_files:
@@ -149,31 +148,19 @@ def main():
     print("="*60)
     scored_df = calculate_biochar_suitability_scores(merged_df)
 
-    # ===================================================================
-    # ADD BIOCHAR FEEDSTOCK RECOMMENDATIONS (THIS IS THE ONLY NEW PART)
-    # ===================================================================
-    # Biochar recommender currently disabled (phantom implementation)
-    # ===================================================================
-#    print("Adding recommended biochar feedstock for each hexagon...")
-#    try:
-#        scored_df = recommend_biochar(scored_df)
-#        print(f"Successfully added recommendations for {len(scored_df)} hexagons!")
-#    except Exception as e:
-#        print(f"Could not add biochar recommendations: {e}")
-#        import traceback
-#        traceback.print_exc()
+    # Biochar recommender integration (future feature)
+    # Uncomment and configure when ready to use:
+    # from src.analysis.biochar_recommender import recommend_biochar
+    # scored_df = recommend_biochar(scored_df)
 
     # Save final CSV for Streamlit
     suitability_csv_path = processed_dir / "suitability_scores.csv"
     if 'biochar_suitability_score' in scored_df.columns:
         scored_df = scored_df.assign(suitability_score=scored_df['biochar_suitability_score'] / 10.0)
     scored_df.to_csv(suitability_csv_path, index=False)
-    print(f"\nFinal results (with recommendations) saved to: {suitability_csv_path}")
+    print(f"\nFinal results saved to: {suitability_csv_path}")
 
-    # ... (rest of your map creation code - 100% unchanged) ...
-    # (SOC map, pH map, moisture map, etc. - all stay exactly as you had them)
-
-    # Example (your existing map code - unchanged):
+    # Prepare map view parameters
     center_lat = area.lat if not area.use_full_state else None
     center_lon = area.lon if not area.use_full_state else None
     zoom = 8 if not area.use_full_state else 6
