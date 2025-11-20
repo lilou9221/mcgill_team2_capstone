@@ -58,11 +58,25 @@ def load_config(config_path: Optional[str] = None) -> Dict[str, Any]:
             config_path = project_root / config_path
     
     if not config_path.exists():
-        raise FileNotFoundError(
+        # Check if template exists
+        template_path = config_path.parent / f"{config_path.stem}.template{config_path.suffix}"
+        error_msg = (
             f"Configuration file not found: {config_path}\n"
             f"Project root: {project_root}\n"
-            f"Current working directory: {Path.cwd()}"
+            f"Current working directory: {Path.cwd()}\n"
         )
+        if template_path.exists():
+            error_msg += (
+                f"\nA template file is available at: {template_path}\n"
+                f"Please copy it to {config_path} and fill in your configuration values:\n"
+                f"  cp {template_path} {config_path}\n"
+                f"  # Then edit {config_path} with your GEE project ID, Google Drive folder IDs, etc."
+            )
+        else:
+            error_msg += (
+                f"\nNo template file found. Please create {config_path} with your configuration."
+            )
+        raise FileNotFoundError(error_msg)
     
     with open(config_path, 'r', encoding='utf-8') as f:
         config = yaml.safe_load(f)

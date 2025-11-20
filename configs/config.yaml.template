@@ -1,0 +1,104 @@
+# Residual_Carbon - Biochar Suitability Mapping Tool Configuration
+# 
+# This is a template file. Copy this to config.yaml and fill in your own values.
+# The config.yaml file is gitignored to protect your private information.
+
+# Data directories
+data:
+  raw: "data/raw"
+  processed: "data/processed"
+  external: "data/external"
+
+# Output directories
+output:
+  maps: "output/maps"
+  html: "output/html"
+
+# Google Earth Engine configuration
+gee:
+  project_name: "YOUR_GEE_PROJECT_ID"  # Replace with your GEE project ID
+  export_folder: "YOUR_GOOGLE_DRIVE_FOLDER_ID"  # Replace with your Google Drive folder ID
+  default_scale: 250  # meters - default resolution for GeoTIFF export
+  default_region: "mato_grosso"  # Options: "brazil", "mato_grosso"
+
+# Google Drive API configuration (for automated download)
+drive:
+  credentials_file: "configs/credentials.json"
+  client_secrets_file: "configs/client_secrets.json"
+  settings_file: "configs/settings.yaml"
+  download_folder: "EarthEngineExports"  # Must match gee.export_folder
+  raw_data_folder_id: "YOUR_RAW_DATA_FOLDER_ID"  # Replace with your biochar raw data folder ID
+
+# Soil property datasets (Google Earth Engine)
+datasets:
+  soil_moisture:
+    collection: "NASA/SMAP/SPL4SMGP/008"
+    band: "sm_surface"
+    date_range: ["2024-01-01", "2025-01-01"]
+    aggregation: "mean"
+  soil_type:
+    image: "OpenLandMap/SOL/SOL_TEXTURE-CLASS_USDA-TT_M/v02"
+  soil_temperature:
+    collection: "NASA/SMAP/SPL4SMGP/008"
+    band: "soil_temp_layer1"
+    date_range: ["2024-01-01", "2025-01-01"]
+    aggregation: "mean"
+  soil_organic_carbon:
+    image: "OpenLandMap/SOL/SOL_ORGANIC-CARBON_USDA-6A1C_M/v02"
+    aggregation: "mean"
+  soil_pH:
+    image: "OpenLandMap/SOL/SOL_PH-H2O_USDA-4C1A2A_M/v02"
+    aggregation: "mean"
+  land_cover:
+    collection: "ESA/WorldCover/v100"
+    aggregation: "recent"
+
+# Spatial clipping configuration
+clipping:
+  default_radius_km: 100
+  # lat: null  # Set at runtime
+  # lon: null  # Set at runtime
+
+# Coordinate Reference System
+crs:
+  default: "EPSG:4326"
+  target: "EPSG:4326"
+
+# Raster processing
+raster:
+  default_band: 1
+  nodata_handling: "skip"
+
+# Data processing
+processing:
+  h3_resolution: 7  # H3 spatial index resolution (0-15, higher = finer hexagons)
+  enable_clipping: true  # Enable spatial clipping workflow
+  persist_snapshots: false  # Persist intermediate tables to CSV for debugging
+  cleanup_old_cache: true  # Automatically delete old coordinate-specific caches (preserves full state, protected coordinates, and current coordinates)
+
+# CSV column names
+csv:
+  lon_column: "lon"
+  lat_column: "lat"
+  value_column: "value"
+
+# Suitability scoring
+scoring:
+  scale: 10
+  color_scheme:
+    high_suitability: [8, 10]
+    medium_suitability: [5, 7]
+    low_suitability: [0, 4]
+
+# Visualization
+visualization:
+  auto_open_html: true
+  map_title: "Biochar Suitability Map - Mato Grosso, Brazil"
+  default_zoom: 6
+
+# Logging
+logging:
+  level: "INFO"
+  file: "logs/residual_carbon.log"
+  console: true
+
