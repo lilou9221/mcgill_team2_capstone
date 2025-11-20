@@ -120,48 +120,19 @@ if "current_process" not in st.session_state:
     st.session_state.current_process = None
 if "analysis_results" not in st.session_state:
     st.session_state.analysis_results = None  # Will store: {"df": df, "map_paths": {...}}
-if "investor_map_data" not in st.session_state:
-    st.session_state.investor_map_data = None  # Will store investor map data
+if "investor_map_loaded" not in st.session_state:
+    st.session_state.investor_map_loaded = False  # Track if we've tried to load it
+if "investor_map_available" not in st.session_state:
+    st.session_state.investor_map_available = False  # Track if data files exist
 
 # ============================================================
-# Load and cache investor map (only once, always available)
+# Check investor map availability (lightweight check, no heavy objects stored)
 # ============================================================
-if st.session_state.investor_map_data is None:
+if not st.session_state.investor_map_loaded:
     boundaries_dir = PROJECT_ROOT / "data" / "boundaries" / "BR_Municipios_2024"
     waste_csv_path = PROJECT_ROOT / "data" / "crop_data" / "Brazil_Municipality_Crop_Area_2024.csv"
-    
-    if boundaries_dir.exists() and waste_csv_path.exists():
-        try:
-            deck, merged_gdf = build_investor_waste_deck(
-                boundaries_dir, waste_csv_path, simplify_tolerance=0.01
-            )
-            
-            # Check if display_value column exists
-            if "display_value" not in merged_gdf.columns:
-                if "total_crop_area_ha" in merged_gdf.columns:
-                    merged_gdf["display_value"] = merged_gdf["total_crop_area_ha"]
-                else:
-                    st.session_state.investor_map_data = None
-            else:
-                total_area = merged_gdf["display_value"].sum()
-                top_municipalities = (
-                    merged_gdf.sort_values("display_value", ascending=False)
-                    .head(5)[["NM_MUN", "SIGLA_UF", "display_value"]]
-                    .rename(columns={
-                        "NM_MUN": "Municipality",
-                        "SIGLA_UF": "State",
-                        "display_value": "Crop area (ha)",
-                    })
-                )
-                
-                st.session_state.investor_map_data = {
-                    "deck": deck,
-                    "total_area": total_area,
-                    "top_municipalities": top_municipalities
-                }
-        except Exception as e:
-            # Store None to indicate failure, so we don't keep trying
-            st.session_state.investor_map_data = None
+    st.session_state.investor_map_available = boundaries_dir.exists() and waste_csv_path.exists()
+    st.session_state.investor_map_loaded = True
 
 if run_btn:
     # Clear previous results when starting new analysis
@@ -295,15 +266,16 @@ if run_btn:
             st.session_state.analysis_running = False
             st.stop()
         
-        # Store results in session state for persistence
+        # Store results path in session state for persistence (not the DataFrame itself to save memory)
         map_paths = {
-            "suitability": PROJECT_ROOT / config["output"]["html"] / "suitability_map.html",
-            "soc": PROJECT_ROOT / config["output"]["html"] / "soc_map_streamlit.html",
-            "ph": PROJECT_ROOT / config["output"]["html"] / "ph_map_streamlit.html",
-            "moisture": PROJECT_ROOT / config["output"]["html"] / "moisture_map_streamlit.html",
+            "suitability": str(PROJECT_ROOT / config["output"]["html"] / "suitability_map.html"),
+            "soc": str(PROJECT_ROOT / config["output"]["html"] / "soc_map_streamlit.html"),
+            "ph": str(PROJECT_ROOT / config["output"]["html"] / "ph_map_streamlit.html"),
+            "moisture": str(PROJECT_ROOT / config["output"]["html"] / "moisture_map_streamlit.html"),
         }
+        csv_path_str = str(csv_path)
         st.session_state.analysis_results = {
-            "df": df,
+            "csv_path": csv_path_str,
             "map_paths": map_paths
         }
         
@@ -337,8 +309,22 @@ if run_btn:
 # DISPLAY RESULTS (from cache if available, or from new analysis)
 # ============================================================
 if st.session_state.analysis_results is not None:
-    df = st.session_state.analysis_results["df"]
-    map_paths = st.session_state.analysis_results["map_paths"]
+    # Read DataFrame from CSV file (not stored in memory to save space)
+    csv_path = Path(st.session_state.analysis_results["csv_path"])
+    if csv_path.exists():
+        try:
+            df = pd.read_csv(csv_path)
+        except Exception as e:
+            st.error(f"Failed to read cached results: {e}")
+            st.session_state.analysis_results = None
+            st.stop()
+    else:
+        st.warning("Cached results file no longer exists.")
+        st.session_state.analysis_results = None
+        st.stop()
+    
+    # Convert map paths back to Path objects
+    map_paths = {k: Path(v) for k, v in st.session_state.analysis_results["map_paths"].items()}
     
     # ============================================================
     # METRICS
@@ -517,29 +503,52 @@ if st.session_state.analysis_results is not None:
 
     with investor_tab:
         st.subheader("Investor Crop Area Map")
-        # Investor map is loaded separately and cached (loaded once at app start)
-        investor_data = st.session_state.investor_map_data
-        if investor_data is not None:
-            st.pydeck_chart(investor_data["deck"], use_container_width=True)
-            c1, c2 = st.columns([1, 1])
-            with c1:
-                st.metric("Total crop area tracked (ha)", f"{investor_data['total_area']:,.0f}")
-            with c2:
-                st.write("Top municipalities by crop area (ha):")
-                st.dataframe(
-                    investor_data["top_municipalities"]
-                    .style.format({"Crop area (ha)": "{:,.0f}"}),
-                    use_container_width=True,
-                )
+        # Load investor map on-demand (not stored in session state to save memory)
+        boundaries_dir = PROJECT_ROOT / "data" / "boundaries" / "BR_Municipios_2024"
+        waste_csv_path = PROJECT_ROOT / "data" / "crop_data" / "Brazil_Municipality_Crop_Area_2024.csv"
+        
+        if not boundaries_dir.exists():
+            st.warning("Municipality boundaries not found. Please add files to data/boundaries/BR_Municipios_2024/.")
+        elif not waste_csv_path.exists():
+            st.warning("Municipality crop CSV missing. Expected data/crop_data/Brazil_Municipality_Crop_Area_2024.csv")
         else:
-            boundaries_dir = PROJECT_ROOT / "data" / "boundaries" / "BR_Municipios_2024"
-            waste_csv_path = PROJECT_ROOT / "data" / "crop_data" / "Brazil_Municipality_Crop_Area_2024.csv"
-            if not boundaries_dir.exists():
-                st.warning("Municipality boundaries not found. Please add files to data/boundaries/BR_Municipios_2024/.")
-            elif not waste_csv_path.exists():
-                st.warning("Municipality crop CSV missing. Expected data/crop_data/Brazil_Municipality_Crop_Area_2024.csv")
-            else:
-                st.warning("Investor map data not available. Please check the data files.")
+            try:
+                # Load map on-demand (fast enough, and saves memory)
+                deck, merged_gdf = build_investor_waste_deck(
+                    boundaries_dir, waste_csv_path, simplify_tolerance=0.01
+                )
+                st.pydeck_chart(deck, use_container_width=True)
+                
+                # Check if display_value column exists
+                if "display_value" not in merged_gdf.columns:
+                    if "total_crop_area_ha" in merged_gdf.columns:
+                        merged_gdf["display_value"] = merged_gdf["total_crop_area_ha"]
+                    else:
+                        st.error("No crop area data found in merged GeoDataFrame.")
+                        st.stop()
+                
+                total_area = merged_gdf["display_value"].sum()
+                top_municipalities = (
+                    merged_gdf.sort_values("display_value", ascending=False)
+                    .head(5)[["NM_MUN", "SIGLA_UF", "display_value"]]
+                    .rename(columns={
+                        "NM_MUN": "Municipality",
+                        "SIGLA_UF": "State",
+                        "display_value": "Crop area (ha)",
+                    })
+                )
+                
+                c1, c2 = st.columns([1, 1])
+                with c1:
+                    st.metric("Total crop area tracked (ha)", f"{total_area:,.0f}")
+                with c2:
+                    st.write("Top municipalities by crop area (ha):")
+                    st.dataframe(
+                        top_municipalities.style.format({"Crop area (ha)": "{:,.0f}"}),
+                        use_container_width=True,
+                    )
+            except Exception as e:
+                st.error(f"Unable to render investor waste map: {e}")
 
 # ============================================================
 # FOOTER
