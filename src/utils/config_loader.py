@@ -29,6 +29,8 @@ except ImportError:
 
 from pathlib import Path
 from typing import Dict, Any, Optional
+import sys
+import os
 
 
 def load_config(config_path: Optional[str] = None) -> Dict[str, Any]:
@@ -61,24 +63,38 @@ def load_config(config_path: Optional[str] = None) -> Dict[str, Any]:
         # Check if template exists (config.yaml.template pattern)
         template_path = config_path.parent / f"{config_path.name}.template"
         
-        error_msg = (
-            f"Configuration file not found: {config_path}\n"
-            f"Project root: {project_root}\n"
-            f"Current working directory: {Path.cwd()}\n"
-        )
-        if template_path.exists():
-            error_msg += (
-                f"\nA template file is available at: {template_path}\n"
-                f"Please copy it to {config_path} and fill in your configuration values:\n"
-                f"  cp {template_path} {config_path}\n"
-                f"  # Then edit {config_path} with your GEE project ID, Google Drive folder IDs, etc."
+        # In deployment environments (like Streamlit Cloud), auto-create from template
+        is_deployment = os.getenv("STREAMLIT_SERVER_RUN_ON_PORT") is not None or os.getenv("STREAMLIT_SHARING") is not None
+        
+        if template_path.exists() and is_deployment:
+            # Auto-create config from template in deployment
+            import shutil
+            shutil.copy2(template_path, config_path)
+            print(
+                f"WARNING: Created {config_path} from template.\n"
+                f"Please update it with your actual configuration values (GEE project ID, Google Drive folder IDs, etc.).\n"
+                f"Current values are placeholders and may cause errors.",
+                file=sys.stderr
             )
         else:
-            error_msg += (
-                f"\nNo template file found at: {template_path}\n"
-                f"Please create {config_path} with your configuration."
+            error_msg = (
+                f"Configuration file not found: {config_path}\n"
+                f"Project root: {project_root}\n"
+                f"Current working directory: {Path.cwd()}\n"
             )
-        raise FileNotFoundError(error_msg)
+            if template_path.exists():
+                error_msg += (
+                    f"\nA template file is available at: {template_path}\n"
+                    f"Please copy it to {config_path} and fill in your configuration values:\n"
+                    f"  cp {template_path} {config_path}\n"
+                    f"  # Then edit {config_path} with your GEE project ID, Google Drive folder IDs, etc."
+                )
+            else:
+                error_msg += (
+                    f"\nNo template file found at: {template_path}\n"
+                    f"Please create {config_path} with your configuration."
+                )
+            raise FileNotFoundError(error_msg)
     
     with open(config_path, 'r', encoding='utf-8') as f:
         config = yaml.safe_load(f)
