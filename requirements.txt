@@ -39,3 +39,5 @@ python-dotenv>=1.0.0
 
 # Streamlit UI
 streamlit>=1.38.0
+
+openpyxl>=3.0.10
