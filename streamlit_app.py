@@ -113,13 +113,59 @@ with st.sidebar:
 # ============================================================
 # MAIN PIPELINE
 # ============================================================
-# Use session state to track if analysis is running
+# Use session state to track if analysis is running and store results
 if "analysis_running" not in st.session_state:
     st.session_state.analysis_running = False
 if "current_process" not in st.session_state:
     st.session_state.current_process = None
+if "analysis_results" not in st.session_state:
+    st.session_state.analysis_results = None  # Will store: {"df": df, "map_paths": {...}}
+if "investor_map_data" not in st.session_state:
+    st.session_state.investor_map_data = None  # Will store investor map data
+
+# ============================================================
+# Load and cache investor map (only once, always available)
+# ============================================================
+if st.session_state.investor_map_data is None:
+    boundaries_dir = PROJECT_ROOT / "data" / "boundaries" / "BR_Municipios_2024"
+    waste_csv_path = PROJECT_ROOT / "data" / "crop_data" / "Brazil_Municipality_Crop_Area_2024.csv"
+    
+    if boundaries_dir.exists() and waste_csv_path.exists():
+        try:
+            deck, merged_gdf = build_investor_waste_deck(
+                boundaries_dir, waste_csv_path, simplify_tolerance=0.01
+            )
+            
+            # Check if display_value column exists
+            if "display_value" not in merged_gdf.columns:
+                if "total_crop_area_ha" in merged_gdf.columns:
+                    merged_gdf["display_value"] = merged_gdf["total_crop_area_ha"]
+                else:
+                    st.session_state.investor_map_data = None
+            else:
+                total_area = merged_gdf["display_value"].sum()
+                top_municipalities = (
+                    merged_gdf.sort_values("display_value", ascending=False)
+                    .head(5)[["NM_MUN", "SIGLA_UF", "display_value"]]
+                    .rename(columns={
+                        "NM_MUN": "Municipality",
+                        "SIGLA_UF": "State",
+                        "display_value": "Crop area (ha)",
+                    })
+                )
+                
+                st.session_state.investor_map_data = {
+                    "deck": deck,
+                    "total_area": total_area,
+                    "top_municipalities": top_municipalities
+                }
+        except Exception as e:
+            # Store None to indicate failure, so we don't keep trying
+            st.session_state.investor_map_data = None
 
 if run_btn:
+    # Clear previous results when starting new analysis
+    st.session_state.analysis_results = None
     # Prevent multiple simultaneous runs
     if st.session_state.analysis_running:
         st.warning("Analysis is already running. Please wait for it to complete.")
@@ -249,6 +295,18 @@ if run_btn:
             st.session_state.analysis_running = False
             st.stop()
         
+        # Store results in session state for persistence
+        map_paths = {
+            "suitability": PROJECT_ROOT / config["output"]["html"] / "suitability_map.html",
+            "soc": PROJECT_ROOT / config["output"]["html"] / "soc_map_streamlit.html",
+            "ph": PROJECT_ROOT / config["output"]["html"] / "ph_map_streamlit.html",
+            "moisture": PROJECT_ROOT / config["output"]["html"] / "moisture_map_streamlit.html",
+        }
+        st.session_state.analysis_results = {
+            "df": df,
+            "map_paths": map_paths
+        }
+        
         # Reset running flag on successful completion
         st.session_state.analysis_running = False
         st.success("Analysis completed successfully!")
@@ -275,6 +333,13 @@ if run_btn:
         if "analysis_running" in st.session_state:
             st.session_state.analysis_running = False
 
+# ============================================================
+# DISPLAY RESULTS (from cache if available, or from new analysis)
+# ============================================================
+if st.session_state.analysis_results is not None:
+    df = st.session_state.analysis_results["df"]
+    map_paths = st.session_state.analysis_results["map_paths"]
+    
     # ============================================================
     # METRICS
     # ============================================================
@@ -392,7 +457,7 @@ if run_btn:
 
     with tab1:
         st.subheader("Interactive Suitability Map")
-        map_path = PROJECT_ROOT / config["output"]["html"] / "suitability_map.html"
+        map_path = map_paths.get("suitability", PROJECT_ROOT / config["output"]["html"] / "suitability_map.html")
         if map_path.exists():
             try:
                 with open(map_path, "r", encoding="utf-8") as f:
@@ -408,7 +473,7 @@ if run_btn:
     with tab2:
         st.subheader("Soil Organic Carbon Map")
         st.markdown("<p style='color: #333; margin-bottom: 1rem;'>SOC = average of surface and 10cm depth (g/kg).</p>", unsafe_allow_html=True)
-        soc_map_path = PROJECT_ROOT / config["output"]["html"] / "soc_map_streamlit.html"
+        soc_map_path = map_paths.get("soc", PROJECT_ROOT / config["output"]["html"] / "soc_map_streamlit.html")
         if soc_map_path.exists():
             try:
                 with open(soc_map_path, "r", encoding="utf-8") as f:
@@ -423,7 +488,7 @@ if run_btn:
     with tab3:
         st.subheader("Soil pH Map")
         st.markdown("<p style='color: #333; margin-bottom: 1rem;'>pH = average of surface and 10cm depth.</p>", unsafe_allow_html=True)
-        ph_map_path = PROJECT_ROOT / config["output"]["html"] / "ph_map_streamlit.html"
+        ph_map_path = map_paths.get("ph", PROJECT_ROOT / config["output"]["html"] / "ph_map_streamlit.html")
         if ph_map_path.exists():
             try:
                 with open(ph_map_path, "r", encoding="utf-8") as f:
@@ -438,7 +503,7 @@ if run_btn:
     with tab4:
         st.subheader("Soil Moisture Map")
         st.markdown("<p style='color: #333; margin-bottom: 1rem;'>Moisture shown as percentage (0–100%).</p>", unsafe_allow_html=True)
-        moisture_map_path = PROJECT_ROOT / config["output"]["html"] / "moisture_map_streamlit.html"
+        moisture_map_path = map_paths.get("moisture", PROJECT_ROOT / config["output"]["html"] / "moisture_map_streamlit.html")
         if moisture_map_path.exists():
             try:
                 with open(moisture_map_path, "r", encoding="utf-8") as f:
@@ -452,53 +517,29 @@ if run_btn:
 
     with investor_tab:
         st.subheader("Investor Crop Area Map")
-        boundaries_dir = PROJECT_ROOT / "data" / "boundaries" / "BR_Municipios_2024"
-        waste_csv_path = PROJECT_ROOT / "data" / "crop_data" / "Brazil_Municipality_Crop_Area_2024.csv"
-
-        if not boundaries_dir.exists():
-            st.warning("Municipality boundaries not found. Please add files to data/boundaries/BR_Municipios_2024/.")
-        elif not waste_csv_path.exists():
-            st.warning("Municipality crop CSV missing. Expected data/crop_data/Brazil_Municipality_Crop_Area_2024.csv")
+        # Investor map is loaded separately and cached (loaded once at app start)
+        investor_data = st.session_state.investor_map_data
+        if investor_data is not None:
+            st.pydeck_chart(investor_data["deck"], use_container_width=True)
+            c1, c2 = st.columns([1, 1])
+            with c1:
+                st.metric("Total crop area tracked (ha)", f"{investor_data['total_area']:,.0f}")
+            with c2:
+                st.write("Top municipalities by crop area (ha):")
+                st.dataframe(
+                    investor_data["top_municipalities"]
+                    .style.format({"Crop area (ha)": "{:,.0f}"}),
+                    use_container_width=True,
+                )
         else:
-            try:
-                deck, merged_gdf = build_investor_waste_deck(
-                    boundaries_dir, waste_csv_path, simplify_tolerance=0.01
-                )
-                st.pydeck_chart(deck, use_container_width=True)
-
-                # Check if display_value column exists
-                if "display_value" not in merged_gdf.columns:
-                    st.warning("display_value column not found in merged data. Using total_crop_area_ha instead.")
-                    if "total_crop_area_ha" in merged_gdf.columns:
-                        merged_gdf["display_value"] = merged_gdf["total_crop_area_ha"]
-                    else:
-                        st.error("No crop area data found in merged GeoDataFrame.")
-                        st.stop()
-
-                total_area = merged_gdf["display_value"].sum()
-                top_municipalities = (
-                    merged_gdf.sort_values("display_value", ascending=False)
-                    .head(5)[["NM_MUN", "SIGLA_UF", "display_value"]]
-                )
-
-                c1, c2 = st.columns([1, 1])
-                with c1:
-                    st.metric("Total crop area tracked (ha)", f"{total_area:,.0f}")
-                with c2:
-                    st.write("Top municipalities by crop area (ha):")
-                    st.dataframe(
-                        top_municipalities.rename(
-                            columns={
-                                "NM_MUN": "Municipality",
-                                "SIGLA_UF": "State",
-                                "display_value": "Crop area (ha)",
-                            }
-                        )
-                        .style.format({"Crop area (ha)": "{:,.0f}"}),
-                        use_container_width=True,
-                    )
-            except Exception as e:
-                st.error(f"Unable to render investor waste map: {e}")
+            boundaries_dir = PROJECT_ROOT / "data" / "boundaries" / "BR_Municipios_2024"
+            waste_csv_path = PROJECT_ROOT / "data" / "crop_data" / "Brazil_Municipality_Crop_Area_2024.csv"
+            if not boundaries_dir.exists():
+                st.warning("Municipality boundaries not found. Please add files to data/boundaries/BR_Municipios_2024/.")
+            elif not waste_csv_path.exists():
+                st.warning("Municipality crop CSV missing. Expected data/crop_data/Brazil_Municipality_Crop_Area_2024.csv")
+            else:
+                st.warning("Investor map data not available. Please check the data files.")
 
 # ============================================================
 # FOOTER
