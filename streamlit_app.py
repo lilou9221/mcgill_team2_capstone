@@ -178,7 +178,12 @@ if run_btn:
             for line in process.stdout:
                 if line:
                     logs.append(line)
-                    status.info(f"Running… {int(time.time()-start)}s elapsed")
+                    elapsed = int(time.time()-start)
+                    # Use custom styled box with white text
+                    status.markdown(
+                        f'<div style="background-color: #0E6BA8; padding: 0.75rem 1rem; border-radius: 0.5rem; color: white; font-weight: 500;">Running… {elapsed}s elapsed</div>',
+                        unsafe_allow_html=True
+                    )
                     # Show last 20 lines for better debugging
                     log_box.code("".join(logs[-20:]), language="bash")
         except Exception as read_error:
