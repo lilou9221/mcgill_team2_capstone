@@ -58,8 +58,9 @@ def load_config(config_path: Optional[str] = None) -> Dict[str, Any]:
             config_path = project_root / config_path
     
     if not config_path.exists():
-        # Check if template exists
-        template_path = config_path.parent / f"{config_path.stem}.template{config_path.suffix}"
+        # Check if template exists (config.yaml.template pattern)
+        template_path = config_path.parent / f"{config_path.name}.template"
+        
         error_msg = (
             f"Configuration file not found: {config_path}\n"
             f"Project root: {project_root}\n"
@@ -74,7 +75,8 @@ def load_config(config_path: Optional[str] = None) -> Dict[str, Any]:
             )
         else:
             error_msg += (
-                f"\nNo template file found. Please create {config_path} with your configuration."
+                f"\nNo template file found at: {template_path}\n"
+                f"Please create {config_path} with your configuration."
             )
         raise FileNotFoundError(error_msg)
     
