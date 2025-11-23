@@ -400,7 +400,7 @@ def verify_clipping_success(
     all_valid = True
     for file_path in clipped_files:
         if not file_path.exists():
-            print(f"  Warning: Clipped file not found: {file_path}")
+            print(f"  Clipped file not found: {file_path}")
             all_valid = False
             continue
         
@@ -408,7 +408,7 @@ def verify_clipping_success(
         try:
             with rasterio.open(file_path) as src:
                 if src.width == 0 or src.height == 0:
-                    print(f"  Warning: Clipped file has zero dimensions: {file_path}")
+                    print(f"  Clipped file has zero dimensions: {file_path}")
                     all_valid = False
                     continue
 
@@ -435,7 +435,7 @@ def verify_clipping_success(
                 valid_rows, valid_cols = np.nonzero(mask_array)
 
                 if valid_rows.size == 0:
-                    print(f"  Warning: No valid pixels found in {file_path}")
+                    print(f"  No valid pixels found in {file_path}")
                     all_valid = False
                     continue
 
@@ -458,13 +458,13 @@ def verify_clipping_success(
 
                 if max_distance_km > (expected_radius_km + edge_tolerance_km):
                     print(
-                        "  Warning: Valid pixels extend beyond expected radius "
+                        "  Valid pixels extend beyond expected radius "
                         f"(max distance = {max_distance_km:.2f} km, "
                         f"allowed <= {expected_radius_km + edge_tolerance_km:.2f} km)"
                     )
                     all_valid = False
         except Exception as e:
-            print(f"  Warning: Clipped file is invalid: {file_path} ({e})")
+            print(f"  Clipped file is invalid: {file_path} ({e})")
             all_valid = False
     
     return all_valid
@@ -521,7 +521,7 @@ def verify_clipped_data_integrity(
     all_valid = True
     for file_path in clipped_files:
         if not file_path.exists():
-            print(f"  Warning: Clipped file not found: {file_path}")
+            print(f"  Clipped file not found: {file_path}")
             all_valid = False
             continue
         
@@ -563,7 +563,7 @@ def verify_clipped_data_integrity(
                 
                 valid_count = np.count_nonzero(valid_mask)
                 if valid_count == 0:
-                    print(f"  Warning: {file_path.name} contains no valid pixels after clipping")
+                    print(f"  {file_path.name} contains no valid pixels after clipping")
                     all_valid = False
                     continue
 
@@ -588,7 +588,7 @@ def verify_clipped_data_integrity(
 
                 if not np.any(inside_circle_mask):
                     print(
-                        f"  Warning: {file_path.name} has no valid pixels within the expected circle "
+                        f"  {file_path.name} has no valid pixels within the expected circle "
                         f"(<= {expected_radius_km + edge_tolerance_km:.2f} km)."
                     )
                     all_valid = False
@@ -601,7 +601,7 @@ def verify_clipped_data_integrity(
                     unique_values = np.unique(valid_values)
                     if unique_values.size <= 1:
                         print(
-                            f"  Warning: {file_path.name} contains a single category "
+                            f"  {file_path.name} contains a single category "
                             "after clipping"
                         )
                         all_valid = False
@@ -610,14 +610,14 @@ def verify_clipped_data_integrity(
                     std_value = float(np.nanstd(valid_values))
                     if std_threshold is not None and std_value < std_threshold:
                         print(
-                            f"  Warning: {file_path.name} standard deviation ({std_value:.4f}) "
+                            f"  {file_path.name} standard deviation ({std_value:.4f}) "
                             f"is below threshold ({std_threshold})"
                         )
                         all_valid = False
                 # If type is unknown, skip checks
         
         except Exception as exc:  # pragma: no cover - runtime I/O guard
-            print(f"  Warning: Unable to inspect {file_path} ({type(exc).__name__}: {exc})")
+            print(f"  Unable to inspect {file_path} ({type(exc).__name__}: {exc})")
             all_valid = False
     
     return all_valid

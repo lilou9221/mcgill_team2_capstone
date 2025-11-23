@@ -9,7 +9,7 @@ This tool analyzes soil properties (moisture, temperature, organic carbon, pH) t
 - **Soil Organic Carbon (SOC) Map**: Displays SOC values (g/kg) aggregated by H3 hexagons, calculated as the average of b0 and b10 depth layers
 - **Soil pH Map**: Displays pH values aggregated by H3 hexagons, calculated as the average of b0 and b10 depth layers, using a diverging color scheme (light orange-yellow for acidic, yellow for neutral, blue for alkaline)
 - **Soil Moisture Map**: Displays soil moisture values aggregated by H3 hexagons
-- **Investor Crop Area Map**: Municipality-level map showing total crop area per municipality
+- **Investor Crop Area Map**: Municipality-level interactive map with data type selector (crop area, crop production, crop residue) showing total values per municipality. Displays "N/A" for production/residue when crop area exists but production/residue data is unavailable.
 
 ## Features
 
@@ -26,7 +26,7 @@ This tool analyzes soil properties (moisture, temperature, organic carbon, pH) t
   - **Soil Organic Carbon (SOC) Map**: Interactive map showing SOC values (g/kg) aggregated by H3 hexagons, calculated as the average of b0 and b10 depth layers
   - **Soil pH Map**: Interactive map showing pH values aggregated by H3 hexagons, calculated as the average of b0 and b10 depth layers, with a diverging color scheme (light orange-yellow for acidic soils <5.5, yellow for neutral ~7, blue for alkaline soils >7.5)
   - **Soil Moisture Map**: Interactive map showing soil moisture values aggregated by H3 hexagons
-  - **Investor Crop Area Map**: Municipality-level map showing total crop area per municipality
+  - **Investor Crop Area Map**: Municipality-level interactive map with data type selector (crop area, crop production, crop residue) showing total values per municipality. Displays "N/A" for production/residue when crop area exists but production/residue data is unavailable.
   - All maps are generated directly from CSV data using PyDeck and auto-open in browser (configurable)
 - **Auditable Workflow**: Each stage can be run independently, and helper utilities exist to verify intermediate results.
 
@@ -226,10 +226,12 @@ The core pipeline lives in `src/main.py` and wires high-level helpers from each 
 5. **Hex indexing** (`process_dataframes_with_h3`) — injects `h3_index` at the requested resolution using vectorized operations (5-10x faster than previous implementation). Boundary geometry is excluded during indexing and merging to optimize memory usage. **Cached** to speed up re-runs (see Caching System section).
 6. **Data merging and aggregation** (`merge_and_aggregate_soil_data`) — merges property tables (without boundaries), aggregates by hex, and generates boundaries for aggregated hexagons only.
 7. **Biochar suitability scoring** (`calculate_biochar_suitability_scores`) — calculates biochar suitability scores based on soil quality metrics. For SOC and pH, averages both b0 (surface) and b10 (10cm depth) layers to provide a more representative soil profile assessment. Uses weighted scoring for moisture, organic carbon, pH, and temperature properties.
-8. **Visualisation** — renders three interactive PyDeck maps directly from CSV data:
+8. **Visualisation** — renders interactive PyDeck maps directly from CSV data:
    - **Biochar Suitability Map** (`create_biochar_suitability_map`) — saves `biochar_suitability_map.html` and `suitability_map.html` (Streamlit-compatible copy)
    - **Soil Organic Carbon Map** (`create_soc_map`) — saves `soc_map.html` and `soc_map_streamlit.html` showing SOC values aggregated by H3 hexagons
    - **Soil pH Map** (`create_ph_map`) — saves `ph_map.html` and `ph_map_streamlit.html` showing pH values aggregated by H3 hexagons with diverging color scheme
+   - **Soil Moisture Map** (`create_moisture_map`) — saves `moisture_map.html` and `moisture_map_streamlit.html` showing soil moisture values aggregated by H3 hexagons
+   - **Investor Crop Area Map** (`build_investor_waste_deck_html`) — saves `investor_crop_area_map.html` with interactive data type selector (crop area, crop production, crop residue) showing municipality-level totals. Displays "N/A" for production/residue when crop area exists but production/residue data is unavailable
    - All maps are saved under `output/html/` and auto-open in browser (configurable)
 
 Verification helpers such as `verify_clipping_success` and `verify_clipped_data_integrity` can be run independently when you need to inspect intermediate outputs.
@@ -245,7 +247,10 @@ Verification helpers such as `verify_clipping_success` and `verify_clipped_data_
    - `output/html/soc_map_streamlit.html` — Streamlit-compatible copy of SOC map
    - `output/html/ph_map.html` — Soil pH map
    - `output/html/ph_map_streamlit.html` — Streamlit-compatible copy of pH map
-6. **Validate (optional)**: Run the helper verification functions if you need to sanity-check inputs or radius coverage.
+   - `output/html/moisture_map.html` — Soil Moisture map
+   - `output/html/moisture_map_streamlit.html` — Streamlit-compatible copy of moisture map
+   - `output/html/investor_crop_area_map.html` — Investor crop area map with data type selector
+4. **Validate (optional)**: Run the helper verification functions if you need to sanity-check inputs or radius coverage.
 
 ## Data Sources
 
@@ -360,6 +365,9 @@ The tool generates:
   - `soc_map_streamlit.html` - Streamlit-compatible copy of SOC map
   - `ph_map.html` - Main interactive Soil pH map showing pH values aggregated by H3 hexagons
   - `ph_map_streamlit.html` - Streamlit-compatible copy of pH map
+  - `moisture_map.html` - Main interactive Soil Moisture map showing soil moisture values aggregated by H3 hexagons
+  - `moisture_map_streamlit.html` - Streamlit-compatible copy of moisture map
+  - `investor_crop_area_map.html` - Interactive municipality-level map with data type selector (crop area, crop production, crop residue)
 - **Logs**: Application logs in `logs/`
 
 ### Streamlit Integration
@@ -369,10 +377,13 @@ The tool generates files specifically for Streamlit web interface compatibility:
 - `suitability_map.html` is a copy of the main suitability map file for Streamlit to display
 - `soc_map_streamlit.html` is a Streamlit-compatible copy of the SOC map (pre-generated during analysis)
 - `ph_map_streamlit.html` is a Streamlit-compatible copy of the pH map (pre-generated during analysis)
-- Streamlit interface includes three tabs:
+- `moisture_map_streamlit.html` is a Streamlit-compatible copy of the moisture map (pre-generated during analysis)
+- Streamlit interface includes five tabs:
   - **Biochar Suitability**: Displays the suitability map with metrics and results table
   - **Soil Organic Carbon**: Displays the SOC map showing organic carbon values aggregated by H3 hexagons
   - **Soil pH**: Displays the pH map showing pH values aggregated by H3 hexagons with diverging color scheme
+  - **Soil Moisture**: Displays the moisture map showing soil moisture values aggregated by H3 hexagons
+  - **Investor Crop Area**: Displays municipality-level map with interactive data type selector (crop area, crop production, crop residue). Shows "N/A" for production/residue when crop area exists but production/residue data is unavailable
 - All files are automatically generated during the analysis pipeline
 
 ## Troubleshooting Highlights

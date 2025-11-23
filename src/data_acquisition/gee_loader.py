@@ -367,7 +367,7 @@ class GEEDataLoader:
                     print(f"  Already in {target_crs}")
 
             except Exception as e:
-                print(f"  Warning: Could not retrieve CRS info: {e}")
+                print(f"  Could not retrieve CRS info: {e}")
                 print(f"  Attempting reprojection to {target_crs} anyway")
                 image = image.resample(resample_method).reproject(crs=target_crs)
 
@@ -553,14 +553,14 @@ class GEEDataLoader:
             try:
                 available_bands = export_image.bandNames().getInfo()
             except Exception as e:
-                print(f"  Warning: Could not check bands for {name}: {e}")
+                print(f"  Could not check bands for {name}: {e}")
                 available_bands = []
 
             if name in MULTI_BAND_EXPORTS:
                 desired_bands = MULTI_BAND_EXPORTS[name]
                 bands_to_export = [band for band in desired_bands if not available_bands or band in available_bands]
                 if not bands_to_export:
-                    print(f"  Warning: None of the desired bands {desired_bands} found for {name}, skipping dataset.")
+                    print(f"  None of the desired bands {desired_bands} found for {name}, skipping dataset.")
                     continue
             elif available_bands:
                 # Default to first available band for other multi-band images

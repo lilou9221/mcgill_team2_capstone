@@ -339,7 +339,7 @@ def calculate_biochar_suitability_scores(
     invalid_count = (~valid_mask).sum()
     
     if valid_count == 0:
-        print("  Warning: No valid rows found (missing SOC or pH)")
+        print("  No valid rows found (missing SOC or pH data)")
         # Return DataFrame with NaN scores
         result_cols = {
             'biochar_suitability_score': np.nan,

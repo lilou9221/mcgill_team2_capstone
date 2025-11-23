@@ -55,7 +55,7 @@ def merge_csv_files_by_coordinates(
     dataframes = []
     for csv_file in csv_files:
         if not csv_file.exists():
-            print(f"Warning: CSV file not found: {csv_file}")
+            print(f"CSV file not found: {csv_file}")
             continue
         
         try:
@@ -194,10 +194,10 @@ def merge_and_aggregate_soil_data(
         print(f"\nReceived {len(dataframes)} DataFrame(s) to process")
         for name, df in dataframes.items():
             if df.empty:
-                print(f"  Warning: DataFrame '{name}' is empty, skipping")
+                print(f"  DataFrame '{name}' is empty, skipping")
                 continue
             if lon_column not in df.columns or lat_column not in df.columns:
-                print(f"  Warning: DataFrame '{name}' missing coordinates, skipping")
+                print(f"  DataFrame '{name}' missing coordinates, skipping")
                 continue
             # Round coordinates in-place to avoid copy (if possible)
             df[lon_column] = df[lon_column].round(6)
@@ -218,10 +218,10 @@ def merge_and_aggregate_soil_data(
             try:
                 df = pd.read_csv(csv_file)
                 if df.empty:
-                    print(f"  Warning: {csv_file.name} is empty, skipping")
+                    print(f"  {csv_file.name} is empty, skipping")
                     continue
                 if lon_column not in df.columns or lat_column not in df.columns:
-                    print(f"  Warning: {csv_file.name} missing coordinates, skipping")
+                    print(f"  {csv_file.name} missing coordinates, skipping")
                     continue
 
                 df[lon_column] = df[lon_column].round(6)
@@ -310,7 +310,7 @@ def merge_and_aggregate_soil_data(
         agg_dict[lat_column] = 'mean'
         
         if not agg_dict:
-            print("  Warning: No numeric columns to aggregate")
+            print("  No numeric columns to aggregate")
             data_for_scoring = merged_df
         else:
             # Group by H3 index and aggregate

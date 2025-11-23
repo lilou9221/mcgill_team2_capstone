@@ -2,8 +2,20 @@
 Residual_Carbon - Main Entry Point
 Biochar Suitability Mapping Tool
 
-Processes manually provided GeoTIFF data files from data/raw/ directory.
+This module serves as the main entry point for the biochar suitability mapping pipeline.
+It orchestrates the complete workflow from raw GeoTIFF data to interactive map generation.
+
+The pipeline processes manually provided GeoTIFF data files from the data/raw/ directory.
 Data acquisition is done manually outside the codebase.
+
+Workflow:
+1. Validates and filters GeoTIFF files
+2. Clips rasters to area of interest (if specified)
+3. Converts rasters to DataFrames
+4. Adds H3 hexagonal indexes for spatial aggregation
+5. Merges and aggregates soil property data
+6. Calculates biochar suitability scores
+7. Generates interactive HTML maps (suitability, SOC, pH, moisture, investor crop area)
 """
 import argparse
 import sys
@@ -30,9 +42,9 @@ from src.utils.browser import open_html_in_browser
 from src.map_generators.pydeck_maps.municipality_waste_map import (
     build_investor_waste_deck_html,
 )
-import shutil
 
-# Biochar recommender available for future integration
+# Future feature: Biochar recommender integration
+# When ready, uncomment the following line to enable biochar recommendations:
 # from src.analyzers.biochar_recommender import recommend_biochar
 
 def ensure_rasters_acquired(raw_dir: Path) -> List[Path]:
@@ -40,6 +52,22 @@ def ensure_rasters_acquired(raw_dir: Path) -> List[Path]:
     Validate that required GeoTIFF files are present in data/raw/ directory.
     
     Filters to only scoring-required datasets and preferred resolutions.
+    Excludes lower resolution files when higher resolution versions are available.
+    
+    Parameters
+    ----------
+    raw_dir : Path
+        Directory containing raw GeoTIFF files
+        
+    Returns
+    -------
+    List[Path]
+        List of validated GeoTIFF file paths
+        
+    Raises
+    ------
+    FileNotFoundError
+        If no GeoTIFF files are found or no valid scoring datasets are present
     """
     all_tif_files = sorted(raw_dir.glob("*.tif"))
     all_tif_files.extend(sorted(raw_dir.glob("*.tiff")))
@@ -76,7 +104,32 @@ def ensure_rasters_acquired(raw_dir: Path) -> List[Path]:
     return tif_files
 
 
-def main():
+def main() -> int:
+    """
+    Main entry point for the biochar suitability mapping pipeline.
+    
+    Processes GeoTIFF files, calculates suitability scores, and generates
+    interactive maps. Supports both full-state analysis and targeted circular
+    area of interest analysis.
+    
+    Command-line Arguments
+    ----------------------
+    --lat : float, optional
+        Latitude for area of interest (default: None, uses full state)
+    --lon : float, optional
+        Longitude for area of interest (default: None, uses full state)
+    --radius : float, optional
+        Radius in kilometers for circular analysis (default: 100)
+    --h3-resolution : int, optional
+        H3 resolution for spatial aggregation (default: 7)
+    --config : str, optional
+        Path to configuration file (default: "configs/config.yaml")
+    
+    Returns
+    -------
+    int
+        Exit code (0 for success, 1 for failure)
+    """
     parser = argparse.ArgumentParser(description="Biochar Suitability Mapping Tool")
     parser.add_argument("--lat", type=float, default=None)
     parser.add_argument("--lon", type=float, default=None)

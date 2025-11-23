@@ -221,7 +221,7 @@ def process_dataframes_with_h3(
         # Determine cache directory
         if cache_dir is None:
             if processed_dir is None:
-                print("  Warning: use_cache=True but no cache_dir or processed_dir provided, skipping cache")
+                print("  use_cache=True but no cache_dir or processed_dir provided, skipping cache")
             else:
                 actual_cache_dir = get_cache_dir(processed_dir, cache_type="h3_indexes")
         else:

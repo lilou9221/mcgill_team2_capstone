@@ -88,13 +88,13 @@ PASS: Project initialized successfully
             tif_files = list(raw_dir.glob("*.tif"))
             print(f"  GeoTIFF files in raw/: {len(tif_files)}")
         else:
-            print("  Warning: raw/ directory does not exist")
+            print("  raw/ directory does not exist (will be created on first run)")
         
         if processed_dir.exists():
             csv_files = list(processed_dir.glob("*.csv"))
             print(f"  CSV files in processed/: {len(csv_files)}")
         else:
-            print("  Warning: processed/ directory does not exist")
+            print("  processed/ directory does not exist (will be created on first run)")
         
     except Exception as e:
         print(f"  FAIL: Error initializing project: {type(e).__name__}: {e}")

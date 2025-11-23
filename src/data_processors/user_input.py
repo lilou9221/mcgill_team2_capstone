@@ -54,9 +54,9 @@ def get_user_area_of_interest(
     ValueError
         If coordinates are invalid or outside Mato Grosso bounds
     """
-    # If only one coordinate provided, warn and use full state
+    # If only one coordinate provided, use full state
     if (lat is not None and lon is None) or (lat is None and lon is not None):
-        print("Warning: Only one coordinate provided. Using full Mato Grosso state.")
+        print("Only one coordinate provided. Using full Mato Grosso state.")
         return AreaOfInterest(
             lat=None,
             lon=None,

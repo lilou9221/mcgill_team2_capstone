@@ -24,7 +24,7 @@ def open_html_in_browser(file_path: Path) -> bool:
         True if successful, False otherwise
     """
     if not file_path.exists():
-        print(f"Warning: HTML file not found: {file_path}")
+        print(f"HTML file not found: {file_path}")
         return False
     
     try:
@@ -40,7 +40,7 @@ def open_html_in_browser(file_path: Path) -> bool:
         return True
     
     except Exception as e:
-        print(f"Warning: Could not open HTML file in browser: {e}")
+        print(f"Could not open HTML file in browser: {e}")
         print(f"  File path: {file_path}")
         print(f"  Please open manually: {file_path}")
         return False

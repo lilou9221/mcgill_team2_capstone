@@ -115,7 +115,7 @@ def _simplify_geometries(gdf: gpd.GeoDataFrame, tolerance: float = 0.01) -> gpd.
         )
         gdf = gdf.set_geometry(simplified_series)
     except Exception as exc:
-        print(f"Warning: could not simplify geometries ({exc})")
+        print(f"Could not simplify geometries ({exc})")
     return gdf
 
 
