@@ -551,8 +551,12 @@ if st.session_state.analysis_results is not None:
                 # Display metrics for all three data types
                 # Production and residue are already integers, round for display
                 total_area = merged_gdf["total_crop_area_ha"].sum()
-                total_production = int(round(merged_gdf["total_crop_production_ton"].sum()))
-                total_residue = int(round(merged_gdf["total_crop_residue_ton"].sum()))
+                total_production_sum = int(round(merged_gdf["total_crop_production_ton"].sum()))
+                total_residue_sum = int(round(merged_gdf["total_crop_residue_ton"].sum()))
+                
+                # Format totals - show as number (not N/A) since it's a sum across all municipalities
+                total_production_str = f"{total_production_sum:,.0f}"
+                total_residue_str = f"{total_residue_sum:,.0f}"
                 
                 # Show top municipalities based on selected data type
                 if data_type == "area":
@@ -565,37 +569,57 @@ if st.session_state.analysis_results is not None:
                     top_col = "total_crop_residue_ton"
                     col_label = "Crop residue (ton)"
                 
+                # Sort by numeric value, then format for display
                 top_municipalities = (
                     merged_gdf.sort_values(top_col, ascending=False)
-                    .head(5)[["NM_MUN", "SIGLA_UF", top_col]]
-                    .rename(columns={
+                    .head(5)[["NM_MUN", "SIGLA_UF", top_col, "total_crop_area_ha"]]
+                    .copy()
+                )
+                
+                # Round production and residue to integers, show N/A when appropriate
+                if data_type in ["production", "residue"]:
+                    # Format: show N/A if area > 0 but production/residue = 0
+                    top_municipalities[col_label] = top_municipalities.apply(
+                        lambda row: "N/A" if row["total_crop_area_ha"] > 0 and row[top_col] == 0 else int(round(row[top_col])),
+                        axis=1
+                    )
+                    # Drop the helper column and rename
+                    top_municipalities = top_municipalities.drop(columns=[top_col, "total_crop_area_ha"])
+                    top_municipalities = top_municipalities.rename(columns={
+                        "NM_MUN": "Municipality",
+                        "SIGLA_UF": "State",
+                    })
+                else:
+                    top_municipalities = top_municipalities.drop(columns=["total_crop_area_ha"])
+                    top_municipalities = top_municipalities.rename(columns={
                         "NM_MUN": "Municipality",
                         "SIGLA_UF": "State",
                         top_col: col_label,
                     })
-                )
-                # Round production and residue to integers
-                if data_type in ["production", "residue"]:
-                    top_municipalities[col_label] = top_municipalities[col_label].round().astype(int)
                 
                 c1, c2, c3 = st.columns([1, 1, 1])
                 with c1:
                     st.metric("Total crop area (ha)", f"{total_area:,.0f}")
                 with c2:
-                    st.metric("Total production (ton)", f"{total_production:,.0f}")
+                    st.metric("Total production (ton)", total_production_str)
                 with c3:
-                    st.metric("Total residue (ton)", f"{total_residue:,.0f}")
+                    st.metric("Total residue (ton)", total_residue_str)
                 
                 st.write(f"Top municipalities by {col_label}:")
-                # Format based on data type - integers for production/residue, decimals for area
+                # Format based on data type - handle N/A for production/residue
                 if data_type in ["production", "residue"]:
-                    format_dict = {col_label: "{:,.0f}"}
+                    # Don't format if values contain "N/A" strings
+                    # The dataframe already has N/A as strings where appropriate
+                    st.dataframe(
+                        top_municipalities,
+                        use_container_width=True,
+                    )
                 else:
                     format_dict = {col_label: "{:,.0f}"}
-                st.dataframe(
-                    top_municipalities.style.format(format_dict),
-                    use_container_width=True,
-                )
+                    st.dataframe(
+                        top_municipalities.style.format(format_dict),
+                        use_container_width=True,
+                    )
             except Exception as e:
                 st.error(f"Unable to render investor waste map: {e}")
                 st.code(traceback.format_exc())

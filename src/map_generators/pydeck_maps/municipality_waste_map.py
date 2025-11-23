@@ -136,6 +136,11 @@ def prepare_investor_crop_area_geodata(
     merged["total_crop_area_ha"] = merged["total_crop_area_ha"].fillna(0.0)
     merged["total_crop_production_ton"] = merged["total_crop_production_ton"].fillna(0).astype(int)
     merged["total_crop_residue_ton"] = merged["total_crop_residue_ton"].fillna(0).astype(int)
+    
+    # Mark when production/residue should show N/A (area > 0 but production/residue = 0)
+    merged["production_is_na"] = (merged["total_crop_area_ha"] > 0) & (merged["total_crop_production_ton"] == 0)
+    merged["residue_is_na"] = (merged["total_crop_area_ha"] > 0) & (merged["total_crop_residue_ton"] == 0)
+    
     # Default display value is crop area (maintains current behavior)
     merged["display_value"] = merged["total_crop_area_ha"]
     return merged
@@ -190,10 +195,24 @@ def create_municipality_waste_deck(
     merged_gdf["fill_color"] = merged_gdf[value_col].apply(
         lambda v: _value_to_color(v, vmax)
     )
+    
     # Round production and residue to nearest integer for display
-    if data_type in ["production", "residue"]:
-        merged_gdf["display_value"] = merged_gdf[value_col].round().astype(int)
-    else:
+    # Format as N/A if area > 0 but production/residue = 0
+    if data_type == "production":
+        merged_gdf["display_value_raw"] = merged_gdf[value_col].round().astype(int)
+        # Format as string: show "N/A" if area > 0 but production = 0, otherwise show the number
+        merged_gdf["display_value"] = merged_gdf.apply(
+            lambda row: "N/A" if row["production_is_na"] else str(row["display_value_raw"]),
+            axis=1
+        )
+    elif data_type == "residue":
+        merged_gdf["display_value_raw"] = merged_gdf[value_col].round().astype(int)
+        # Format as string: show "N/A" if area > 0 but residue = 0, otherwise show the number
+        merged_gdf["display_value"] = merged_gdf.apply(
+            lambda row: "N/A" if row["residue_is_na"] else str(row["display_value_raw"]),
+            axis=1
+        )
+    else:  # area
         merged_gdf["display_value"] = merged_gdf[value_col]
 
     # Include only necessary columns in GeoJSON (optimize memory)
