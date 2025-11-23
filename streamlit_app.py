@@ -76,7 +76,6 @@ st.markdown("""
 # HEADER + SIDEBAR
 # ============================================================
 st.markdown('<div class="header-title">Biochar Suitability Mapper</div>', unsafe_allow_html=True)
-st.markdown('<div class="header-subtitle">Precision mapping for farmers and investors – Mato Grosso, Brazil</div>', unsafe_allow_html=True)
 
 with st.sidebar:
     st.markdown("### Analysis Area")
