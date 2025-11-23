@@ -255,8 +255,6 @@ Verification helpers such as `verify_clipping_success` and `verify_clipped_data_
 - **Soil Type**: OpenLandMap (OpenLandMap/SOL/SOL_TEXTURE-CLASS_USDA-TT_M/v02) - Available in Google Drive but not imported for processing
 - **Land Cover**: ESA WorldCover (ESA/WorldCover/v100) - Available in Google Drive but not imported for processing
 
-**Note**: All datasets are exported to Google Drive, but only scoring-required datasets are imported and processed to optimize performance.
-
 ### SMAP Downscaling
 
 - During `load_datasets()` the rasters are resampled to 250 m with bicubic interpolation (see `src/data/acquisition/smap_downscaling.py`).
