@@ -522,9 +522,8 @@ if st.session_state.get("analysis_results"):
 
                 # Use a unique, stable key to prevent tab resets when radio button changes
                 data_type = st.radio(
-                    "Display:",
-                    ["area", "production", "residue"],
-                    format_func=lambda x: {"area":"Planted Area (ha)", "production":"Production (tons)", "residue":"Residue (tons)"}[x],
+                    ["Crop area", "Crop production", "Crop residue"],
+                    format_func=lambda x: {"Crop area":"Crop Area (ha)", "Crop production":"Crop Production (tons)", "Crop residue":"Crop Residue (tons)"}[x],
                     horizontal=True,
                     key="investor_pov_data_type_radio"
                 )
