@@ -232,7 +232,7 @@ with st.sidebar:
         c1, c2 = st.columns(2)
         with c1: lat = st.number_input("Latitude", value=-13.0, format="%.6f")
         with c2: lon = st.number_input("Longitude", value=-56.0, format="%.6f")
-        radius = st.slider("Radius (km)", 25, 150, 100, 25)
+        radius = st.slider("Radius (km)", 25, 100, 100, 25)
     h3_res = st.slider("H3 Resolution", 5, 9, 7)
     run_btn = st.button("Run Analysis", type="primary", use_container_width=True)
     if st.button("Reset Cache & Restart"):
@@ -402,7 +402,12 @@ if st.session_state.get("analysis_results"):
                         </div>
                         <div style="text-align: center; margin-top: 4px; font-size: 0.9rem; color: #666;">g/kg</div>
                     </div>
-                    <p style="font-size: 0.9rem; color: #666; margin-top: 12px;"><em>Colors represent absolute values (consistent grading across the state)</em></p>
+                    <div style="margin-top: 12px; font-size: 0.9rem; color: #666;">
+                        <strong>Quality Thresholds (g/kg):</strong><br>
+                        &lt; 10 g/kg (Very Poor) | 10-20 g/kg (Poor) | 20-40 g/kg (Moderate) | ≥ 40 g/kg (Good)<br>
+                        <em>Optimal: ≥ 40 g/kg (≥ 4%)</em>
+                    </div>
+                    <p style="font-size: 0.9rem; color: #666; margin-top: 8px;"><em>Colors represent absolute values (consistent grading across the state)</em></p>
                 </div>
             """, unsafe_allow_html=True)
 
@@ -424,7 +429,9 @@ if st.session_state.get("analysis_results"):
                         </div>
                     </div>
                     <div style="margin-top: 12px; font-size: 0.9rem; color: #666;">
-                        <strong>Ideal range:</strong> 5.5–7.0 (yellow)
+                        <strong>Quality Thresholds:</strong><br>
+                        &lt; 3.0 or &gt; 9.0 (Very Poor) | 3.0-4.5 or 8.0-9.0 (Poor) | 4.5-6.0 or 7.0-8.0 (Moderate) | 6.0-7.0 (Good)<br>
+                        <em>Optimal range: 6.0-7.0 (yellow)</em>
                     </div>
                 </div>
             """, unsafe_allow_html=True)
@@ -445,7 +452,12 @@ if st.session_state.get("analysis_results"):
                             <div class="gradient-label">100%</div>
                         </div>
                     </div>
-                    <p style="font-size: 0.9rem; color: #666; margin-top: 12px;"><em>Colors represent absolute values (consistent grading across the state)</em></p>
+                    <div style="margin-top: 12px; font-size: 0.9rem; color: #666;">
+                        <strong>Quality Thresholds:</strong><br>
+                        &lt; 20% or &gt; 80% (Very Poor) | 20-30% or 70-80% (Poor) | 30-50% or 60-70% (Moderate) | 50-60% (Good)<br>
+                        <em>Optimal range: 50-60%</em>
+                    </div>
+                    <p style="font-size: 0.9rem; color: #666; margin-top: 8px;"><em>Colors represent absolute values (consistent grading across the state)</em></p>
                 </div>
             """, unsafe_allow_html=True)
 
