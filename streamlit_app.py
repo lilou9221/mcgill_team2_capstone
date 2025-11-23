@@ -1,5 +1,5 @@
 # ============================================================
-# STREAMLIT APP – FINAL POLISHED & LIGHTNING-FAST VERSION
+# FINAL VERSION – PURE WHITE BACKGROUND (NO DARK MODE)
 # ============================================================
 import streamlit as st
 import pandas as pd
@@ -10,9 +10,7 @@ import os
 import time
 import traceback
 
-# ============================================================
-# PAGE CONFIG + SESSION STATE
-# ============================================================
+# Force white background + disable dark mode completely
 st.set_page_config(
     page_title="Biochar Suitability Mapper",
     page_icon="Leaf",
@@ -20,6 +18,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+# Session state
 for key, default in [
     ("analysis_running", False),
     ("current_process", None),
@@ -30,9 +29,7 @@ for key, default in [
     if key not in st.session_state:
         st.session_state[key] = default
 
-# ============================================================
-# PROJECT SETUP
-# ============================================================
+# Project setup
 PROJECT_ROOT = Path(__file__).parent.resolve()
 sys.path.insert(0, str(PROJECT_ROOT))
 from src.utils.config_loader import load_config
@@ -59,22 +56,41 @@ def get_config():
 config = get_config()
 
 # ============================================================
-# BEAUTIFUL STYLING (my final design)
+# FORCE WHITE BACKGROUND – NO DARK MODE EVER
 # ============================================================
 st.markdown("""
 <style>
+    /* Force white background everywhere */
+    .stApp, .main, [data-testid="stAppViewContainer"], [data-testid="stDecoration"] {
+        background-color: white !important;
+        background: white !important;
+        color: #333 !important;
+    }
+    /* Remove any dark theme */
+    [data-testid="stHeader"], .css-1d391kg, .css-1cpxqw2 {
+        background: white !important;
+    }
+    /* Sidebar stays dark green as you wanted */
+    section[data-testid="stSidebar"] {
+        background-color: #173a30 !important;
+    }
+    section[data-testid="stSidebar"] * {
+        color: white !important;
+    }
+    /* Fonts & colors */
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
     html, body, .stApp {font-family: 'Inter', sans-serif;}
     .header-title {font-size: 3.4rem; font-weight: 700; text-align: center; color: #173a30; margin: 2rem 0 0.5rem;}
     .header-subtitle {text-align: center; color: #444; font-size: 1.3rem; margin-bottom: 3rem;}
-    section[data-testid="stSidebar"] {background-color: #173a30 !important;}
-    section[data-testid="stSidebar"] * {color: white !important;}
-    .stButton > button {background-color: #64955d !important; color: white !important; border-radius: 999px; font-weight: 600; height: 3.2em;}
+    .stButton > button {
+        background-color: #64955d !important; color: white !important;
+        border-radius: 999px; font-weight: 600; height: 3.2em;
+    }
     .stButton > button:hover {background-color: #527a48 !important;}
     .metric-card {
         background: white; padding: 1.8rem; border-radius: 14px;
         border-left: 6px solid #64955d; box-shadow: 0 6px 20px rgba(0,0,0,0.08);
-        text-align: center;
+        text-align: center; border: 1px solid #eee;
     }
     .metric-card h4 {margin: 0 0 0.5rem; color: #173a30; font-size: 0.95rem; text-transform: uppercase; letter-spacing: 0.8px;}
     .metric-card p {margin: 0; font-size: 2.4rem; font-weight: 700; color: #333;}
@@ -91,15 +107,11 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# ============================================================
-# HEADER
-# ============================================================
+# Header
 st.markdown('<div class="header-title">Biochar Suitability Mapper</div>', unsafe_allow_html=True)
 st.markdown('<div class="header-subtitle">Precision soil health & crop residue intelligence for sustainable biochar in Mato Grosso</div>', unsafe_allow_html=True)
 
-# ============================================================
-# SIDEBAR
-# ============================================================
+# Sidebar
 with st.sidebar:
     st.markdown("### Analysis Settings")
     use_coords = st.checkbox("Analyze around a location", value=True)
@@ -116,9 +128,7 @@ with st.sidebar:
         st.session_state.clear()
         st.rerun()
 
-# ============================================================
-# RUN ANALYSIS PIPELINE (your code — untouched)
-# ============================================================
+# Run analysis (your original pipeline)
 if run_btn:
     st.session_state.analysis_results = None
     if st.session_state.analysis_running:
@@ -182,9 +192,7 @@ if run_btn:
     finally:
         st.session_state.analysis_running = False
 
-# ============================================================
-# DISPLAY RESULTS — MY FINAL VISUALS + YOUR LOGIC
-# ============================================================
+# Display results
 if st.session_state.get("analysis_results"):
     csv_path = Path(st.session_state.analysis_results["csv_path"])
     df = pd.read_csv(csv_path)
@@ -192,12 +200,9 @@ if st.session_state.get("analysis_results"):
 
     farmer_tab, investor_tab = st.tabs(["Farmer Perspective", "Investor Perspective"])
 
-    # ========================================================
-    # FARMER TAB — BEAUTIFUL METRICS + LEGENDS
-    # ========================================================
+    # Farmer tab
     with farmer_tab:
         st.markdown("### Soil Health & Biochar Suitability Insights")
-
         col1, col2, col3 = st.columns(3)
         with col1:
             st.markdown(f'<div class="metric-card"><h4>Hexagons Analyzed</h4><p>{len(df):,}</p></div>', unsafe_allow_html=True)
@@ -233,7 +238,6 @@ if st.session_state.get("analysis_results"):
                         <div class="legend-item"><span class="legend-color" style="background:#90EE90;"></span>6–8 High</div>
                         <div class="legend-item"><span class="legend-color" style="background:#006400;"></span>8–10 Very High</div>
                     </div>
-                    <p><strong>Higher score = better long-term biochar performance</strong></p>
                 </div>
             """, unsafe_allow_html=True)
 
@@ -304,9 +308,7 @@ if st.session_state.get("analysis_results"):
             use_container_width=True
         )
 
-    # ========================================================
-    # INVESTOR TAB — LAZY IMPORT = INSTANT STARTUP
-    # ========================================================
+    # Investor tab – lazy import = instant startup
     with investor_tab:
         st.markdown("### Crop Residue Availability – Biochar Feedstock Opportunity")
 
@@ -317,7 +319,6 @@ if st.session_state.get("analysis_results"):
             st.warning("Investor map data missing.")
             st.info("Required:\n• data/boundaries/BR_Municipios_2024/\n• data/crop_data/Updated_municipality_crop_production_data.csv")
         else:
-            # IMPORT ONLY WHEN USER OPENS THIS TAB → app starts instantly!
             try:
                 from src.map_generators.pydeck_maps.municipality_waste_map import (
                     prepare_investor_crop_area_geodata,
@@ -352,7 +353,7 @@ if st.session_state.get("analysis_results"):
             if data_type == "residue":
                 st.markdown("""
                     <div class="legend-box">
-                       ix <div class="legend-title">Available Crop Residue (tons/year)</div>
+                        <div class="legend-title">Available Crop Residue (tons/year)</div>
                         <div class="legend-row">
                             <div class="legend-item"><span class="legend-color" style="background:#FFFFCC;"></span>Low</div>
                             <div class="legend-item"><span class="legend-color" style="background:#C7E9B4;"></span>Moderate</div>
@@ -370,9 +371,7 @@ if st.session_state.get("analysis_results"):
 else:
     st.info("Select your area and click **Run Analysis** (first run takes 2–6 minutes)")
 
-# ============================================================
-# FOOTER
-# ============================================================
+# Footer
 st.markdown("""
 <div class="footer">
     <strong>Residual Carbon</strong> • McGill University Capstone Project<br>
