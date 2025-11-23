@@ -345,10 +345,10 @@ if st.session_state.get("analysis_results"):
                     <div class="legend-title">Suitability Score (0–10)</div>
                     <div class="legend-row">
                         <div class="legend-item"><span class="legend-color" style="background:#8B0000;"></span>0–2 Very Low</div>
-                        <div class="legend-item"><span class="legend-color" style="background:#FF4500;"></span>2–4 Low</div>
-                        <div class="legend-item"><span class="legend-color" style="background:#FFD700;"></span>4–6 Moderate</div>
-                        <div class="legend-item"><span class="legend-color" style="background:#90EE90;"></span>6–8 High</div>
-                        <div class="legend-item"><span class="legend-color" style="background:#006400;"></span>8–10 Very High</div>
+                        <div class="legend-item"><span class="legend-color" style="background:#E75555;"></span>2–4 Low</div>
+                        <div class="legend-item"><span class="legend-color" style="background:#FFBC00;"></span>4–6 Moderate</div>
+                        <div class="legend-item"><span class="legend-color" style="background:#E0E611;"></span>6–8 High</div>
+                        <div class="legend-item"><span class="legend-color" style="background:#368B3A;"></span>8–10 Very High</div>
                     </div>
                     <p><strong>Higher score = better long-term biochar performance</strong></p>
                 </div>
@@ -361,10 +361,10 @@ if st.session_state.get("analysis_results"):
                 <div class="legend-box">
                     <div class="legend-title">Soil Organic Carbon</div>
                     <div class="legend-row">
-                        <div class="legend-item"><span class="legend-color" style="background:#FFFFCC;border:1px solid #aaa;"></span>&lt;10 Very Low</div>
-                        <div class="legend-item"><span class="legend-color" style="background:#C7E9B4;"></span>10–20</div>
-                        <div class="legend-item"><span class="legend-color" style="background:#41B6C4;"></span>30–40</div>
-                        <div class="legend-item"><span class="legend-color" style="background:#253494;"></span>&gt;50 Very High</div>
+                        <div class="legend-item"><span class="legend-color" style="background:#F5DEB3;border:1px solid #aaa;"></span>&lt;10 Very Low</div>
+                        <div class="legend-item"><span class="legend-color" style="background:#DDE987;"></span>10–20</div>
+                        <div class="legend-item"><span class="legend-color" style="background:#ADFF2F;"></span>30–40</div>
+                        <div class="legend-item"><span class="legend-color" style="background:#58A831;"></span>&gt;50 Very High</div>
                     </div>
                 </div>
             """, unsafe_allow_html=True)
@@ -376,10 +376,10 @@ if st.session_state.get("analysis_results"):
                 <div class="legend-box">
                     <div class="legend-title">Soil pH (Ideal: 5.5–7.0)</div>
                     <div class="legend-row">
-                        <div class="legend-item"><span class="legend-color" style="background:#8B0000;"></span>&lt;5.0 Strongly Acidic</div>
-                        <div class="legend-item"><span class="legend-color" style="background:#FF6347;"></span>5.0–5.5 Acidic</div>
-                        <div class="legend-item"><span class="legend-color" style="background:#FFD700;"></span>5.5–7.0 Ideal</div>
-                        <div class="legend-item"><span class="legend-color" style="background:#87CEEB;"></span>&gt;7.0 Alkaline</div>
+                        <div class="legend-item"><span class="legend-color" style="background:#FF8C00;"></span>&lt;5.0 Strongly Acidic</div>
+                        <div class="legend-item"><span class="legend-color" style="background:#FFB400;"></span>5.0–5.5 Acidic</div>
+                        <div class="legend-item"><span class="legend-color" style="background:#FFC800;"></span>5.5–7.0 Ideal</div>
+                        <div class="legend-item"><span class="legend-color" style="background:#ADD8E6;"></span>&gt;7.0 Alkaline</div>
                     </div>
                 </div>
             """, unsafe_allow_html=True)
@@ -391,10 +391,10 @@ if st.session_state.get("analysis_results"):
                 <div class="legend-box">
                     <div class="legend-title">Volumetric Soil Moisture</div>
                     <div class="legend-row">
-                        <div class="legend-item"><span class="legend-color" style="background:#8B4513;"></span>&lt;10% Very Dry</div>
-                        <div class="legend-item"><span class="legend-color" style="background:#D2691E;"></span>10–20%</div>
-                        <div class="legend-item"><span class="legend-color" style="background:#87CEEB;"></span>30–40%</div>
-                        <div class="legend-item"><span class="legend-color" style="background:#1E90FF;"></span>&gt;40% Very Moist</div>
+                        <div class="legend-item"><span class="legend-color" style="background:#D2B48C;"></span>&lt;10% Very Dry</div>
+                        <div class="legend-item"><span class="legend-color" style="background:#C6CA6F;"></span>10–20%</div>
+                        <div class="legend-item"><span class="legend-color" style="background:#B0F837;"></span>30–40%</div>
+                        <div class="legend-item"><span class="legend-color" style="background:#3EA224;"></span>&gt;40% Very Moist</div>
                     </div>
                 </div>
             """, unsafe_allow_html=True)
@@ -470,10 +470,10 @@ if st.session_state.get("analysis_results"):
                     <div class="legend-box">
                         <div class="legend-title">Available Crop Residue (tons/year)</div>
                         <div class="legend-row">
-                            <div class="legend-item"><span class="legend-color" style="background:#FFFFCC;"></span>Low</div>
-                            <div class="legend-item"><span class="legend-color" style="background:#C7E9B4;"></span>Moderate</div>
-                            <div class="legend-item"><span class="legend-color" style="background:#41B6C4;"></span>High</div>
-                            <div class="legend-item"><span class="legend-color" style="background:#225EA8;"></span>Very High Potential</div>
+                            <div class="legend-item"><span class="legend-color" style="background:#00C85A;"></span>Low</div>
+                            <div class="legend-item"><span class="legend-color" style="background:#3F9666;"></span>Moderate</div>
+                            <div class="legend-item"><span class="legend-color" style="background:#7F6473;"></span>High</div>
+                            <div class="legend-item"><span class="legend-color" style="background:#BF327F;"></span>Very High Potential</div>
                         </div>
                     </div>
                 """, unsafe_allow_html=True)
