@@ -359,13 +359,14 @@ if st.session_state.get("analysis_results"):
             load_map(map_paths["soc"])
             st.markdown("""
                 <div class="legend-box">
-                    <div class="legend-title">Soil Organic Carbon</div>
+                    <div class="legend-title">Soil Organic Carbon (g/kg)</div>
                     <div class="legend-row">
-                        <div class="legend-item"><span class="legend-color" style="background:#F5DEB3;border:1px solid #aaa;"></span>&lt;10 Very Low</div>
-                        <div class="legend-item"><span class="legend-color" style="background:#DDE987;"></span>10–20</div>
-                        <div class="legend-item"><span class="legend-color" style="background:#ADFF2F;"></span>30–40</div>
-                        <div class="legend-item"><span class="legend-color" style="background:#58A831;"></span>&gt;50 Very High</div>
+                        <div class="legend-item"><span class="legend-color" style="background:#F5DEB3;border:1px solid #aaa;"></span>Very Low</div>
+                        <div class="legend-item"><span class="legend-color" style="background:#DDE987;"></span>Low</div>
+                        <div class="legend-item"><span class="legend-color" style="background:#ADFF2F;"></span>Moderate</div>
+                        <div class="legend-item"><span class="legend-color" style="background:#58A831;"></span>High</div>
                     </div>
+                    <p style="font-size: 0.9rem; color: #666; margin-top: 12px;"><em>Colors represent relative values (lowest to highest in dataset)</em></p>
                 </div>
             """, unsafe_allow_html=True)
 
@@ -389,13 +390,14 @@ if st.session_state.get("analysis_results"):
             load_map(map_paths["moisture"])
             st.markdown("""
                 <div class="legend-box">
-                    <div class="legend-title">Volumetric Soil Moisture</div>
+                    <div class="legend-title">Volumetric Soil Moisture (%)</div>
                     <div class="legend-row">
-                        <div class="legend-item"><span class="legend-color" style="background:#D2B48C;"></span>&lt;10% Very Dry</div>
-                        <div class="legend-item"><span class="legend-color" style="background:#C6CA6F;"></span>10–20%</div>
-                        <div class="legend-item"><span class="legend-color" style="background:#B0F837;"></span>30–40%</div>
-                        <div class="legend-item"><span class="legend-color" style="background:#3EA224;"></span>&gt;40% Very Moist</div>
+                        <div class="legend-item"><span class="legend-color" style="background:#D2B48C;"></span>Very Dry</div>
+                        <div class="legend-item"><span class="legend-color" style="background:#C6CA6F;"></span>Dry</div>
+                        <div class="legend-item"><span class="legend-color" style="background:#B0F837;"></span>Moderate</div>
+                        <div class="legend-item"><span class="legend-color" style="background:#3EA224;"></span>Moist</div>
                     </div>
+                    <p style="font-size: 0.9rem; color: #666; margin-top: 12px;"><em>Colors represent relative values (lowest to highest in dataset)</em></p>
                 </div>
             """, unsafe_allow_html=True)
 
@@ -465,18 +467,26 @@ if st.session_state.get("analysis_results"):
             deck = create_municipality_waste_deck(gdf, data_type=data_type)
             st.pydeck_chart(deck, use_container_width=True)
 
-            if data_type == "residue":
-                st.markdown("""
-                    <div class="legend-box">
-                        <div class="legend-title">Available Crop Residue (tons/year)</div>
-                        <div class="legend-row">
-                            <div class="legend-item"><span class="legend-color" style="background:#00C85A;"></span>Low</div>
-                            <div class="legend-item"><span class="legend-color" style="background:#3F9666;"></span>Moderate</div>
-                            <div class="legend-item"><span class="legend-color" style="background:#7F6473;"></span>High</div>
-                            <div class="legend-item"><span class="legend-color" style="background:#BF327F;"></span>Very High Potential</div>
-                        </div>
+            # Show legend for all data types with appropriate labels
+            legend_titles = {
+                "area": "Planted Crop Area (ha)",
+                "production": "Crop Production (tons)",
+                "residue": "Available Crop Residue (tons/year)"
+            }
+            legend_title = legend_titles.get(data_type, "Crop Data")
+            
+            st.markdown(f"""
+                <div class="legend-box">
+                    <div class="legend-title">{legend_title}</div>
+                    <div class="legend-row">
+                        <div class="legend-item"><span class="legend-color" style="background:#00C85A;"></span>Low (0-25%)</div>
+                        <div class="legend-item"><span class="legend-color" style="background:#3F9666;"></span>Low-Moderate (25-50%)</div>
+                        <div class="legend-item"><span class="legend-color" style="background:#7F6473;"></span>Moderate-High (50-75%)</div>
+                        <div class="legend-item"><span class="legend-color" style="background:#BF327F;"></span>High (75-100%)</div>
                     </div>
-                """, unsafe_allow_html=True)
+                    <p style="font-size: 0.9rem; color: #666; margin-top: 12px;"><em>Colors represent relative values (percentage of maximum in dataset)</em></p>
+                </div>
+            """, unsafe_allow_html=True)
 
             c1, c2, c3 = st.columns(3)
             with c1: st.metric("Total Crop Area", f"{gdf['total_crop_area_ha'].sum():,.0f} ha")
