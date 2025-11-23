@@ -29,9 +29,9 @@ def get_moisture_color_rgb(moisture_value: float, min_moisture: float, max_moist
     moisture_value : float
         Soil moisture percentage (0-100)
     min_moisture : float
-        Minimum moisture value in dataset
+        Minimum moisture value for color range (absolute: 0.0 %)
     max_moisture : float
-        Maximum moisture value in dataset
+        Maximum moisture value for color range (absolute: 100.0 %)
     
     Returns
     -------
@@ -245,19 +245,25 @@ def _prepare_moisture_hexagon_data(hexagon_data: pd.DataFrame) -> pd.DataFrame:
         lambda x: f"{x:.2f}" if pd.notna(x) else "N/A"
     )
     
-    # Calculate color based on moisture value
-    min_moisture = hexagon_data['moisture'].min()
-    max_moisture = hexagon_data['moisture'].max()
+    # Calculate color based on moisture value using fixed absolute range (0-100%)
+    # This ensures consistent color grading across the entire state
+    ABSOLUTE_MIN_MOISTURE = 0.0  # %
+    ABSOLUTE_MAX_MOISTURE = 100.0  # %
     
     def get_color_rgba(moisture_value):
-        """Get RGBA color array for moisture value."""
-        r, g, b = get_moisture_color_rgb(moisture_value, min_moisture, max_moisture)
+        """Get RGBA color array for moisture value using absolute range."""
+        r, g, b = get_moisture_color_rgb(moisture_value, ABSOLUTE_MIN_MOISTURE, ABSOLUTE_MAX_MOISTURE)
         return [r, g, b, 255]  # Full opacity
     
     hexagon_data['color'] = hexagon_data['moisture'].apply(get_color_rgba)
     
+    # Calculate actual range for reporting
+    actual_min_moisture = hexagon_data['moisture'].min()
+    actual_max_moisture = hexagon_data['moisture'].max()
+    
     print(f"  Prepared {len(hexagon_data):,} H3 hexagons")
-    print(f"  Moisture range: {min_moisture:.2f} - {max_moisture:.2f}%")
+    print(f"  Moisture range (actual): {actual_min_moisture:.2f} - {actual_max_moisture:.2f} %")
+    print(f"  Moisture range (absolute for coloring): {ABSOLUTE_MIN_MOISTURE:.2f} - {ABSOLUTE_MAX_MOISTURE:.2f} %")
     
     return hexagon_data
 

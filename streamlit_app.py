@@ -179,6 +179,31 @@ st.markdown("""
         display: inline-block;
     }
 
+    .gradient-legend {
+        margin: 20px 0;
+    }
+
+    .gradient-bar {
+        width: 100%;
+        height: 40px;
+        border-radius: 8px;
+        margin: 12px 0;
+        border: 1px solid #ddd;
+    }
+
+    .gradient-labels {
+        display: flex;
+        justify-content: space-between;
+        margin-top: 8px;
+        font-size: 0.95rem;
+        color: #333;
+    }
+
+    .gradient-label {
+        text-align: center;
+        font-weight: 500;
+    }
+
     .footer {
         text-align: center;
         padding: 6rem 0 3rem;
@@ -342,15 +367,21 @@ if st.session_state.get("analysis_results"):
             load_map(map_paths["suitability"])
             st.markdown("""
                 <div class="legend-box">
-                    <div class="legend-title">Suitability Score (0–10)</div>
-                    <div class="legend-row">
-                        <div class="legend-item"><span class="legend-color" style="background:#8B0000;"></span>0–2 Very Low</div>
-                        <div class="legend-item"><span class="legend-color" style="background:#E75555;"></span>2–4 Low</div>
-                        <div class="legend-item"><span class="legend-color" style="background:#FFBC00;"></span>4–6 Moderate</div>
-                        <div class="legend-item"><span class="legend-color" style="background:#E0E611;"></span>6–8 High</div>
-                        <div class="legend-item"><span class="legend-color" style="background:#368B3A;"></span>8–10 Very High</div>
+                    <div class="legend-title">Suitability Score</div>
+                    <div class="gradient-legend">
+                        <div class="gradient-bar" style="background: linear-gradient(to right, #8B0000 0%, #FF6B6B 25%, #FFD700 50%, #ADFF2F 75%, #2E7D32 100%);"></div>
+                        <div class="gradient-labels">
+                            <div class="gradient-label">0.0</div>
+                            <div class="gradient-label">2.5</div>
+                            <div class="gradient-label">5.0</div>
+                            <div class="gradient-label">7.5</div>
+                            <div class="gradient-label">10.0</div>
+                        </div>
                     </div>
-                    <p><strong>Higher score = better long-term biochar performance</strong></p>
+                    <div style="margin-top: 12px; font-size: 0.9rem; color: #666;">
+                        <strong>Thresholds:</strong> 0-2.5 (Not Suitable) | 2.6-5.0 (Low) | 5.1-7.5 (Moderate) | 7.6-10.0 (High Suitability)
+                    </div>
+                    <p style="margin-top: 8px;"><strong>Higher score = poor soil needs biochar (inverse relationship)</strong></p>
                 </div>
             """, unsafe_allow_html=True)
 
@@ -359,14 +390,19 @@ if st.session_state.get("analysis_results"):
             load_map(map_paths["soc"])
             st.markdown("""
                 <div class="legend-box">
-                    <div class="legend-title">Soil Organic Carbon (g/kg)</div>
-                    <div class="legend-row">
-                        <div class="legend-item"><span class="legend-color" style="background:#F5DEB3;border:1px solid #aaa;"></span>Very Low</div>
-                        <div class="legend-item"><span class="legend-color" style="background:#DDE987;"></span>Low</div>
-                        <div class="legend-item"><span class="legend-color" style="background:#ADFF2F;"></span>Moderate</div>
-                        <div class="legend-item"><span class="legend-color" style="background:#58A831;"></span>High</div>
+                    <div class="legend-title">Soil Organic Carbon</div>
+                    <div class="gradient-legend">
+                        <div class="gradient-bar" style="background: linear-gradient(to right, #F5DEB3 0%, #D1EE71 25%, #ADFF2F 50%, #6DBE30 75%, #2E7D32 100%);"></div>
+                        <div class="gradient-labels">
+                            <div class="gradient-label">0</div>
+                            <div class="gradient-label">15</div>
+                            <div class="gradient-label">30</div>
+                            <div class="gradient-label">45</div>
+                            <div class="gradient-label">60</div>
+                        </div>
+                        <div style="text-align: center; margin-top: 4px; font-size: 0.9rem; color: #666;">g/kg</div>
                     </div>
-                    <p style="font-size: 0.9rem; color: #666; margin-top: 12px;"><em>Colors represent relative values (lowest to highest in dataset)</em></p>
+                    <p style="font-size: 0.9rem; color: #666; margin-top: 12px;"><em>Colors represent absolute values (consistent grading across the state)</em></p>
                 </div>
             """, unsafe_allow_html=True)
 
@@ -375,12 +411,20 @@ if st.session_state.get("analysis_results"):
             load_map(map_paths["ph"])
             st.markdown("""
                 <div class="legend-box">
-                    <div class="legend-title">Soil pH (Ideal: 5.5–7.0)</div>
-                    <div class="legend-row">
-                        <div class="legend-item"><span class="legend-color" style="background:#FF8C00;"></span>&lt;5.0 Strongly Acidic</div>
-                        <div class="legend-item"><span class="legend-color" style="background:#FFB400;"></span>5.0–5.5 Acidic</div>
-                        <div class="legend-item"><span class="legend-color" style="background:#FFC800;"></span>5.5–7.0 Ideal</div>
-                        <div class="legend-item"><span class="legend-color" style="background:#ADD8E6;"></span>&gt;7.0 Alkaline</div>
+                    <div class="legend-title">Soil pH</div>
+                    <div class="gradient-legend">
+                        <div class="gradient-bar" style="background: linear-gradient(to right, #FF8C00 0%, #FFB400 20%, #FFC800 30%, #FFFF00 60%, #ADD8E6 70%, #313695 100%);"></div>
+                        <div class="gradient-labels">
+                            <div class="gradient-label">4.0</div>
+                            <div class="gradient-label">5.0</div>
+                            <div class="gradient-label">5.5</div>
+                            <div class="gradient-label">7.0</div>
+                            <div class="gradient-label">7.5</div>
+                            <div class="gradient-label">9.0</div>
+                        </div>
+                    </div>
+                    <div style="margin-top: 12px; font-size: 0.9rem; color: #666;">
+                        <strong>Ideal range:</strong> 5.5–7.0 (yellow)
                     </div>
                 </div>
             """, unsafe_allow_html=True)
@@ -390,14 +434,18 @@ if st.session_state.get("analysis_results"):
             load_map(map_paths["moisture"])
             st.markdown("""
                 <div class="legend-box">
-                    <div class="legend-title">Volumetric Soil Moisture (%)</div>
-                    <div class="legend-row">
-                        <div class="legend-item"><span class="legend-color" style="background:#D2B48C;"></span>Very Dry</div>
-                        <div class="legend-item"><span class="legend-color" style="background:#C6CA6F;"></span>Dry</div>
-                        <div class="legend-item"><span class="legend-color" style="background:#B0F837;"></span>Moderate</div>
-                        <div class="legend-item"><span class="legend-color" style="background:#3EA224;"></span>Moist</div>
+                    <div class="legend-title">Volumetric Soil Moisture</div>
+                    <div class="gradient-legend">
+                        <div class="gradient-bar" style="background: linear-gradient(to right, #D2B48C 0%, #B5EC45 25%, #67C528 50%, #298250 75%, #4169E0 100%);"></div>
+                        <div class="gradient-labels">
+                            <div class="gradient-label">0%</div>
+                            <div class="gradient-label">25%</div>
+                            <div class="gradient-label">50%</div>
+                            <div class="gradient-label">75%</div>
+                            <div class="gradient-label">100%</div>
+                        </div>
                     </div>
-                    <p style="font-size: 0.9rem; color: #666; margin-top: 12px;"><em>Colors represent relative values (lowest to highest in dataset)</em></p>
+                    <p style="font-size: 0.9rem; color: #666; margin-top: 12px;"><em>Colors represent absolute values (consistent grading across the state)</em></p>
                 </div>
             """, unsafe_allow_html=True)
 

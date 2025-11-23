@@ -24,14 +24,16 @@ def get_ph_color_rgb(ph_value: float, min_ph: float, max_ph: float) -> tuple:
     - Yellow for neutral (~7)
     - Blue for alkaline soils (>7.5)
     
+    Note: This function uses absolute pH values (not normalized), so min_ph and max_ph are only used for validation.
+    
     Parameters
     ----------
     ph_value : float
         pH value
     min_ph : float
-        Minimum pH value in dataset
+        Minimum pH value for validation (absolute: 4.0)
     max_ph : float
-        Maximum pH value in dataset
+        Maximum pH value for validation (absolute: 9.0)
     
     Returns
     -------
@@ -264,19 +266,26 @@ def _prepare_ph_hexagon_data(hexagon_data: pd.DataFrame) -> pd.DataFrame:
         lambda x: f"{x:.2f}" if pd.notna(x) else "N/A"
     )
     
-    # Calculate color based on pH value
-    min_ph = hexagon_data['ph'].min()
-    max_ph = hexagon_data['ph'].max()
+    # Calculate color based on pH value using fixed absolute range (4.0-9.0)
+    # The color function uses absolute pH values, but we use fixed range for consistency
+    # This ensures consistent color grading across the entire state
+    ABSOLUTE_MIN_PH = 4.0
+    ABSOLUTE_MAX_PH = 9.0
     
     def get_color_rgba(ph_value):
-        """Get RGBA color array for pH value."""
-        r, g, b = get_ph_color_rgb(ph_value, min_ph, max_ph)
+        """Get RGBA color array for pH value using absolute range."""
+        r, g, b = get_ph_color_rgb(ph_value, ABSOLUTE_MIN_PH, ABSOLUTE_MAX_PH)
         return [r, g, b, 255]  # Full opacity
     
     hexagon_data['color'] = hexagon_data['ph'].apply(get_color_rgba)
     
+    # Calculate actual range for reporting
+    actual_min_ph = hexagon_data['ph'].min()
+    actual_max_ph = hexagon_data['ph'].max()
+    
     print(f"  Prepared {len(hexagon_data):,} H3 hexagons")
-    print(f"  pH range: {min_ph:.2f} - {max_ph:.2f}")
+    print(f"  pH range (actual): {actual_min_ph:.2f} - {actual_max_ph:.2f}")
+    print(f"  pH range (absolute for coloring): {ABSOLUTE_MIN_PH:.2f} - {ABSOLUTE_MAX_PH:.2f}")
     
     return hexagon_data
 

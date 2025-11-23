@@ -24,9 +24,9 @@ def get_soc_color_rgb(soc_value: float, min_soc: float, max_soc: float) -> tuple
     soc_value : float
         SOC value in g/kg
     min_soc : float
-        Minimum SOC value in dataset
+        Minimum SOC value for color range (absolute: 0.0 g/kg)
     max_soc : float
-        Maximum SOC value in dataset
+        Maximum SOC value for color range (absolute: 60.0 g/kg)
     
     Returns
     -------
@@ -242,19 +242,25 @@ def _prepare_soc_hexagon_data(hexagon_data: pd.DataFrame) -> pd.DataFrame:
         lambda x: f"{x:.2f}" if pd.notna(x) else "N/A"
     )
     
-    # Calculate color based on SOC value
-    min_soc = hexagon_data['soc'].min()
-    max_soc = hexagon_data['soc'].max()
+    # Calculate color based on SOC value using fixed absolute range (0-60 g/kg)
+    # This ensures consistent color grading across the entire state
+    ABSOLUTE_MIN_SOC = 0.0  # g/kg
+    ABSOLUTE_MAX_SOC = 60.0  # g/kg
     
     def get_color_rgba(soc_value):
-        """Get RGBA color array for SOC value."""
-        r, g, b = get_soc_color_rgb(soc_value, min_soc, max_soc)
+        """Get RGBA color array for SOC value using absolute range."""
+        r, g, b = get_soc_color_rgb(soc_value, ABSOLUTE_MIN_SOC, ABSOLUTE_MAX_SOC)
         return [r, g, b, 255]  # Full opacity
     
     hexagon_data['color'] = hexagon_data['soc'].apply(get_color_rgba)
     
+    # Calculate actual range for reporting
+    actual_min_soc = hexagon_data['soc'].min()
+    actual_max_soc = hexagon_data['soc'].max()
+    
     print(f"  Prepared {len(hexagon_data):,} H3 hexagons")
-    print(f"  SOC range: {min_soc:.2f} - {max_soc:.2f} g/kg")
+    print(f"  SOC range (actual): {actual_min_soc:.2f} - {actual_max_soc:.2f} g/kg")
+    print(f"  SOC range (absolute for coloring): {ABSOLUTE_MIN_SOC:.2f} - {ABSOLUTE_MAX_SOC:.2f} g/kg")
     
     return hexagon_data
 
