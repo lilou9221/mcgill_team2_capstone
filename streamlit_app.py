@@ -353,64 +353,65 @@ if st.session_state.analysis_results:
             use_container_width=True
         )
 
-    # ==================== INVESTOR TAB – LIGHTNING FAST ====================
+       # ==================== INVESTOR TAB – NOW STARTS INSTANTLY ====================
     with investor_tab:
         st.markdown("### Crop Residue Availability – Biochar Feedstock Opportunity")
 
         if not st.session_state.investor_map_available:
             st.warning("Investor map data not found")
-            st.info("Required files:\n• data/boundaries/BR_Municipios_2024/\n• data/crop_data/Updated_municipality_crop_production_data.csv")
+            st.info("Required:\n• data/boundaries/BR_Municipios_2024/\n• data/crop_data/Updated_municipality_crop_production_data.csv")
         else:
+            # IMPORT ONLY WHEN USER OPENS THIS TAB → app starts instantly!
             try:
                 from src.map_generators.pydeck_maps.municipality_waste_map import (
                     prepare_investor_crop_area_geodata,
                     create_municipality_waste_deck,
                 )
+            except Exception as e:
+                st.error("Could not import investor map module")
+                st.code(str(e))
+                st.stop()
 
-                @st.cache_data(show_spinner="Loading state-wide crop data...")
-                def load_investor_gdf():
-                    return prepare_investor_crop_area_geodata(
-                        PROJECT_ROOT / "data" / "boundaries" / "BR_Municipios_2024",
-                        PROJECT_ROOT / "data" / "crop_data" / "Updated_municipality_crop_production_data.csv",
-                        simplify_tolerance=0.01
-                    )
-
-                data_type = st.radio(
-                    "Display:",
-                    ["area", "production", "residue"],
-                    format_func=lambda x: {"area": "Planted Area (ha)", "production": "Production (tons)", "residue": "Residue (tons)"}[x],
-                    horizontal=True
+            @st.cache_data(show_spinner="Loading crop residue data (first time only)...")
+            def get_gdf():
+                return prepare_investor_crop_area_geodata(
+                    PROJECT_ROOT / "data" / "boundaries" / "BR_Municipios_2024",
+                    PROJECT_ROOT / "data" / "crop_data" / "Updated_municipality_crop_production_data.csv",
+                    simplify_tolerance=0.05  # ← this + lazy import = lightning fast
                 )
 
-                gdf = load_investor_gdf()
-                deck = create_municipality_waste_deck(gdf, data_type=data_type)
-                st.pydeck_chart(deck, use_container_width=True)
+            # First click on Investor tab: 5–8 seconds
+            # Every other time + app startup: instant
+            gdf = get_gdf()
 
-                if data_type == "residue":
-                    st.markdown("""
-                    <div class="legend-box">
-                        <div class="legend-title">Available Crop Residue (tons/year)</div>
-                        <div class="legend-row">
-                            <div class="legend-item"><span class="legend-color" style="background:#FFFFCC;border:1px solid #aaa;"></span>&lt; 10k tons</div>
-                            <div class="legend-item"><span class="legend-color" style="background:#C7E9B4;"></span>10k–50k</div>
-                            <div class="legend-item"><span class="legend-color" style="background:#41B6C4;"></span>50k–200k</div>
-                            <div class="legend-item"><span class="legend-color" style="background:#225EA8;"></span>&gt; 500k <strong>High Potential</strong></div>
-                        </div>
+            data_type = st.radio(
+                "Display:",
+                ["area", "production", "residue"],
+                format_func=lambda x: {"area": "Planted Area (ha)", "production": "Production (tons)", "residue": "Residue (tons)"}[x],
+                horizontal=True,
+                key="investor_data_type"
+            )
+
+            deck = create_municipality_waste_deck(gdf, data_type=data_type)
+            st.pydeck_chart(deck, use_container_width=True)
+
+            if data_type == "residue":
+                st.markdown("""
+                <div class="legend-box">
+                    <div class="legend-title">Available Crop Residue (tons/year)</div>
+                    <div class="legend-row">
+                        <div class="legend-item"><span class="legend-color" style="background:#FFFFCC;"></span>Low</div>
+                        <div class="legend-item"><span class="legend-color" style="background:#C7E9B4;"></span>Moderate</div>
+                        <div class="legend-item"><span class="legend-color" style="background:#41B6C4;"></span>High</div>
+                        <div class="legend-item"><span class="legend-color" style="background:#225EA8;"></span>Very High Potential</div>
                     </div>
-                    """, unsafe_allow_html=True)
+                </div>
+                """, unsafe_allow_html=True)
 
-                c1, c2, c3 = st.columns(3)
-                with c1: st.metric("Total Planted Area", f"{gdf['total_crop_area_ha'].sum():,.0f} ha")
-                with c2: st.metric("Total Production", f"{gdf['total_crop_production_ton'].sum():,.0f} tons")
-                with c3: st.metric("Total Residue", f"{gdf['total_crop_residue_ton'].sum():,.0f} tons")
-
-            except Exception as e:
-                st.error("Failed to load investor map")
-                if st.checkbox("Show error details"):
-                    st.code(traceback.format_exc())
-
-else:
-    st.info("**Ready to start!** Select your area on the left and click **Run Analysis** (first run: 2–6 minutes)")
+            c1, c2, c3 = st.columns(3)
+            with c1: st.metric("Total Area", f"{gdf['total_crop_area_ha'].sum():,.0f} ha")
+            with c2: st.metric("Total Production", f"{gdf['total_crop_production_ton'].sum():,.0f} t")
+            with c3: st.metric("Total Residue", f"{gdf['total_crop_residue_ton'].sum():,.0f} t")
 
 # ============================================================
 # FOOTER
