@@ -58,7 +58,7 @@ source venv/bin/activate
 
 ### Step 3: Install Dependencies
 
-> ⚠️ Raster libraries ship native binaries. On Windows we recommend installing them with Conda first.
+> **Note:** Raster libraries ship native binaries. On Windows we recommend installing them with Conda first.
 
 ```bash
 # Linux / macOS (single step)
