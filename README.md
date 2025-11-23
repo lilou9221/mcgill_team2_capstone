@@ -268,7 +268,7 @@ The tool includes an intelligent caching system that significantly speeds up re-
 
 1. **Clipped Raster Cache** (`data/processed/cache/clipped_rasters/`)
    - Caches clipped GeoTIFF files based on coordinates, radius, and source file metadata
-   - Automatically invalidates when source files change (checks modification times)
+   - Automatically invalidates when source files change
 
 2. **DataFrame Cache** (`data/processed/cache/raster_to_dataframe/`)
    - Caches converted DataFrames as Parquet files (faster than CSV)
@@ -279,7 +279,6 @@ The tool includes an intelligent caching system that significantly speeds up re-
    - Caches H3-indexed DataFrames as Parquet files
    - Based on input DataFrames and H3 resolution
    - Automatically invalidates when input DataFrames change
-   - **Note**: Uses vectorized operations for faster indexing (5-10x faster than previous implementation)
 
 ### How It Works
 
