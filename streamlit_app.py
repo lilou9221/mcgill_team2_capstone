@@ -1,5 +1,5 @@
 # ============================================================
-# FINAL VERSION – ALL TEXT VISIBLE, PERFECT CONTRAST
+# FINAL VERSION – PURE WHITE BACKGROUND (NO DARK MODE)
 # ============================================================
 import streamlit as st
 import pandas as pd
@@ -10,6 +10,7 @@ import os
 import time
 import traceback
 
+# Force white background + disable dark mode completely
 st.set_page_config(
     page_title="Biochar Suitability Mapper",
     page_icon="Leaf",
@@ -55,69 +56,37 @@ def get_config():
 config = get_config()
 
 # ============================================================
-# FINAL CSS – WHITE BG + DARK TAB TEXT + PERFECT BUTTONS
+# FORCE WHITE BACKGROUND – NO DARK MODE EVER
 # ============================================================
 st.markdown("""
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-    
-    /* Force pure white background everywhere */
-    .stApp, [data-testid="stAppViewContainer"], [data-testid="stDecoration"], .main {
+    /* Force white background everywhere */
+    .stApp, .main, [data-testid="stAppViewContainer"], [data-testid="stDecoration"] {
         background-color: white !important;
         background: white !important;
         color: #333 !important;
     }
-    
-    /* Fix tab text color (was white → now dark) */
-    .stTabs [data-baseweb="tab"] {
-        color: #173a30 !important;
-        font-weight: 600 !important;
-        font-size: 1.1rem !important;
+    /* Remove any dark theme */
+    [data-testid="stHeader"], .css-1d391kg, .css-1cpxqw2 {
+        background: white !important;
     }
-    .stTabs [data-baseweb="tab"][aria-selected="true"] {
-        color: #64955d !important;
-        border-bottom: 3px solid #64955d !important;
-    }
-    
-    /* Sidebar */
+    /* Sidebar stays dark green as you wanted */
     section[data-testid="stSidebar"] {
         background-color: #173a30 !important;
     }
     section[data-testid="stSidebar"] * {
         color: white !important;
     }
-    
-    /* Buttons */
-    .stButton > button {
-        background-color: #64955d !important;
-        color: white !important;
-        border-radius: 999px !important;
-        font-weight: 600 !important;
-        height: 3.2em !important;
-        border: none !important;
-    }
-    .stButton > button:hover {
-        background-color: #527a48 !important;
-        color: white !important;
-    }
-    
-    /* Download button – force white text */
-    .stDownloadButton > button {
-        background-color: #64955d !important;
-        color: white !important;
-        border-radius: 999px !important;
-        font-weight: 600 !important;
-    }
-    .stDownloadButton > button:hover {
-        background-color: #527a48 !important;
-        color: white !important;
-    }
-    
-    /* Header */
+    /* Fonts & colors */
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+    html, body, .stApp {font-family: 'Inter', sans-serif;}
     .header-title {font-size: 3.4rem; font-weight: 700; text-align: center; color: #173a30; margin: 2rem 0 0.5rem;}
     .header-subtitle {text-align: center; color: #444; font-size: 1.3rem; margin-bottom: 3rem;}
-    
-    /* Cards & legends */
+    .stButton > button {
+        background-color: #64955d !important; color: white !important;
+        border-radius: 999px; font-weight: 600; height: 3.2em;
+    }
+    .stButton > button:hover {background-color: #527a48 !important;}
     .metric-card {
         background: white; padding: 1.8rem; border-radius: 14px;
         border-left: 6px solid #64955d; box-shadow: 0 6px 20px rgba(0,0,0,0.08);
@@ -125,7 +94,6 @@ st.markdown("""
     }
     .metric-card h4 {margin: 0 0 0.5rem; color: #173a30; font-size: 0.95rem; text-transform: uppercase; letter-spacing: 0.8px;}
     .metric-card p {margin: 0; font-size: 2.4rem; font-weight: 700; color: #333;}
-    
     .legend-box {
         background: white; padding: 28px; border-radius: 16px;
         box-shadow: 0 8px 30px rgba(0,0,0,0.1); max-width: 760px;
@@ -135,11 +103,7 @@ st.markdown("""
     .legend-row {display: flex; justify-content: center; flex-wrap: wrap; gap: 24px;}
     .legend-item {display: flex; align-items: center; gap: 12px; font-size: 1.05rem; font-weight: 500;}
     .legend-color {width: 38px; height: 24px; border-radius: 6px; display: inline-block;}
-    
-    .footer {
-        text-align: center; padding: 6rem 0 3rem; color: #666;
-        border-top: 1px solid #eee; margin-top: 8rem; font-size: 0.95rem;
-    }
+    .footer {text-align: center; padding: 6rem 0 3rem; color: #666; border-top: 1px solid #eee; margin-top: 8rem; font-size: 0.95rem;}
 </style>
 """, unsafe_allow_html=True)
 
@@ -164,7 +128,7 @@ with st.sidebar:
         st.session_state.clear()
         st.rerun()
 
-# Run analysis (unchanged)
+# Run analysis (your original pipeline)
 if run_btn:
     st.session_state.analysis_results = None
     if st.session_state.analysis_running:
@@ -236,6 +200,7 @@ if st.session_state.get("analysis_results"):
 
     farmer_tab, investor_tab = st.tabs(["Farmer Perspective", "Investor Perspective"])
 
+    # Farmer tab
     with farmer_tab:
         st.markdown("### Soil Health & Biochar Suitability Insights")
         col1, col2, col3 = st.columns(3)
@@ -343,8 +308,10 @@ if st.session_state.get("analysis_results"):
             use_container_width=True
         )
 
+    # Investor tab – lazy import = instant startup
     with investor_tab:
         st.markdown("### Crop Residue Availability – Biochar Feedstock Opportunity")
+
         boundaries_dir = PROJECT_ROOT / "data" / "boundaries" / "BR_Municipios_2024"
         csv_path = PROJECT_ROOT / "data" / "crop_data" / "Updated_municipality_crop_production_data.csv"
 
