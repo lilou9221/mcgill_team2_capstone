@@ -8,6 +8,7 @@ import shutil
 import tempfile
 import os
 import time
+import traceback
 import yaml
 import pydeck as pdk
 
@@ -17,7 +18,6 @@ import pydeck as pdk
 PROJECT_ROOT = Path(__file__).parent.resolve()
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from src.map_generators.pydeck_maps.municipality_waste_map import build_investor_waste_deck
 from src.utils.config_loader import load_config
 
 @st.cache_data
@@ -130,7 +130,7 @@ if "investor_map_available" not in st.session_state:
 # ============================================================
 if not st.session_state.investor_map_loaded:
     boundaries_dir = PROJECT_ROOT / "data" / "boundaries" / "BR_Municipios_2024"
-    waste_csv_path = PROJECT_ROOT / "data" / "crop_data" / "Brazil_Municipality_Crop_Area_2024.csv"
+    waste_csv_path = PROJECT_ROOT / "data" / "crop_data" / "Updated_municipality_crop_production_data.csv"
     st.session_state.investor_map_available = boundaries_dir.exists() and waste_csv_path.exists()
     st.session_state.investor_map_loaded = True
 
@@ -503,52 +503,89 @@ if st.session_state.analysis_results is not None:
 
     with investor_tab:
         st.subheader("Investor Crop Area Map")
-        # Load investor map on-demand (not stored in session state to save memory)
+        
         boundaries_dir = PROJECT_ROOT / "data" / "boundaries" / "BR_Municipios_2024"
-        waste_csv_path = PROJECT_ROOT / "data" / "crop_data" / "Brazil_Municipality_Crop_Area_2024.csv"
+        waste_csv_path = PROJECT_ROOT / "data" / "crop_data" / "Updated_municipality_crop_production_data.csv"
         
         if not boundaries_dir.exists():
             st.warning("Municipality boundaries not found. Please add files to data/boundaries/BR_Municipios_2024/.")
         elif not waste_csv_path.exists():
-            st.warning("Municipality crop CSV missing. Expected data/crop_data/Brazil_Municipality_Crop_Area_2024.csv")
+            st.warning("Municipality crop CSV missing. Expected data/crop_data/Updated_municipality_crop_production_data.csv")
         else:
+            # Data type selector using radio buttons
+            data_type = st.radio(
+                "Select data type to display:",
+                options=["area", "production", "residue"],
+                format_func=lambda x: {
+                    "area": "Crop Area (ha)",
+                    "production": "Crop Production (ton)",
+                    "residue": "Crop Residue (ton)"
+                }[x],
+                horizontal=True,
+                key="investor_map_data_type"
+            )
+            
             try:
-                # Load map on-demand (fast enough, and saves memory)
-                deck, merged_gdf = build_investor_waste_deck(
-                    boundaries_dir, waste_csv_path, simplify_tolerance=0.01
-                )
+                # Cache the merged geodata to avoid reloading on every render (optimize performance)
+                @st.cache_data
+                def get_merged_geodata(_boundaries_dir, _waste_csv_path):
+                    from src.map_generators.pydeck_maps.municipality_waste_map import prepare_investor_crop_area_geodata
+                    return prepare_investor_crop_area_geodata(
+                        _boundaries_dir, _waste_csv_path, simplify_tolerance=0.01
+                    )
+                
+                # Get cached geodata (only loads once, cached for subsequent renders)
+                merged_gdf = get_merged_geodata(boundaries_dir, waste_csv_path)
+                
+                # Create deck with selected data type (lightweight, only processes selected data)
+                from src.map_generators.pydeck_maps.municipality_waste_map import create_municipality_waste_deck
+                deck = create_municipality_waste_deck(merged_gdf, data_type=data_type)
+                
+                # Display map
                 st.pydeck_chart(deck, use_container_width=True)
                 
-                # Check if display_value column exists
-                if "display_value" not in merged_gdf.columns:
-                    if "total_crop_area_ha" in merged_gdf.columns:
-                        merged_gdf["display_value"] = merged_gdf["total_crop_area_ha"]
-                    else:
-                        st.error("No crop area data found in merged GeoDataFrame.")
-                        st.stop()
+                # Display metrics for all three data types
+                total_area = merged_gdf["total_crop_area_ha"].sum()
+                total_production = merged_gdf["total_crop_production_ton"].sum()
+                total_residue = merged_gdf["total_crop_residue_ton"].sum()
                 
-                total_area = merged_gdf["display_value"].sum()
+                # Show top municipalities based on selected data type
+                if data_type == "area":
+                    top_col = "total_crop_area_ha"
+                    col_label = "Crop area (ha)"
+                elif data_type == "production":
+                    top_col = "total_crop_production_ton"
+                    col_label = "Crop production (ton)"
+                else:
+                    top_col = "total_crop_residue_ton"
+                    col_label = "Crop residue (ton)"
+                
                 top_municipalities = (
-                    merged_gdf.sort_values("display_value", ascending=False)
-                    .head(5)[["NM_MUN", "SIGLA_UF", "display_value"]]
+                    merged_gdf.sort_values(top_col, ascending=False)
+                    .head(5)[["NM_MUN", "SIGLA_UF", top_col]]
                     .rename(columns={
                         "NM_MUN": "Municipality",
                         "SIGLA_UF": "State",
-                        "display_value": "Crop area (ha)",
+                        top_col: col_label,
                     })
                 )
                 
-                c1, c2 = st.columns([1, 1])
+                c1, c2, c3 = st.columns([1, 1, 1])
                 with c1:
-                    st.metric("Total crop area tracked (ha)", f"{total_area:,.0f}")
+                    st.metric("Total crop area (ha)", f"{total_area:,.0f}")
                 with c2:
-                    st.write("Top municipalities by crop area (ha):")
-                    st.dataframe(
-                        top_municipalities.style.format({"Crop area (ha)": "{:,.0f}"}),
-                        use_container_width=True,
-                    )
+                    st.metric("Total production (ton)", f"{total_production:,.0f}")
+                with c3:
+                    st.metric("Total residue (ton)", f"{total_residue:,.0f}")
+                
+                st.write(f"Top municipalities by {col_label}:")
+                st.dataframe(
+                    top_municipalities.style.format({col_label: "{:,.0f}"}),
+                    use_container_width=True,
+                )
             except Exception as e:
                 st.error(f"Unable to render investor waste map: {e}")
+                st.code(traceback.format_exc())
 
 # ============================================================
 # FOOTER

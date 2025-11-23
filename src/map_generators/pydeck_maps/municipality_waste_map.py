@@ -46,9 +46,6 @@ def load_municipality_boundaries(boundary_dir: Path) -> gpd.GeoDataFrame:
     return gdf
 
 
-# No special fallback required now; we'll use every numeric column.
-
-
 def _infer_numeric_columns(df: pd.DataFrame) -> None:
     for col in df.columns:
         try:
@@ -74,12 +71,30 @@ def load_crop_area_dataframe(csv_path: Path) -> pd.DataFrame:
     df["state_abbrev"] = df["municipality_with_state"].str.extract(r"\((.*?)\)").iloc[:, 0]
     df["state_abbrev"] = df["state_abbrev"].fillna("").str.strip().str.upper()
 
-    numeric_cols = df.select_dtypes(include="number").columns
-    df["total_crop_area_ha"] = df[numeric_cols].fillna(0).sum(axis=1)
+    # Calculate all three data types: area, production, and residue
+    # Filter out None column names and ensure columns are strings
+    valid_cols = [col for col in df.columns if col is not None and isinstance(col, str)]
+    # Area columns end with '(ha)'
+    area_cols = [col for col in valid_cols if col.endswith('(ha)')]
+    # Production columns end with '(ton)' but don't start with 'Residue'
+    production_cols = [col for col in valid_cols if col.endswith('(ton)') and not col.startswith('Residue')]
+    # Residue columns start with 'Residue' and end with '(ton)'
+    residue_cols = [col for col in valid_cols if col.startswith('Residue') and col.endswith('(ton)')]
+    
+    # Calculate all sums at once to avoid DataFrame fragmentation
+    totals = pd.DataFrame({
+        "total_crop_area_ha": df[area_cols].fillna(0).sum(axis=1),
+        "total_crop_production_ton": df[production_cols].fillna(0).sum(axis=1),
+        "total_crop_residue_ton": df[residue_cols].fillna(0).sum(axis=1)
+    })
+    df = pd.concat([df, totals], axis=1)
 
     agg = (
-        df.groupby(["municipality_name_norm", "state_abbrev"], as_index=False)["total_crop_area_ha"]
-        .sum()
+        df.groupby(["municipality_name_norm", "state_abbrev"], as_index=False).agg({
+            "total_crop_area_ha": "sum",
+            "total_crop_production_ton": "sum",
+            "total_crop_residue_ton": "sum"
+        })
     )
     return agg
 
@@ -112,7 +127,11 @@ def prepare_investor_crop_area_geodata(
         right_on=["municipality_name_norm", "state_abbrev"],
         how="left",
     )
+    # Fill NaN values with 0.0 for all three data types
     merged["total_crop_area_ha"] = merged["total_crop_area_ha"].fillna(0.0)
+    merged["total_crop_production_ton"] = merged["total_crop_production_ton"].fillna(0.0)
+    merged["total_crop_residue_ton"] = merged["total_crop_residue_ton"].fillna(0.0)
+    # Default display value is crop area (maintains current behavior)
     merged["display_value"] = merged["total_crop_area_ha"]
     return merged
 
@@ -129,13 +148,46 @@ def _value_to_color(value: float, vmax: float) -> Tuple[int, int, int, int]:
 
 def create_municipality_waste_deck(
     merged_gdf: gpd.GeoDataFrame,
+    data_type: str = "area",
 ) -> pdk.Deck:
-    vmax = merged_gdf["display_value"].max()
+    """
+    Create municipality waste deck with specified data type.
+    
+    Args:
+        merged_gdf: GeoDataFrame with municipality boundaries and crop data
+        data_type: One of 'area', 'production', or 'residue'
+    
+    Returns:
+        pydeck Deck object
+    """
+    # Validate data type
+    if data_type not in ["area", "production", "residue"]:
+        data_type = "area"
+    
+    # Select columns and calculate max value based on data type
+    if data_type == "area":
+        value_col = "total_crop_area_ha"
+        label = "Total Crop Area"
+        unit = "ha"
+    elif data_type == "production":
+        value_col = "total_crop_production_ton"
+        label = "Total Crop Production"
+        unit = "ton"
+    else:  # residue
+        value_col = "total_crop_residue_ton"
+        label = "Total Crop Residue"
+        unit = "ton"
+    
     merged_gdf = merged_gdf.copy()
-    merged_gdf["fill_color"] = merged_gdf["display_value"].apply(
+    vmax = merged_gdf[value_col].max() if merged_gdf[value_col].max() > 0 else 1
+    
+    # Calculate colors only for the selected data type (optimize memory)
+    merged_gdf["fill_color"] = merged_gdf[value_col].apply(
         lambda v: _value_to_color(v, vmax)
     )
+    merged_gdf["display_value"] = merged_gdf[value_col]
 
+    # Include only necessary columns in GeoJSON (optimize memory)
     geojson_data = json.loads(
         merged_gdf[
             ["geometry", "NM_MUN", "SIGLA_UF", "display_value", "fill_color"]
@@ -165,10 +217,10 @@ def create_municipality_waste_deck(
     )
 
     tooltip = {
-        "html": """
-        <b>Municipality:</b> {NM_MUN}<br>
-        <b>State:</b> {SIGLA_UF}<br>
-        <b>Total Crop Area (ha):</b> {display_value}
+        "html": f"""
+        <b>Municipality:</b> {{NM_MUN}}<br>
+        <b>State:</b> {{SIGLA_UF}}<br>
+        <b>{label} ({unit}):</b> {{display_value}}
         """,
         "style": {
             "backgroundColor": "white",
@@ -176,20 +228,50 @@ def create_municipality_waste_deck(
         },
     }
 
-    return pdk.Deck(
+    deck = pdk.Deck(
         layers=[layer],
         initial_view_state=view_state,
         map_style="mapbox://styles/mapbox/light-v9",
         tooltip=tooltip,
     )
+    
+    return deck
 
 
 def build_investor_waste_deck(
-    boundary_dir: Path, waste_csv_path: Path, simplify_tolerance: float = 0.01
+    boundary_dir: Path, waste_csv_path: Path, simplify_tolerance: float = 0.01, data_type: str = "area"
 ) -> Tuple[pdk.Deck, gpd.GeoDataFrame]:
     merged_gdf = prepare_investor_crop_area_geodata(
         boundary_dir, waste_csv_path, simplify_tolerance=simplify_tolerance
     )
-    deck = create_municipality_waste_deck(merged_gdf)
+    deck = create_municipality_waste_deck(merged_gdf, data_type=data_type)
     return deck, merged_gdf
+
+
+def build_investor_waste_deck_html(
+    boundary_dir: Path, waste_csv_path: Path, output_path: Path, simplify_tolerance: float = 0.01, data_type: str = "area"
+) -> Tuple[str, gpd.GeoDataFrame]:
+    """Build investor waste deck and save as HTML."""
+    deck, merged_gdf = build_investor_waste_deck(
+        boundary_dir, waste_csv_path, simplify_tolerance=simplify_tolerance, data_type=data_type
+    )
+    
+    # Generate HTML - pydeck's to_html() returns None if called without arguments
+    try:
+        # Use to_html with a file path, then read it back
+        temp_html = output_path.parent / f"temp_{output_path.name}"
+        deck.to_html(str(temp_html))
+        html_content = temp_html.read_text(encoding='utf-8')
+        temp_html.unlink()  # Clean up temp file
+    except Exception as e:
+        # Fallback: try to_html() without arguments (returns string)
+        html_content = deck.to_html()
+        if html_content is None:
+            raise ValueError(f"Failed to generate HTML from deck: {e}")
+    
+    # Save to file
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(html_content, encoding='utf-8')
+    
+    return html_content, merged_gdf
 

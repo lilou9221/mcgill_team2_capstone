@@ -28,7 +28,7 @@ from src.map_generators.moisture_map import create_moisture_map
 from src.analyzers.biochar_suitability import calculate_biochar_suitability_scores
 from src.utils.browser import open_html_in_browser
 from src.map_generators.pydeck_maps.municipality_waste_map import (
-    build_investor_waste_deck,
+    build_investor_waste_deck_html,
 )
 import shutil
 
@@ -234,13 +234,12 @@ def main():
     # Investor crop area map (municipality-level)
     investor_map_path = output_dir / "investor_crop_area_map.html"
     boundaries_dir = project_root / "data" / "boundaries" / "BR_Municipios_2024"
-    waste_csv_path = project_root / "data" / "crop_data" / "Brazil_Municipality_Crop_Area_2024.csv"
+    waste_csv_path = project_root / "data" / "crop_data" / "Updated_municipality_crop_production_data.csv"
     if boundaries_dir.exists() and waste_csv_path.exists():
         try:
-            deck, _ = build_investor_waste_deck(
-                boundaries_dir, waste_csv_path, simplify_tolerance=0.01
+            _, merged_gdf = build_investor_waste_deck_html(
+                boundaries_dir, waste_csv_path, investor_map_path, simplify_tolerance=0.01
             )
-            deck.to_html(str(investor_map_path))
             print(f"Investor crop area map saved to: {investor_map_path}")
         except Exception as exc:
             print(f"Could not create investor waste map: {exc}")
