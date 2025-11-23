@@ -526,10 +526,15 @@ if st.session_state.analysis_results is not None:
             )
             
             try:
+                # Import functions at module level to avoid caching issues
+                from src.map_generators.pydeck_maps.municipality_waste_map import (
+                    prepare_investor_crop_area_geodata,
+                    create_municipality_waste_deck,
+                )
+                
                 # Cache the merged geodata to avoid reloading on every render (optimize performance)
                 @st.cache_data
                 def get_merged_geodata(_boundaries_dir, _waste_csv_path):
-                    from src.map_generators.pydeck_maps.municipality_waste_map import prepare_investor_crop_area_geodata
                     return prepare_investor_crop_area_geodata(
                         _boundaries_dir, _waste_csv_path, simplify_tolerance=0.01
                     )
@@ -538,7 +543,6 @@ if st.session_state.analysis_results is not None:
                 merged_gdf = get_merged_geodata(boundaries_dir, waste_csv_path)
                 
                 # Create deck with selected data type (lightweight, only processes selected data)
-                from src.map_generators.pydeck_maps.municipality_waste_map import create_municipality_waste_deck
                 deck = create_municipality_waste_deck(merged_gdf, data_type=data_type)
                 
                 # Display map
