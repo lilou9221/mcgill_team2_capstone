@@ -253,7 +253,7 @@ if st.session_state.analysis_results:
                         simplify_tolerance=0.008
                     )
 
-                data_type = st.radio("Show:", ["Crop area", "Crop production", "Crop residue"],
+                data_type = st.radio(["Crop area", "Crop production", "Crop residue"],
                                    format_func=lambda x: {"Crop area": "Crop Area (ha)", "Crop production": "Crop Production (tons)", "Crop residue": "Crop Residue (tons)"}[x],
                                    horizontal=True)
 
