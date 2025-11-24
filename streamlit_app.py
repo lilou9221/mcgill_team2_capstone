@@ -301,7 +301,7 @@ with st.sidebar:
         with c2: lon = st.number_input("Longitude", value=-56.0, format="%.6f")
         radius = st.slider("Radius (km)", 25, 100, 100, 25)
     h3_res = st.slider("H3 Resolution", 5, 9, 7)
-    run_btn = st.button("Run Analysis", type="primary", use_container_width=True)
+    run_btn = st.button("Run Analysis", type="primary", width='stretch')
     if st.button("Reset Cache & Restart"):
         st.cache_data.clear()
         st.session_state.clear()
@@ -628,7 +628,7 @@ if csv_path and df is not None and map_paths:
                     }
                     top10_display = top10_display.rename(columns=rename_map)
                     
-                    st.dataframe(top10_display, use_container_width=True, hide_index=True)
+                    st.dataframe(top10_display, width='stretch', hide_index=True)
                     
                     # Show feedstock distribution
                     st.markdown("### Feedstock Distribution")
@@ -645,7 +645,7 @@ if csv_path and df is not None and map_paths:
             df.to_csv(index=False).encode(),
             f"biochar_results_{pd.Timestamp.now():%Y%m%d_%H%M}.csv",
             "text/csv",
-            use_container_width=True
+            width='stretch'
         )
 
     # ========================================================
@@ -699,7 +699,7 @@ if csv_path and df is not None and map_paths:
                 )
 
                 deck = create_municipality_waste_deck(gdf, data_type=data_type)
-                st.pydeck_chart(deck, use_container_width=True)
+                st.pydeck_chart(deck, width='stretch')
 
                 # Show legend for all data types with appropriate labels
                 legend_titles = {
