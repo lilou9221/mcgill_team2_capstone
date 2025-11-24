@@ -71,29 +71,50 @@ pip install -r requirements.txt
 
 ### Step 4: Prepare Data Files
 
-**Manual Data Placement:**
+**Automatic Download from Google Drive (Recommended):**
 
-1. Place your GeoTIFF data files in the `data/raw/` directory:
-   ```bash
-   data/raw/
-   ├── SOC_res_250_b0.tif
-   ├── SOC_res_250_b10.tif
-   ├── soil_moisture_res_250_sm_surface.tif
-   ├── soil_pH_res_250_b0.tif
-   ├── soil_pH_res_250_b10.tif
-   └── soil_temp_res_250_soil_temp_layer1.tif
-   ```
+All required data files are hosted in a shared Google Drive folder and can be downloaded automatically:
 
-2. **Required files for scoring:**
-   - Soil moisture: `soil_moisture_res_250_sm_surface.tif`
-   - Soil Organic Carbon: `SOC_res_250_b0.tif`, `SOC_res_250_b10.tif`
-   - Soil pH: `soil_pH_res_250_b0.tif`, `soil_pH_res_250_b10.tif`
-   - Soil temperature: `soil_temp_res_250_soil_temp_layer1.tif`
+```bash
+# Download all required data files from Google Drive
+python scripts/download_assets.py
+```
 
-3. **Optional files:**
-   - Land cover, soil type (not used in scoring but can be included)
+This script will download:
+- 5 shapefile components for Brazilian municipality boundaries
+- 1 crop production CSV file
+- 6 GeoTIFF files for soil properties (SOC, pH, moisture, temperature)
 
-**Note:** Data files can be obtained from any source (Google Earth Engine, other providers, or existing datasets). The tool processes whatever GeoTIFF files are placed in `data/raw/`.
+**Required files for scoring:**
+- Soil moisture: `soil_moisture_res_250_sm_surface.tif`
+- Soil Organic Carbon: `SOC_res_250_b0.tif`, `SOC_res_250_b10.tif`
+- Soil pH: `soil_pH_res_250_b0.tif`, `soil_pH_res_250_b10.tif`
+- Soil temperature: `soil_temp_res_250_soil_temp_layer1.tif`
+
+**Manual Data Placement (Alternative):**
+
+If you prefer to place files manually, ensure the following structure:
+
+```bash
+data/
+├── raw/
+│   ├── SOC_res_250_b0.tif
+│   ├── SOC_res_250_b10.tif
+│   ├── soil_moisture_res_250_sm_surface.tif
+│   ├── soil_pH_res_250_b0.tif
+│   ├── soil_pH_res_250_b10.tif
+│   └── soil_temp_res_250_soil_temp_layer1.tif
+├── boundaries/BR_Municipios_2024/
+│   ├── BR_Municipios_2024.shp
+│   ├── BR_Municipios_2024.dbf
+│   ├── BR_Municipios_2024.shx
+│   ├── BR_Municipios_2024.prj
+│   └── BR_Municipios_2024.cpg
+└── crop_data/
+    └── Updated_municipality_crop_production_data.csv
+```
+
+**Note:** The Streamlit app will automatically download missing files on first run. See `STREAMLIT_DEPLOYMENT.md` for more details.
 
 ## Configuration
 
@@ -356,18 +377,40 @@ The tool generates:
 
 ### Streamlit Integration
 
-The tool generates files specifically for Streamlit web interface compatibility:
+The tool includes a Streamlit web interface (`streamlit_app.py`) with the following features:
+
+**Automatic Data Download:**
+- Downloads required data files from Google Drive on first run if missing
+- Shows progress message during download (automatically clears when complete)
+- Caches file existence checks to improve performance
+
+**Performance Optimizations:**
+- Cached file existence checks (TTL: 1 hour)
+- Cached CSV and HTML file reading (TTL: 1 hour)
+- Session state tracking to prevent redundant operations
+- Efficient data loading with minimal reruns
+
+**Generated Files:**
 - `suitability_scores.csv` contains scores scaled to 0-10 (from internal 0-100 scale) with `suitability_score` column
 - `suitability_map.html` is a copy of the main suitability map file for Streamlit to display
 - `soc_map_streamlit.html` is a Streamlit-compatible copy of the SOC map (pre-generated during analysis)
 - `ph_map_streamlit.html` is a Streamlit-compatible copy of the pH map (pre-generated during analysis)
 - `moisture_map_streamlit.html` is a Streamlit-compatible copy of the moisture map (pre-generated during analysis)
-- Streamlit interface includes five tabs:
+
+**Streamlit Interface:**
+- Five tabs for different map visualizations:
   - **Biochar Suitability**: Displays the suitability map with metrics and results table
   - **Soil Organic Carbon**: Displays the SOC map showing organic carbon values aggregated by H3 hexagons
   - **Soil pH**: Displays the pH map showing pH values aggregated by H3 hexagons with diverging color scheme
   - **Soil Moisture**: Displays the moisture map showing soil moisture values aggregated by H3 hexagons
   - **Investor Crop Area**: Displays municipality-level map with interactive data type selector (crop area, crop production, crop residue). Shows "N/A" for production/residue when crop area exists but production/residue data is unavailable
+- Automatic loading of previous analysis results if available
+- Interactive area selection for targeted analysis
+- Download button for CSV results
+
+**Deployment:**
+- See `STREAMLIT_DEPLOYMENT.md` for detailed deployment instructions
+- Compatible with Streamlit Cloud (handles Google Drive downloads automatically)
 - All files are automatically generated during the analysis pipeline
 
 ## Troubleshooting Highlights

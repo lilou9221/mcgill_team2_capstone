@@ -1,24 +1,46 @@
 # Streamlit Cloud Deployment Notes
 
-## External data source
+## External Data Source
 
-All heavy datasets (GeoTIFFs, boundary shapefiles, crop production CSV) are now hosted in a shared Google Drive folder:
+All heavy datasets (GeoTIFFs, boundary shapefiles, crop production CSV) are hosted in a shared Google Drive folder to avoid Git LFS bandwidth limitations:
 
-- **Folder name:** `McGill_Team2_Capstone_Residual_Carbon`
-- **Folder URL:** https://drive.google.com/drive/u/1/folders/1FvG4FM__Eam2pXggHdo5piV7gg2bljjt
+- **Folder ID:** `1FvG4FM__Eam2pXggHdo5piV7gg2bljjt`
+- **Folder URL:** https://drive.google.com/drive/folders/1FvG4FM__Eam2pXggHdo5piV7gg2bljjt
 
-Keeping data in Drive removes the Git LFS bandwidth/storage bottleneck and allows Streamlit Cloud to pull the assets on demand.
+The folder must be set to **"Anyone with the link can view"** for the download to work.
 
-## Download script
+Keeping data in Drive removes the Git LFS bandwidth/storage bottleneck and allows Streamlit Cloud to download assets on-demand during deployment.
 
-The repository ships with `scripts/download_assets.py`, which uses `gdown` to pull the Drive folder and copy the required files into the local `data/` directory. The script runs automatically from the Streamlit app when files are missing, but you can trigger it manually:
+## Download Script
+
+The repository includes `scripts/download_assets.py`, which uses `gdown` to download the Drive folder and copy required files into the local `data/` directory.
+
+### Automatic Download
+
+**The Streamlit app automatically runs the download script on first launch** if any required files are missing. The download message will appear and disappear automatically when complete.
+
+### Manual Download
+
+You can also run the download script manually:
 
 ```bash
-pip install -r requirements.txt  # ensures gdown is available
+# Ensure gdown is installed
+pip install -r requirements.txt
+
+# Download all required files
 python scripts/download_assets.py
+
+# Force re-download and overwrite existing files
+python scripts/download_assets.py --force
 ```
 
-Use `python scripts/download_assets.py --force` to re-download and overwrite existing files.
+### How It Works
+
+1. The script downloads the entire Google Drive folder to a temporary directory
+2. Searches for required files by name (handles flat or nested folder structures)
+3. Copies files to the correct locations in `data/` directory
+4. Creates necessary subdirectories automatically
+5. Provides detailed error messages if files are missing
 
 ## Required files pulled from Drive
 
