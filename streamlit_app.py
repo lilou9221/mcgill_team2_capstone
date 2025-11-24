@@ -309,10 +309,36 @@ if run_btn:
 # ============================================================
 # DISPLAY RESULTS
 # ============================================================
+# Auto-load existing results if available (even if analysis wasn't run in this session)
+csv_path = None
+df = None
+map_paths = None
+
 if st.session_state.get("analysis_results"):
     csv_path = Path(st.session_state.analysis_results["csv_path"])
     df = pd.read_csv(csv_path)
     map_paths = st.session_state.analysis_results["map_paths"]
+elif not st.session_state.get("analysis_running"):
+    # Try to load existing results if they exist
+    potential_csv = PROJECT_ROOT / config["data"]["processed"] / "suitability_scores.csv"
+    if potential_csv.exists():
+        potential_maps = {
+            "suitability": str(PROJECT_ROOT / config["output"]["html"] / "suitability_map.html"),
+            "soc": str(PROJECT_ROOT / config["output"]["html"] / "soc_map_streamlit.html"),
+            "ph": str(PROJECT_ROOT / config["output"]["html"] / "ph_map_streamlit.html"),
+            "moisture": str(PROJECT_ROOT / config["output"]["html"] / "moisture_map_streamlit.html"),
+        }
+        # Check if at least the suitability map exists
+        if Path(potential_maps["suitability"]).exists():
+            st.session_state.analysis_results = {
+                "csv_path": str(potential_csv),
+                "map_paths": potential_maps
+            }
+            csv_path = potential_csv
+            df = pd.read_csv(csv_path)
+            map_paths = potential_maps
+
+if csv_path and csv_path.exists() and df is not None and map_paths:
 
     # Create tabs - Streamlit maintains tab state automatically
     farmer_tab, investor_tab = st.tabs(["Farmer Perspective", "Investor Perspective"])
@@ -611,7 +637,12 @@ if st.session_state.get("analysis_results"):
                 with c3: st.metric("Total Residue", f"{gdf['total_crop_residue_ton'].sum():,.0f} t")
 
 else:
-    st.info("Select your area and click **Run Analysis** (first run takes 2–6 minutes)")
+    # Check if results exist but weren't loaded (maybe maps are missing)
+    potential_csv = PROJECT_ROOT / config["data"]["processed"] / "suitability_scores.csv"
+    if potential_csv.exists():
+        st.info("💡 **Tip:** Previous analysis results found. Click **Run Analysis** to generate new results or refresh the page to view existing results.")
+    else:
+        st.info("Select your area and click **Run Analysis** (first run takes 2–6 minutes)")
 
 # ============================================================
 # FOOTER
