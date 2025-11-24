@@ -1,6 +1,14 @@
 # Exclude large zip file from LFS (extracted files are already available)
 data/boundaries/BR_Municipios_2024.zip -filter -diff -merge text
 
+# Exclude boundary shapefiles from LFS to avoid budget issues
+# These files are needed for the investor map but should be stored as regular files
+data/boundaries/BR_Municipios_2024/*.shp -filter -diff -merge text
+data/boundaries/BR_Municipios_2024/*.dbf -filter -diff -merge text
+data/boundaries/BR_Municipios_2024/*.shx -filter -diff -merge text
+data/boundaries/BR_Municipios_2024/*.prj -filter -diff -merge text
+data/boundaries/BR_Municipios_2024/*.cpg -filter -diff -merge text
+
 *.zip filter=lfs diff=lfs merge=lfs -text
 *.shp filter=lfs diff=lfs merge=lfs -text
 *.dbf filter=lfs diff=lfs merge=lfs -text
