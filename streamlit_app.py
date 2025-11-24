@@ -24,8 +24,8 @@ for key, default in [
     ("analysis_running", False),
     ("current_process", None),
     ("analysis_results", None),
-    ("investor_checked", False),
-    ("investor_map_available", False),
+    ("data_downloaded", False),
+    ("existing_results_checked", False),
 ]:
     if key not in st.session_state:
         st.session_state[key] = default
@@ -75,10 +75,22 @@ REQUIRED_DATA_FILES = [
 ]
 
 
+@st.cache_data(ttl=3600)  # Cache for 1 hour - files don't change often
+def check_required_files_exist():
+    """Check if all required data files exist. Cached to avoid repeated file system checks."""
+    missing = [path for path in REQUIRED_DATA_FILES if not path.exists()]
+    return len(missing) == 0, missing
+
+
 def ensure_required_data():
     """Download data assets from Google Drive if they are missing locally."""
-    missing = [path for path in REQUIRED_DATA_FILES if not path.exists()]
-    if not missing:
+    # Check session state to avoid repeated checks
+    if st.session_state.get("data_downloaded", False):
+        return
+    
+    all_exist, missing = check_required_files_exist()
+    if all_exist:
+        st.session_state["data_downloaded"] = True
         return
 
     # Use a placeholder that we can clear after download
@@ -97,14 +109,15 @@ def ensure_required_data():
         subprocess.check_call([sys.executable, str(DOWNLOAD_SCRIPT)], cwd=str(PROJECT_ROOT))
         # Clear the download message after successful download
         status_placeholder.empty()
+        st.session_state["data_downloaded"] = True
     except subprocess.CalledProcessError as exc:
         status_placeholder.empty()
         st.error("Automatic data download failed. Please run `scripts/download_assets.py` locally.")
         st.code(str(exc))
         st.stop()
 
-    remaining_missing = [path for path in REQUIRED_DATA_FILES if not path.exists()]
-    if remaining_missing:
+    all_exist, remaining_missing = check_required_files_exist()
+    if not all_exist:
         st.error("Some data files are still missing after download. Please retry manually.")
         st.code("\n".join(str(p) for p in remaining_missing))
         st.stop()
@@ -368,31 +381,49 @@ csv_path = None
 df = None
 map_paths = None
 
+@st.cache_data(ttl=3600)  # Cache CSV reading - data doesn't change during session
+def load_results_csv(csv_path_str: str):
+    """Load and cache the results CSV file."""
+    return pd.read_csv(csv_path_str)
+
+@st.cache_data(ttl=3600)  # Cache HTML file reading
+def load_html_map(map_path_str: str):
+    """Load and cache HTML map content."""
+    map_path = Path(map_path_str)
+    if map_path.exists():
+        with open(map_path, "r", encoding="utf-8") as f:
+            return f.read()
+    return None
+
 if st.session_state.get("analysis_results"):
     csv_path = Path(st.session_state.analysis_results["csv_path"])
-    df = pd.read_csv(csv_path)
+    df = load_results_csv(str(csv_path))
     map_paths = st.session_state.analysis_results["map_paths"]
 elif not st.session_state.get("analysis_running"):
-    # Try to load existing results if they exist
-    potential_csv = PROJECT_ROOT / config["data"]["processed"] / "suitability_scores.csv"
-    if potential_csv.exists():
-        potential_maps = {
-            "suitability": str(PROJECT_ROOT / config["output"]["html"] / "suitability_map.html"),
-            "soc": str(PROJECT_ROOT / config["output"]["html"] / "soc_map_streamlit.html"),
-            "ph": str(PROJECT_ROOT / config["output"]["html"] / "ph_map_streamlit.html"),
-            "moisture": str(PROJECT_ROOT / config["output"]["html"] / "moisture_map_streamlit.html"),
-        }
-        # Check if at least the suitability map exists
-        if Path(potential_maps["suitability"]).exists():
-            st.session_state.analysis_results = {
-                "csv_path": str(potential_csv),
-                "map_paths": potential_maps
+    # Try to load existing results if they exist (only check once per session)
+    if not st.session_state.get("existing_results_checked", False):
+        potential_csv = PROJECT_ROOT / config["data"]["processed"] / "suitability_scores.csv"
+        if potential_csv.exists():
+            potential_maps = {
+                "suitability": str(PROJECT_ROOT / config["output"]["html"] / "suitability_map.html"),
+                "soc": str(PROJECT_ROOT / config["output"]["html"] / "soc_map_streamlit.html"),
+                "ph": str(PROJECT_ROOT / config["output"]["html"] / "ph_map_streamlit.html"),
+                "moisture": str(PROJECT_ROOT / config["output"]["html"] / "moisture_map_streamlit.html"),
             }
-            csv_path = potential_csv
-            df = pd.read_csv(csv_path)
-            map_paths = potential_maps
+            # Check if at least the suitability map exists
+            if Path(potential_maps["suitability"]).exists():
+                st.session_state.analysis_results = {
+                    "csv_path": str(potential_csv),
+                    "map_paths": potential_maps
+                }
+        st.session_state["existing_results_checked"] = True
+    
+    if st.session_state.get("analysis_results"):
+        csv_path = Path(st.session_state.analysis_results["csv_path"])
+        df = load_results_csv(str(csv_path))
+        map_paths = st.session_state.analysis_results["map_paths"]
 
-if csv_path and csv_path.exists() and df is not None and map_paths:
+if csv_path and df is not None and map_paths:
 
     # Create tabs - Streamlit maintains tab state automatically
     farmer_tab, investor_tab = st.tabs(["Farmer Perspective", "Investor Perspective"])
@@ -437,9 +468,10 @@ if csv_path and csv_path.exists() and df is not None and map_paths:
         ])
 
         def load_map(path):
-            if Path(path).exists():
-                with open(path, "r", encoding="utf-8") as f:
-                    st.components.v1.html(f.read(), height=720, scrolling=False)
+            """Load and display HTML map. Uses cached content."""
+            html_content = load_html_map(path)
+            if html_content:
+                st.components.v1.html(html_content, height=720, scrolling=False)
             else:
                 st.warning("Map not generated yet.")
 
@@ -628,7 +660,12 @@ if csv_path and csv_path.exists() and df is not None and map_paths:
             boundaries_dir = PROJECT_ROOT / "data" / "boundaries" / "BR_Municipios_2024"
             csv_path = PROJECT_ROOT / "data" / "crop_data" / "Updated_municipality_crop_production_data.csv"
 
-            if not boundaries_dir.exists() or not csv_path.exists():
+            # Cache file existence checks
+            @st.cache_data(ttl=3600)
+            def check_investor_data_exists():
+                return boundaries_dir.exists() and csv_path.exists()
+
+            if not check_investor_data_exists():
                 st.warning("Investor map data missing.")
                 st.info("Required:\n• data/boundaries/BR_Municipios_2024/\n• data/crop_data/Updated_municipality_crop_production_data.csv")
             else:
@@ -691,12 +728,14 @@ if csv_path and csv_path.exists() and df is not None and map_paths:
                 with c3: st.metric("Total Residue", f"{gdf['total_crop_residue_ton'].sum():,.0f} t")
 
 else:
-    # Check if results exist but weren't loaded (maybe maps are missing)
-    potential_csv = PROJECT_ROOT / config["data"]["processed"] / "suitability_scores.csv"
-    if potential_csv.exists():
-        st.info("💡 **Tip:** Previous analysis results found. Click **Run Analysis** to generate new results or refresh the page to view existing results.")
-    else:
-        st.info("Select your area and click **Run Analysis** (first run takes 2–6 minutes)")
+    # Show initial message (only checked once per session, cached in session state)
+    if not st.session_state.get("initial_message_shown", False):
+        potential_csv = PROJECT_ROOT / config["data"]["processed"] / "suitability_scores.csv"
+        if potential_csv.exists():
+            st.info("💡 **Tip:** Previous analysis results found. Click **Run Analysis** to generate new results or refresh the page to view existing results.")
+        else:
+            st.info("Select your area and click **Run Analysis** (first run takes 2–6 minutes)")
+        st.session_state["initial_message_shown"] = True
 
 # ============================================================
 # FOOTER
