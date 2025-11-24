@@ -714,12 +714,12 @@ with investor_tab:
             st.markdown("### Crop Residue Availability – Biochar Feedstock Opportunity")
 
             boundaries_dir = PROJECT_ROOT / "data" / "boundaries" / "BR_Municipios_2024"
-            csv_path = PROJECT_ROOT / "data" / "crop_data" / "Updated_municipality_crop_production_data.csv"
+            crop_data_csv = PROJECT_ROOT / "data" / "crop_data" / "Updated_municipality_crop_production_data.csv"
 
             # Cache file existence checks
             @st.cache_data(ttl=3600)
             def check_investor_data_exists():
-                return boundaries_dir.exists() and csv_path.exists()
+                return boundaries_dir.exists() and crop_data_csv.exists()
 
             if not check_investor_data_exists():
                 st.warning("Investor map data missing.")
@@ -739,7 +739,7 @@ with investor_tab:
                 def get_gdf():
                     return prepare_investor_crop_area_geodata(
                         boundaries_dir,
-                        csv_path,
+                        crop_data_csv,
                         simplify_tolerance=0.05
                     )
 
