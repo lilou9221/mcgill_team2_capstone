@@ -8,5 +8,4 @@
 *.tiff filter=lfs diff=lfs merge=lfs -text
 data/pyrolysis/pyrolysis_data.csv -filter -diff -merge text
 data/pyrolysis/pyrolysis_data_fallback.csv -filter -diff -merge text
-*.csv filter=lfs diff=lfs merge=lfs -text
 data/pyrolysis/pyrolysis_data.csv !text !filter !merge !diff
