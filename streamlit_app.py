@@ -81,18 +81,24 @@ def ensure_required_data():
     if not missing:
         return
 
-    st.info(
+    # Use a placeholder that we can clear after download
+    status_placeholder = st.empty()
+    status_placeholder.info(
         "Downloading required geo datasets from Google Drive (first run only). "
         "This may take a few minutes."
     )
 
     if not DOWNLOAD_SCRIPT.exists():
+        status_placeholder.empty()
         st.error("Download script missing. Please run `scripts/download_assets.py` manually.")
         st.stop()
 
     try:
         subprocess.check_call([sys.executable, str(DOWNLOAD_SCRIPT)], cwd=str(PROJECT_ROOT))
+        # Clear the download message after successful download
+        status_placeholder.empty()
     except subprocess.CalledProcessError as exc:
+        status_placeholder.empty()
         st.error("Automatic data download failed. Please run `scripts/download_assets.py` locally.")
         st.code(str(exc))
         st.stop()
