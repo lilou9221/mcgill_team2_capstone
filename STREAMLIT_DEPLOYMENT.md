@@ -3,7 +3,7 @@
 ## Git LFS Requirements
 
 This repository uses Git LFS for large files including:
-- Municipality boundaries (`data/boundaries/BR_Municipios_2024.zip` - 198 MB)
+- Municipality boundaries (`data/boundaries/BR_Municipios_2024/*.shp`, `*.dbf`, `*.shx`, etc.) - Extracted shapefile files
 - GeoTIFF files (`data/raw/*.tif`)
 - Other large data files
 
@@ -16,6 +16,8 @@ fatal: data/boundaries/BR_Municipios_2024.zip: smudge filter lfs failed
 ```
 
 This indicates that Git LFS is not installed or configured on Streamlit Cloud.
+
+**Note**: The zip file has been removed from the repository to reduce LFS bandwidth usage. The app uses the extracted shapefile directory (`data/boundaries/BR_Municipios_2024/`) directly.
 
 ## Solution
 
@@ -35,8 +37,8 @@ Streamlit Cloud should automatically handle Git LFS, but if it doesn't:
 
 ## Files Tracked by LFS
 
-- `data/boundaries/BR_Municipios_2024.zip` (198 MB) - Required for investor map
-- `data/boundaries/BR_Municipios_2024/*.shp`, `*.dbf`, `*.shx`, etc. - Required for investor map
+- `data/boundaries/BR_Municipios_2024/*.shp`, `*.dbf`, `*.shx`, `*.prj`, `*.cpg` - Required for investor map (extracted shapefile files)
 - `data/raw/*.tif` - GeoTIFF raster files
 - Large CSV files (except `data/pyrolysis/pyrolysis_data.csv` and `pyrolysis_data_fallback.csv` which are small)
+
 
