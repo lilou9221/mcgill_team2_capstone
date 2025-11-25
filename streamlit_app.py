@@ -21,7 +21,7 @@ st.set_page_config(
 
 for key, default in [
     ("analysis_running", False), ("current_process", None), ("analysis_results", None),
-    ("existing_results_checked", False),
+    ("existing_results_checked", False), ("download_attempted", False),
 ]:
     if key not in st.session_state:
         st.session_state[key] = default
@@ -32,6 +32,79 @@ for key, default in [
 PROJECT_ROOT = Path(__file__).parent.resolve()
 sys.path.insert(0, str(PROJECT_ROOT))
 from src.utils.config_loader import load_config
+
+# ============================================================
+# AUTO-DOWNLOAD DATA FILES FROM GOOGLE DRIVE
+# ============================================================
+def check_and_download_data():
+    """Check if required data files exist, download from Google Drive if missing."""
+    data_dir = PROJECT_ROOT / "data"
+    
+    # Check for essential files (GeoTIFFs and shapefiles)
+    tif_files = list(data_dir.glob("*.tif"))
+    shp_exists = (data_dir / "BR_Municipios_2024.shp").exists()
+    
+    # If we have enough files, skip download
+    if len(tif_files) >= 5 and shp_exists:
+        return True
+    
+    # Only attempt download once per session
+    if st.session_state.get("download_attempted"):
+        return False
+    
+    st.session_state["download_attempted"] = True
+    
+    # Show download message
+    download_placeholder = st.empty()
+    with download_placeholder.container():
+        st.info("📥 **Downloading required data files from Google Drive...** This may take a few minutes on first run.")
+        progress_bar = st.progress(0, text="Initializing download...")
+    
+    try:
+        download_script = PROJECT_ROOT / "scripts" / "download_assets.py"
+        if not download_script.exists():
+            download_placeholder.error("Download script not found. Please contact administrator.")
+            return False
+        
+        # Run the download script
+        progress_bar.progress(10, text="Connecting to Google Drive...")
+        
+        result = subprocess.run(
+            [sys.executable, str(download_script)],
+            cwd=str(PROJECT_ROOT),
+            capture_output=True,
+            text=True,
+            timeout=600  # 10 minute timeout
+        )
+        
+        progress_bar.progress(90, text="Verifying downloaded files...")
+        
+        # Check if download was successful
+        tif_files = list(data_dir.glob("*.tif"))
+        shp_exists = (data_dir / "BR_Municipios_2024.shp").exists()
+        
+        if len(tif_files) >= 5 and shp_exists:
+            progress_bar.progress(100, text="Download complete!")
+            time.sleep(1)
+            download_placeholder.empty()
+            st.cache_data.clear()  # Clear cache to pick up new files
+            return True
+        else:
+            download_placeholder.warning(f"⚠️ Download completed but some files may be missing. Found {len(tif_files)} GeoTIFF files.")
+            if result.stderr:
+                with st.expander("Download Details"):
+                    st.code(result.stderr)
+            return False
+            
+    except subprocess.TimeoutExpired:
+        download_placeholder.error("⏱️ Download timed out. Please try again or contact administrator.")
+        return False
+    except Exception as e:
+        download_placeholder.error(f"❌ Download failed: {str(e)}")
+        return False
+
+# Run auto-download check on app startup
+check_and_download_data()
 
 @st.cache_data
 def get_config():
