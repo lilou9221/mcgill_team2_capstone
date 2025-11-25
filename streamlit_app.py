@@ -57,7 +57,7 @@ def check_and_download_data():
     # Show download message
     download_placeholder = st.empty()
     with download_placeholder.container():
-        st.info("📥 **Downloading required data files from Google Drive...** This may take a few minutes on first run.")
+        st.info("**Downloading required data files from Google Drive...** This may take a few minutes on first run.")
         progress_bar = st.progress(0, text="Initializing download...")
     
     try:
@@ -90,17 +90,17 @@ def check_and_download_data():
             st.cache_data.clear()  # Clear cache to pick up new files
             return True
         else:
-            download_placeholder.warning(f"⚠️ Download completed but some files may be missing. Found {len(tif_files)} GeoTIFF files.")
+            download_placeholder.warning(f"Download completed but some files may be missing. Found {len(tif_files)} GeoTIFF files.")
             if result.stderr:
                 with st.expander("Download Details"):
                     st.code(result.stderr)
             return False
             
     except subprocess.TimeoutExpired:
-        download_placeholder.error("⏱️ Download timed out. Please try again or contact administrator.")
+        download_placeholder.error("Download timed out. Please try again or contact administrator.")
         return False
     except Exception as e:
-        download_placeholder.error(f"❌ Download failed: {str(e)}")
+        download_placeholder.error(f"Download failed: {str(e)}")
         return False
 
 # Run auto-download check on app startup
