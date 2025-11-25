@@ -1,41 +1,41 @@
 # Residual_Carbon - Biochar Suitability Mapping Tool
 
-A tool for mapping biochar application suitability in Mato Grosso, Brazil, based on soil properties and biochar outputs.
+A tool for mapping biochar application suitability in Mato Grosso, Brazil, based on soil properties and crop residue data.
 
 ## Project Overview
 
-This tool analyzes soil properties (moisture, temperature, organic carbon, pH) to calculate biochar suitability scores across Mato Grosso state. The tool generates interactive maps from manually provided GeoTIFF data files:
-- **Biochar Suitability Map**: Color-coded suitability scores (0-100 scale) where green indicates high suitability (poor soil needs biochar) and red indicates low suitability (healthy soil doesn't need biochar)
+This tool analyzes soil properties (moisture, temperature, organic carbon, pH) to calculate biochar suitability scores across Mato Grosso state. The tool generates interactive maps from GeoTIFF data files and provides a web interface via Streamlit for both farmers and investors:
+
+**Farmer Perspective:**
+- **Biochar Suitability Map**: Color-coded suitability scores (0-10 scale) where higher scores indicate higher suitability (poor soil needs biochar)
 - **Soil Organic Carbon (SOC) Map**: Displays SOC values (g/kg) aggregated by H3 hexagons, calculated as the average of b0 and b10 depth layers
-- **Soil pH Map**: Displays pH values aggregated by H3 hexagons, calculated as the average of b0 and b10 depth layers, using a diverging color scheme (light orange-yellow for acidic, yellow for neutral, blue for alkaline)
+- **Soil pH Map**: Displays pH values aggregated by H3 hexagons, calculated as the average of b0 and b10 depth layers, using a diverging color scheme
 - **Soil Moisture Map**: Displays soil moisture values aggregated by H3 hexagons
-- **Investor Crop Area Map**: Municipality-level interactive map with data type selector (crop area, crop production, crop residue) showing total values per municipality. Displays "N/A" for production/residue when crop area exists but production/residue data is unavailable.
+- **Top 10 Recommendations**: Shows recommended biochar feedstocks based on soil conditions
+
+**Investor Perspective:**
+- **Crop Residue Map**: Municipality-level interactive map with data type selector (crop area, crop production, crop residue) showing total values per municipality
 
 ## Features
 
-- **Manual Data Input**: GeoTIFF data files are manually placed in `data/raw/` directory. The tool processes these local files - no cloud services required.
-- **Targeted Spatial Analysis**: Works on the full Mato Grosso extent or user-specified circular AOIs with validation and graceful edge handling.
-- **Robust GeoTIFF Processing**: Clips, converts, and validates rasters before tabularisation, with an in-memory pandas pipeline and optional snapshots.
-- **SMAP Bicubic Downscaling**: Soil moisture and soil temperature rasters (native ~3 km) are automatically resampled to 250 m using bicubic interpolation so they align with the rest of the stack.
-- **Performance Caching**: Intelligent caching system speeds up re-runs by caching clipped rasters and DataFrame conversions. Automatically detects changes and invalidates cache when source files are updated.
-- **H3 Hexagonal Grid**: Adds hex indexes for efficient aggregation using vectorized operations (5-10x faster than previous implementation). Boundary geometry is generated after merge and aggregation to optimize memory usage (prevents memory crashes with large datasets).
-- **Biochar Suitability Scoring**: Calculates biochar suitability scores (0-100 scale) based on soil quality metrics. Uses weighted scoring for moisture, organic carbon (averages b0 and b10 depth layers), pH (averages b0 and b10 depth layers), and temperature properties. Lower soil quality = higher biochar suitability.
-- **Smart Dataset Filtering**: Automatically filters to only scoring-required datasets during processing. Only scoring-required files (soil_moisture, SOC b0/b10, pH b0/b10, soil_temperature) are processed, reducing memory usage and processing time.
-- **Interactive Maps**: Generates five PyDeck-based HTML visualisations:
-  - **Biochar Suitability Map**: Interactive map with color-coded suitability scores (0-100 scale), suitability grades, H3 hexagon indexes, location coordinates, and point counts
-  - **Soil Organic Carbon (SOC) Map**: Interactive map showing SOC values (g/kg) aggregated by H3 hexagons, calculated as the average of b0 and b10 depth layers
-  - **Soil pH Map**: Interactive map showing pH values aggregated by H3 hexagons, calculated as the average of b0 and b10 depth layers, with a diverging color scheme (light orange-yellow for acidic soils <5.5, yellow for neutral ~7, blue for alkaline soils >7.5)
-  - **Soil Moisture Map**: Interactive map showing soil moisture values aggregated by H3 hexagons
-  - **Investor Crop Area Map**: Municipality-level interactive map with data type selector (crop area, crop production, crop residue) showing total values per municipality. Displays "N/A" for production/residue when crop area exists but production/residue data is unavailable.
-  - All maps are generated directly from CSV data using PyDeck and auto-open in browser (configurable)
-- **Auditable Workflow**: Each stage can be run independently, and helper utilities exist to verify intermediate results.
+- **Automatic Data Download**: Required data files can be automatically downloaded from Google Drive on first run via Streamlit app
+- **Targeted Spatial Analysis**: Works on the full Mato Grosso extent or user-specified circular AOIs with validation and graceful edge handling
+- **Robust GeoTIFF Processing**: Clips, converts, and validates rasters before tabularisation, with an in-memory pandas pipeline
+- **Performance Caching**: Intelligent caching system speeds up re-runs by caching clipped rasters and DataFrame conversions. Automatically detects changes and invalidates cache when source files are updated
+- **H3 Hexagonal Grid**: Adds hex indexes for efficient aggregation using vectorized operations. Boundary geometry is generated after merge and aggregation to optimize memory usage
+- **Biochar Suitability Scoring**: Calculates biochar suitability scores (0-10 scale) based on soil quality metrics. Uses weighted scoring for moisture, organic carbon (averages b0 and b10 depth layers), pH (averages b0 and b10 depth layers), and temperature properties
+- **Biochar Recommendations**: Provides recommended biochar feedstocks based on soil challenges (implemented but not fully optimized)
+- **Smart Dataset Filtering**: Automatically filters to only scoring-required datasets during processing
+- **Interactive Maps**: Generates PyDeck-based HTML visualizations for suitability, SOC, pH, moisture, and crop residue data
+- **Streamlit Web Interface**: User-friendly web interface with separate tabs for farmer and investor perspectives
+- **Auditable Workflow**: Each stage can be run independently, and helper utilities exist to verify intermediate results
 
 ## Installation
 
 ### Prerequisites
 
 - Python 3.9 or higher
-- GeoTIFF data files (manually placed in `data/raw/` directory)
+- GeoTIFF data files (can be downloaded automatically or manually placed in `data/raw/` directory)
 - Git (optional, for cloning repository)
 
 ### Step 1: Clone or Navigate to Project
@@ -150,25 +150,20 @@ The `config.yaml` file is **only needed** if you want to use the optional GEE ex
 
 ## Usage
 
-### 1. Prepare Data Files
+### Running the Streamlit Web Interface (Recommended)
 
-**Manually place GeoTIFF files in `data/raw/` directory:**
+```bash
+streamlit run streamlit_app.py
+```
 
-The tool processes GeoTIFF files that you manually place in the `data/raw/` directory. Data acquisition is done outside the codebase - you can obtain data from any source (Google Earth Engine, other providers, or existing datasets).
+The web interface provides:
+- Interactive area selection (latitude, longitude, radius)
+- Two main perspectives: Farmer and Investor
+- Automatic data download if files are missing
+- Visualizations of all maps and results
+- CSV download functionality
 
-**Required files for biochar suitability scoring:**
-- `soil_moisture_res_250_sm_surface.tif`
-- `SOC_res_250_b0.tif`
-- `SOC_res_250_b10.tif`
-- `soil_pH_res_250_b0.tif`
-- `soil_pH_res_250_b10.tif`
-- `soil_temp_res_250_soil_temp_layer1.tif`
-
-**File naming:** The tool recognizes files by keywords in their names (e.g., "moisture", "SOC", "ph", "temp"). Files should be GeoTIFF format (.tif or .tiff extension).
-
-**Note:** If you need to export data from Google Earth Engine, you can use the optional scripts in `src/data_acquisition/`. However, this is not required - you can use data from any source as long as it's in GeoTIFF format.
-
-### 2. Process and Map
+### Running Command Line Analysis
 
 ```bash
 # Full-state run (interactive prompt will confirm coordinates)
@@ -194,36 +189,36 @@ Key processing flags:
 
 ```
 Residual_Carbon/
-├── scripts/           # Helper CLI utilities (run_analysis, optional GEE export scripts)
+├── scripts/              # Helper CLI utilities (run_analysis, download_assets)
 ├── src/
-│   ├── data/           # Data retrieval and processing
-│   ├── analysis/       # Suitability scoring
-│   ├── visualization/  # Map generation
-│   └── utils/          # Utility functions (includes cache utilities)
-├── configs/            # Configuration files
+│   ├── analyzers/        # Analysis modules (suitability scoring, biochar recommendations)
+│   ├── data_acquisition/ # Data retrieval utilities (optional GEE exports)
+│   ├── data_processors/  # Data processing (raster clipping, H3 conversion)
+│   ├── map_generators/   # Map generation (suitability, SOC, pH, moisture, investor maps)
+│   └── utils/            # Utility functions (cache, config, geospatial)
+├── configs/              # Configuration files
 ├── data/
-│   ├── raw/            # GeoTIFF files from GEE
-│   └── processed/      # Processed outputs and optional snapshots
-│       └── cache/      # Cache directory (clipped rasters, DataFrames, H3 indexes)
-│           ├── clipped_rasters/    # Cached clipped GeoTIFF files
-│           ├── raster_to_dataframe/ # Cached DataFrame Parquet files
-│           └── h3_indexes/         # Cached H3-indexed DataFrame Parquet files
+│   ├── raw/              # GeoTIFF files and Excel data files
+│   ├── boundaries/       # Shapefile boundaries
+│   ├── crop_data/        # Crop production data CSVs
+│   ├── pyrolysis/        # Pyrolysis/biochar feedstock data
+│   └── processed/        # Processed outputs
+│       └── cache/        # Cache directory (clipped rasters, DataFrames, H3 indexes)
 ├── output/
-│   ├── maps/           # Generated maps
-│   └── html/           # HTML map files
-├── logs/               # Application logs
-├── requirements.txt    # Python dependencies
-├── config.yaml         # Main configuration
-└── README.md           # This file
+│   └── html/             # HTML map files
+├── streamlit_app.py      # Streamlit web application
+├── requirements.txt      # Python dependencies
+└── README.md             # This file
 ```
 
 ### Utility Scripts
 
-All helper/automation scripts now live under `scripts/` to keep the repository root tidy:
+All helper/automation scripts live under `scripts/`:
 
-- `scripts/run_analysis.py` – wrapper script to invoke `src/main.py`.
-- `scripts/retry_exports.py` – optional script for GEE exports (not required for local use).
-- `scripts/check_export_status.py` – optional script for checking GEE export status (not required for local use).
+- `scripts/run_analysis.py` – wrapper script to invoke `src/main.py`
+- `scripts/download_assets.py` – downloads required data files from Google Drive
+- `scripts/retry_exports.py` – optional script for GEE exports (not required for local use)
+- `scripts/check_export_status.py` – optional script for checking GEE export status (not required for local use)
 
 Call them with `python scripts/<script_name>.py [...]` from the project root.
 
@@ -231,27 +226,28 @@ Call them with `python scripts/<script_name>.py [...]` from the project root.
 
 The core pipeline lives in `src/main.py` and wires high-level helpers from each submodule:
 
-1. **Data validation** (`ensure_rasters_acquired`) — confirms GeoTIFFs exist in `data/raw/` before doing any expensive work. Files should be manually placed in this directory.
+1. **Data validation** (`ensure_rasters_acquired`) — confirms GeoTIFFs exist in `data/raw/` before doing any expensive work. Files should be manually placed in this directory or downloaded automatically.
 2. **AOI selection** (`get_user_area_of_interest`) — validates coordinates, radius, and provides a full-state fallback.
 3. **Optional clipping** (`clip_all_rasters_to_circle`) — trims rasters to the requested buffer and reports size deltas. **Cached** to speed up re-runs (see Caching System section).
 4. **Raster ➜ Table** (`convert_all_rasters_to_dataframes`) — flattens rasters into pandas DataFrames with coordinates, nodata handling, and unit inference. **Cached** as Parquet files for fast loading (see Caching System section).
-5. **Hex indexing** (`process_dataframes_with_h3`) — injects `h3_index` at the requested resolution using vectorized operations (5-10x faster than previous implementation). Boundary geometry is excluded during indexing and merging to optimize memory usage. **Cached** to speed up re-runs (see Caching System section).
+5. **Hex indexing** (`process_dataframes_with_h3`) — injects `h3_index` at the requested resolution using vectorized operations. Boundary geometry is excluded during indexing and merging to optimize memory usage. **Cached** to speed up re-runs (see Caching System section).
 6. **Data merging and aggregation** (`merge_and_aggregate_soil_data`) — merges property tables (without boundaries), aggregates by hex, and generates boundaries for aggregated hexagons only.
-7. **Biochar suitability scoring** (`calculate_biochar_suitability_scores`) — calculates biochar suitability scores based on soil quality metrics. For SOC and pH, averages both b0 (surface) and b10 (10cm depth) layers to provide a more representative soil profile assessment. Uses weighted scoring for moisture, organic carbon, pH, and temperature properties.
-8. **Visualisation** — renders interactive PyDeck maps directly from CSV data:
+7. **Biochar suitability scoring** (`calculate_biochar_suitability_scores`) — calculates biochar suitability scores (0-10 scale) based on soil quality metrics. For SOC and pH, averages both b0 (surface) and b10 (10cm depth) layers to provide a more representative soil profile assessment. Uses weighted scoring for moisture, organic carbon, pH, and temperature properties.
+8. **Biochar recommendations** (optional) — adds recommended feedstock types based on soil challenges using pyrolysis data
+9. **Visualisation** — renders interactive PyDeck maps directly from CSV data:
    - **Biochar Suitability Map** (`create_biochar_suitability_map`) — saves `biochar_suitability_map.html` and `suitability_map.html` (Streamlit-compatible copy)
    - **Soil Organic Carbon Map** (`create_soc_map`) — saves `soc_map.html` and `soc_map_streamlit.html` showing SOC values aggregated by H3 hexagons
    - **Soil pH Map** (`create_ph_map`) — saves `ph_map.html` and `ph_map_streamlit.html` showing pH values aggregated by H3 hexagons with diverging color scheme
    - **Soil Moisture Map** (`create_moisture_map`) — saves `moisture_map.html` and `moisture_map_streamlit.html` showing soil moisture values aggregated by H3 hexagons
-   - **Investor Crop Area Map** (`build_investor_waste_deck_html`) — saves `investor_crop_area_map.html` with interactive data type selector (crop area, crop production, crop residue) showing municipality-level totals. Displays "N/A" for production/residue when crop area exists but production/residue data is unavailable
+   - **Investor Crop Area Map** (`build_investor_waste_deck_html`) — saves `investor_crop_area_map.html` with interactive data type selector
    - All maps are saved under `output/html/` and auto-open in browser (configurable)
 
 Verification helpers such as `verify_clipping_success` and `verify_clipped_data_integrity` can be run independently when you need to inspect intermediate outputs.
 
 ## Workflow Summary
 
-1. **Data Preparation**: Manually place GeoTIFF data files in `data/raw/` directory (data acquisition is done outside the codebase).
-2. **Processing**: Run `python src/main.py` with or without coordinates to process the local data files.
+1. **Data Preparation**: GeoTIFF data files can be downloaded automatically via Streamlit app or manually placed in `data/raw/` directory.
+2. **Processing**: Run `python src/main.py` with or without coordinates to process the local data files, or use the Streamlit web interface.
 3. **Score & Map**: Review the returned DataFrame (optionally written to `data/processed/merged_soil_data.csv`), suitability scores CSV (`data/processed/suitability_scores.csv`), and interactive maps:
    - `output/html/biochar_suitability_map.html` — Biochar suitability map
    - `output/html/suitability_map.html` — Streamlit-compatible copy of suitability map
@@ -267,19 +263,15 @@ Verification helpers such as `verify_clipping_success` and `verify_clipped_data_
 ## Data Sources
 
 ### Scoring-Required Datasets (Used in Biochar Suitability Calculation)
-- **Soil Moisture**: NASA SMAP (NASA/SMAP/SPL4SMGP/008) - surface layer
-- **Soil Temperature**: NASA SMAP (NASA/SMAP/SPL4SMGP/008) - layer 1
-- **Soil Organic Carbon**: OpenLandMap (OpenLandMap/SOL/SOL_ORGANIC-CARBON_USDA-6A1C_M/v02) - **b0 (surface) and b10 (10cm) layers averaged**
-- **Soil pH**: OpenLandMap (OpenLandMap/SOL/SOL_PH-H2O_USDA-4C1A2A_M/v02) - **b0 (surface) and b10 (10cm) layers averaged**
+- **Soil Moisture**: Resampled to 250m resolution - surface layer
+- **Soil Temperature**: Resampled to 250m resolution - layer 1
+- **Soil Organic Carbon**: 250m resolution - b0 (surface) and b10 (10cm) layers averaged
+- **Soil pH**: 250m resolution - b0 (surface) and b10 (10cm) layers averaged
 
-### Optional Datasets (Exported but Not Used in Scoring)
-- **Soil Type**: OpenLandMap (OpenLandMap/SOL/SOL_TEXTURE-CLASS_USDA-TT_M/v02) - Available in Google Drive but not imported for processing
-- **Land Cover**: ESA WorldCover (ESA/WorldCover/v100) - Available in Google Drive but not imported for processing
-
-### SMAP Downscaling
-
-- During `load_datasets()` the rasters are resampled to 250 m with bicubic interpolation (see `src/data/acquisition/smap_downscaling.py`).
-- All exports and downstream processing use the bicubic-resampled outputs at 250 m resolution.
+### Additional Data Sources
+- **Municipality Boundaries**: Brazilian municipality boundaries shapefiles (2024)
+- **Crop Production Data**: Municipality-level crop area, production, and residue data
+- **Pyrolysis Data**: Biochar feedstock properties and soil challenge matching (for recommendations)
 
 ## Caching System
 
@@ -361,18 +353,18 @@ The tool generates:
 - **GeoTIFF files**: Raw raster data in `data/raw/`
 - **CSV files**: 
   - `merged_soil_data.csv` - Merged and aggregated soil data in `data/processed/`
-  - `suitability_scores.csv` - Biochar suitability scores with `suitability_score` column (0-10 scale) for Streamlit compatibility in `data/processed/`
+  - `suitability_scores.csv` - Biochar suitability scores with `suitability_score` column (0-10 scale) in `data/processed/`
 - **Cache files**: Cached clipped rasters, DataFrames, and H3 indexes in `data/processed/cache/`
 - **HTML maps**: Interactive maps in `output/html/`:
-  - `biochar_suitability_map.html` - Main interactive biochar suitability map with scores (0-100 scale)
+  - `biochar_suitability_map.html` - Main interactive biochar suitability map with scores (0-10 scale)
   - `suitability_map.html` - Streamlit-compatible copy of suitability map
-  - `soc_map.html` - Main interactive Soil Organic Carbon map showing SOC values (g/kg) aggregated by H3 hexagons
+  - `soc_map.html` - Main interactive Soil Organic Carbon map showing SOC values (g/kg)
   - `soc_map_streamlit.html` - Streamlit-compatible copy of SOC map
-  - `ph_map.html` - Main interactive Soil pH map showing pH values aggregated by H3 hexagons
+  - `ph_map.html` - Main interactive Soil pH map showing pH values
   - `ph_map_streamlit.html` - Streamlit-compatible copy of pH map
-  - `moisture_map.html` - Main interactive Soil Moisture map showing soil moisture values aggregated by H3 hexagons
+  - `moisture_map.html` - Main interactive Soil Moisture map
   - `moisture_map_streamlit.html` - Streamlit-compatible copy of moisture map
-  - `investor_crop_area_map.html` - Interactive municipality-level map with data type selector (crop area, crop production, crop residue)
+  - `investor_crop_area_map.html` - Interactive municipality-level map with data type selector
 - **Logs**: Application logs in `logs/`
 
 ### Streamlit Integration
@@ -391,21 +383,22 @@ The tool includes a Streamlit web interface (`streamlit_app.py`) with the follow
 - Efficient data loading with minimal reruns
 
 **Generated Files:**
-- `suitability_scores.csv` contains scores scaled to 0-10 (from internal 0-100 scale) with `suitability_score` column
-- `suitability_map.html` is a copy of the main suitability map file for Streamlit to display
-- `soc_map_streamlit.html` is a Streamlit-compatible copy of the SOC map (pre-generated during analysis)
-- `ph_map_streamlit.html` is a Streamlit-compatible copy of the pH map (pre-generated during analysis)
-- `moisture_map_streamlit.html` is a Streamlit-compatible copy of the moisture map (pre-generated during analysis)
+- `suitability_scores.csv` contains scores on a 0-10 scale with `suitability_score` column
+- All Streamlit-compatible map files (`*_streamlit.html`) are pre-generated during analysis
 
 **Streamlit Interface:**
-- Five tabs for different map visualizations:
-  - **Biochar Suitability**: Displays the suitability map with metrics and results table
-  - **Soil Organic Carbon**: Displays the SOC map showing organic carbon values aggregated by H3 hexagons
-  - **Soil pH**: Displays the pH map showing pH values aggregated by H3 hexagons with diverging color scheme
-  - **Soil Moisture**: Displays the moisture map showing soil moisture values aggregated by H3 hexagons
-  - **Investor Crop Area**: Displays municipality-level map with interactive data type selector (crop area, crop production, crop residue). Shows "N/A" for production/residue when crop area exists but production/residue data is unavailable
+- Two main perspectives:
+  - **Farmer Perspective**: Five tabs showing soil health insights
+    - Biochar Suitability: Displays suitability map with metrics (0-10 scale)
+    - Soil Organic Carbon: Displays SOC map with values (g/kg)
+    - Soil pH: Displays pH map with diverging color scheme
+    - Soil Moisture: Displays moisture map
+    - Top 10 Recommendations: Shows recommended biochar feedstocks (if available)
+  - **Investor Perspective**: Interactive crop residue map
+    - Radio button selector for crop area, production, or residue data
+    - Municipality-level visualization with summary metrics
 - Automatic loading of previous analysis results if available
-- Interactive area selection for targeted analysis
+- Interactive area selection for targeted analysis (latitude, longitude, radius)
 - Download button for CSV results
 
 **Deployment:**
@@ -415,9 +408,9 @@ The tool includes a Streamlit web interface (`streamlit_app.py`) with the follow
 
 ## Troubleshooting Highlights
 
-- **Missing rasters**: Ensure GeoTIFF files are manually placed in `data/raw/` directory. Files should be GeoTIFF format and contain keywords like "moisture", "SOC", "ph", or "temp" in their names.
+- **Missing rasters**: Ensure GeoTIFF files are in `data/raw/` directory or use the automatic download feature. Files should be GeoTIFF format and contain keywords like "moisture", "SOC", "ph", or "temp" in their names.
 - **No data found**: Check that required files are present: `soil_moisture_res_250_sm_surface.tif`, `SOC_res_250_b0.tif`, `SOC_res_250_b10.tif`, `soil_pH_res_250_b0.tif`, `soil_pH_res_250_b10.tif`, `soil_temp_res_250_soil_temp_layer1.tif`
-- **Empty CSV outputs**: make sure the clipping circle overlaps the raster (edge circles often produce sparse data—use the verification helpers to confirm coverage).
+- **Empty CSV outputs**: Make sure the clipping circle overlaps the raster (edge circles often produce sparse data—use the verification helpers to confirm coverage).
 - **Cache issues**: If you suspect cache problems, delete `data/processed/cache/` directory to force regeneration. Cache automatically invalidates when source files change, but manual deletion can help troubleshoot.
 - **Parquet file errors**: Ensure `pyarrow>=10.0.0` is installed (`pip install pyarrow`). Parquet files are used for efficient DataFrame caching.
 
@@ -428,4 +421,3 @@ This project is actively developed for internal research. If you have improvemen
 - Open an issue or pull request with a clear description of the change.
 - Attach sample rasters/CSVs when reporting pipeline bugs so we can reproduce them.
 - Reach out to the project maintainers via the repository issue tracker for further assistance.
-
