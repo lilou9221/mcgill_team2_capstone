@@ -6,7 +6,8 @@
 
 **Problem**: App shows "Missing required data files" error.
 
-**Solution**: Data files are automatically downloaded from Google Drive on first run. If download fails:
+**Solution**: Most data files are included in the GitHub repository. Only `soil_moisture_res_250_sm_surface.tif` (59MB) is downloaded from Cloudflare R2. If download fails:
+
 1. Check your internet connection
 2. Try clicking "Reset Cache & Restart" in the sidebar
 3. Manually run: `python scripts/download_assets.py`
@@ -61,10 +62,11 @@ Or click "Reset Cache & Restart" in the Streamlit sidebar.
 
 **Problem**: Investor tab shows "data not available".
 
-**Solution**: Required files may be missing:
-1. Check for `BR_Municipios_2024.shp` in `data/`
-2. Check for `Updated_municipality_crop_production_data.csv` in `data/`
-3. Run: `python scripts/download_assets.py`
+**Solution**: Check for required files in `data/`:
+- `BR_Municipios_2024_simplified.shp` (and .dbf, .shx, .prj, .cpg)
+- `Updated_municipality_crop_production_data.csv`
+
+These files are included in the GitHub repository.
 
 ### Import Errors
 
@@ -88,6 +90,15 @@ python src/main.py
 ```bash
 pip install pyarrow>=10.0.0
 ```
+
+### Cloudflare R2 Download Timeout
+
+**Problem**: Soil moisture file download times out.
+
+**Solution**:
+1. The file is 59MB - allow up to 10 minutes on slow connections
+2. Check Cloudflare R2 status at https://www.cloudflarestatus.com/
+3. Manually download from R2 URL if needed
 
 ## Getting Help
 

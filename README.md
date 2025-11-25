@@ -55,7 +55,7 @@ pip install -r requirements.txt
 streamlit run streamlit_app.py
 ```
 
-The app will automatically download required data files from Cloudflare R2 on first run.
+The app will automatically download the soil moisture file (~59MB) from Cloudflare R2 on first run. All other data files are included in the repository.
 
 ### 3. Use the Interface
 
@@ -65,16 +65,17 @@ The app will automatically download required data files from Cloudflare R2 on fi
 
 ## Data Files
 
-Data files are automatically downloaded from Cloudflare R2 (fast, no rate limits). Required files:
+Most data files are included directly in the GitHub repository. Only the largest file (soil moisture, 59MB) is downloaded from Cloudflare R2 on first run.
 
-| File | Description |
-|------|-------------|
-| `soil_moisture_res_250_sm_surface.tif` | Soil moisture |
-| `SOC_res_250_b0.tif`, `SOC_res_250_b10.tif` | Soil organic carbon |
-| `soil_pH_res_250_b0.tif`, `soil_pH_res_250_b10.tif` | Soil pH |
-| `soil_temp_res_250_soil_temp_layer1.tif` | Soil temperature |
-| `BR_Municipios_2024.*` | Municipality boundaries |
-| `Updated_municipality_crop_production_data.csv` | Crop data |
+| File | Size | Source |
+|------|------|--------|
+| `soil_moisture_res_250_sm_surface.tif` | 59MB | Cloudflare R2 |
+| `soil_temp_res_250_soil_temp_layer1.tif` | 40MB | GitHub |
+| `brazil_crop_harvest_area_2017-2024.csv` | 25MB | GitHub |
+| `BR_Municipios_2024_simplified.*` | 11MB | GitHub |
+| `SOC_res_250_b0.tif`, `SOC_res_250_b10.tif` | 3MB each | GitHub |
+| `soil_pH_res_250_b0.tif`, `soil_pH_res_250_b10.tif` | 5MB each | GitHub |
+| `Updated_municipality_crop_production_data.csv` | 1.6MB | GitHub |
 
 All files are stored in the `data/` directory (flat structure).
 
@@ -141,7 +142,7 @@ Biochar suitability is calculated based on soil quality (see `SCORING_THRESHOLDS
 
 ## Troubleshooting
 
-- **Missing data files**: The app downloads them automatically on first run
+- **Missing data files**: The app downloads soil moisture automatically; other files are in the repo
 - **Analysis fails**: Ensure coordinates are within Mato Grosso (-7 to -18 lat, -50 to -62 lon)
 - **Cache issues**: Delete `data/processed/cache/` to force regeneration
 
