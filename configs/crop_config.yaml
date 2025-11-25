@@ -1,0 +1,21 @@
+# Residue ratios taken exactly from your residue_ratios.xlsx
+crops:
+  soybean:
+    portuguese: "Soja (em grão)"
+    english: "Soybeans (grain)"
+    residue_ratio: 0.67716836   # t residue / t grain (collectable)
+  maize:
+    portuguese: "Milho (em grão)"
+    english: "Corn (grain)"
+    residue_ratio: 0.572537238
+  sugarcane:
+    portuguese: "Cana-de-açúcar"
+    english: "Sugarcane"
+    residue_ratio: 0.29
+  cotton:
+    portuguese: "Algodão herbáceo (em caroço)"
+    english: "Herbaceous cotton (seed)"
+    residue_ratio: 0.6125
+
+pyrolysis_yield: 0.30   # 30 % of dry residue becomes biochar (slow pyrolysis)
+collection_factor: 1.0  # already baked into your URR column → no extra reduction
