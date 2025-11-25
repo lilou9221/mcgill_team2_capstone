@@ -40,55 +40,77 @@ import requests
 
 R2_BASE_URL = "https://pub-d86172a936014bdc9e794890543c5f66.r2.dev"
 
-# All required data files with their filenames
-REQUIRED_FILES = [
-    "BR_Municipios_2024.shp",
-    "BR_Municipios_2024.dbf",
-    "BR_Municipios_2024.shx",
-    "BR_Municipios_2024.prj",
-    "BR_Municipios_2024.cpg",
-    "Updated_municipality_crop_production_data.csv",
-    "brazil_crop_harvest_area_2017-2024.csv",
-    "residue_ratios.csv",
-    "SOC_res_250_b0.tif",
-    "SOC_res_250_b10.tif",
-    "soil_moisture_res_250_sm_surface.tif",
-    "soil_pH_res_250_b0.tif",
-    "soil_pH_res_250_b10.tif",
-    "soil_temp_res_250_soil_temp_layer1.tif",
-]
+# Required files with expected sizes for verification (prevents corrupted downloads)
+REQUIRED_FILES = {
+    "BR_Municipios_2024.shp": 286858448,
+    "BR_Municipios_2024.dbf": 2865036,
+    "BR_Municipios_2024.shx": 44684,
+    "BR_Municipios_2024.prj": 151,
+    "BR_Municipios_2024.cpg": 5,
+    "Updated_municipality_crop_production_data.csv": 1605740,
+    "brazil_crop_harvest_area_2017-2024.csv": 25409421,
+    "residue_ratios.csv": 179,
+    "SOC_res_250_b0.tif": 3201905,
+    "SOC_res_250_b10.tif": 3163692,
+    "soil_moisture_res_250_sm_surface.tif": 58559674,
+    "soil_pH_res_250_b0.tif": 5260755,
+    "soil_pH_res_250_b10.tif": 5254048,
+    "soil_temp_res_250_soil_temp_layer1.tif": 39979898,
+}
 
 def check_data_files():
-    """Check if required data files exist."""
+    """Check if required data files exist and are complete."""
     try:
         data_dir = PROJECT_ROOT / "data"
-        missing = [f for f in REQUIRED_FILES if not (data_dir / f).exists()]
-        return len(missing) == 0
+        for filename, expected_size in REQUIRED_FILES.items():
+            filepath = data_dir / filename
+            if not filepath.exists():
+                return False
+            # Allow 1% tolerance for size differences
+            if filepath.stat().st_size < expected_size * 0.99:
+                return False
+        return True
     except Exception:
         return False
 
 @st.cache_resource(show_spinner=False)
 def download_data_from_r2():
-    """Download missing data files from Cloudflare R2."""
+    """Download missing/incomplete data files from Cloudflare R2."""
     data_dir = PROJECT_ROOT / "data"
     data_dir.mkdir(parents=True, exist_ok=True)
     
     downloaded = []
     errors = []
     
-    for filename in REQUIRED_FILES:
+    for filename, expected_size in REQUIRED_FILES.items():
         dest = data_dir / filename
-        if dest.exists() and dest.stat().st_size > 0:
-            continue  # Skip existing files
+        
+        # Skip if file exists and is complete
+        if dest.exists() and dest.stat().st_size >= expected_size * 0.99:
+            continue
+        
+        # Delete incomplete file
+        if dest.exists():
+            dest.unlink()
         
         url = f"{R2_BASE_URL}/{filename}"
         try:
-            response = requests.get(url, timeout=300, stream=True)
+            # Use longer timeout for large files (10 min for shapefile)
+            timeout = 600 if expected_size > 100000000 else 300
+            response = requests.get(url, timeout=timeout, stream=True)
             response.raise_for_status()
+            
+            # Write with larger chunks for faster download
             with open(dest, 'wb') as f:
-                for chunk in response.iter_content(chunk_size=8192):
+                for chunk in response.iter_content(chunk_size=1048576):  # 1MB chunks
                     f.write(chunk)
-            downloaded.append(filename)
+            
+            # Verify download
+            if dest.stat().st_size >= expected_size * 0.99:
+                downloaded.append(filename)
+            else:
+                errors.append(f"{filename}: incomplete download")
+                dest.unlink()
         except requests.exceptions.RequestException as e:
             errors.append(f"{filename}: {e}")
         except Exception as e:
@@ -96,7 +118,7 @@ def download_data_from_r2():
     
     return downloaded, errors
 
-# Auto-download on startup if files are missing
+# Auto-download on startup if files are missing or incomplete
 if not check_data_files():
     with st.spinner("Downloading data files from cloud storage (this may take a few minutes on first run)..."):
         downloaded, errors = download_data_from_r2()
