@@ -551,7 +551,7 @@ with farmer_tab:
                     }
                     top10_display = top10_display.rename(columns=rename_map)
                     
-                    st.dataframe(top10_display, use_container_width=True, hide_index=True)
+                    st.dataframe(top10_display, width='stretch', hide_index=True)
                     
                     # Show feedstock distribution (cached)
                     @st.cache_data(show_spinner=False)
@@ -655,7 +655,7 @@ with farmer_tab:
                         "Biochar_t_per_ha": "Biochar (t/ha)",
                         "Biochar_t_total": "Total Biochar (tons)"
                     })
-                    st.dataframe(display, use_container_width=True)
+                    st.dataframe(display, width='stretch')
                 else:
                     st.warning("Required columns not found in crop data.")
                 
@@ -751,7 +751,7 @@ with investor_tab:
             data_type = data_type_map.get(data_type_radio, "area")
 
             deck = create_municipality_waste_deck(gdf, data_type=data_type)
-            st.pydeck_chart(deck, use_container_width=True)
+            st.pydeck_chart(deck, width='stretch')
 
             # Show legend for all data types with appropriate labels
             legend_titles = {
