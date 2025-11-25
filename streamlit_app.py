@@ -208,6 +208,13 @@ st.markdown("""
     .gradient-labels {display: flex; justify-content: space-between; font-size: 0.85rem; color: #666; margin-top: 4px;}
     .gradient-label {flex: 1; text-align: center;}
     .footer {text-align: center; padding: 6rem 0 3rem; color: #666; border-top: 1px solid #eee; margin-top: 8rem; font-size: 0.95rem;}
+    /* Fix dropdown menu text visibility */
+    div[data-baseweb="select"] > div, div[data-baseweb="popover"] li {color: #000 !important; background-color: #fff !important;}
+    div[data-baseweb="popover"] {background-color: #fff !important;}
+    div[data-baseweb="menu"] {background-color: #fff !important;}
+    div[data-baseweb="select"] li {color: #000 !important;}
+    ul[role="listbox"] li {color: #000 !important; background-color: #fff !important;}
+    ul[role="listbox"] li:hover {background-color: #f0f0f0 !important;}
 </style>
 """, unsafe_allow_html=True)
 
