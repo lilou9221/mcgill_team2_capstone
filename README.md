@@ -35,7 +35,7 @@ This tool analyzes soil properties (moisture, temperature, organic carbon, pH) t
 ### Prerequisites
 
 - Python 3.9 or higher
-- GeoTIFF data files (can be downloaded automatically or manually placed in `data/raw/` directory)
+- GeoTIFF data files (can be downloaded automatically or manually placed in `data/` directory - flat structure)
 - Git (optional, for cloning repository)
 
 ### Step 1: Clone or Navigate to Project
@@ -104,7 +104,7 @@ data/
 │   ├── soil_pH_res_250_b0.tif
 │   ├── soil_pH_res_250_b10.tif
 │   └── soil_temp_res_250_soil_temp_layer1.tif
-├── boundaries/BR_Municipios_2024/
+├── BR_Municipios_2024.shp (and .dbf, .shx, .prj, .cpg)  # Flat structure: all files in data/
 │   ├── BR_Municipios_2024.shp
 │   ├── BR_Municipios_2024.dbf
 │   ├── BR_Municipios_2024.shx
@@ -123,7 +123,7 @@ data/
 The `config.yaml` file is **only needed** if you want to use the optional GEE export scripts to export data from Google Earth Engine. For normal usage with manually placed data files, no configuration is needed.
 
 **Default Settings (work out of the box):**
-- Data directories: `data/raw`, `data/processed`
+- Data directories: `data/` (flat structure for all input files), `data/processed/` (for outputs)
 - Output directories: `output/html`
 - H3 resolution: 7 for clipped areas, 9 for full state
 - Processing: Caching enabled, snapshots disabled
@@ -226,7 +226,7 @@ Call them with `python scripts/<script_name>.py [...]` from the project root.
 
 The core pipeline lives in `src/main.py` and wires high-level helpers from each submodule:
 
-1. **Data validation** (`ensure_rasters_acquired`) — confirms GeoTIFFs exist in `data/raw/` before doing any expensive work. Files should be manually placed in this directory or downloaded automatically.
+1. **Data validation** (`ensure_rasters_acquired`) — confirms GeoTIFFs exist in `data/` before doing any expensive work. Files should be manually placed in this directory or downloaded automatically.
 2. **AOI selection** (`get_user_area_of_interest`) — validates coordinates, radius, and provides a full-state fallback.
 3. **Optional clipping** (`clip_all_rasters_to_circle`) — trims rasters to the requested buffer and reports size deltas. **Cached** to speed up re-runs (see Caching System section).
 4. **Raster ➜ Table** (`convert_all_rasters_to_dataframes`) — flattens rasters into pandas DataFrames with coordinates, nodata handling, and unit inference. **Cached** as Parquet files for fast loading (see Caching System section).
@@ -246,7 +246,7 @@ Verification helpers such as `verify_clipping_success` and `verify_clipped_data_
 
 ## Workflow Summary
 
-1. **Data Preparation**: GeoTIFF data files can be downloaded automatically via Streamlit app or manually placed in `data/raw/` directory.
+1. **Data Preparation**: GeoTIFF data files can be downloaded automatically via Streamlit app or manually placed in `data/` directory (flat structure).
 2. **Processing**: Run `python src/main.py` with or without coordinates to process the local data files, or use the Streamlit web interface.
 3. **Score & Map**: Review the returned DataFrame (optionally written to `data/processed/merged_soil_data.csv`), suitability scores CSV (`data/processed/suitability_scores.csv`), and interactive maps:
    - `output/html/biochar_suitability_map.html` — Biochar suitability map
@@ -341,7 +341,7 @@ The pipeline includes several optimizations to handle large datasets efficiently
 - **Scoring-required datasets**: soil_moisture, SOC (b0 and b10), pH (b0 and b10), soil_temperature
 - **Excluded from processing**: land_cover, soil_type (can be included but not used in scoring)
 - **Benefits**: Reduces memory usage, processing time, and cache size
-- **Note**: Only scoring-required files are processed from the manually placed GeoTIFF files in `data/raw/`
+- **Note**: Only scoring-required files are processed from the manually placed GeoTIFF files in `data/`
 
 ### Automatic
 All optimizations are built-in and require no configuration. The pipeline automatically handles these optimizations at the optimal stages.
@@ -350,7 +350,7 @@ All optimizations are built-in and require no configuration. The pipeline automa
 
 The tool generates:
 
-- **GeoTIFF files**: Raw raster data in `data/raw/`
+- **GeoTIFF files**: Raw raster data in `data/` (flat structure)
 - **CSV files**: 
   - `merged_soil_data.csv` - Merged and aggregated soil data in `data/processed/`
   - `suitability_scores.csv` - Biochar suitability scores with `suitability_score` column (0-10 scale) in `data/processed/`
@@ -408,7 +408,7 @@ The tool includes a Streamlit web interface (`streamlit_app.py`) with the follow
 
 ## Troubleshooting Highlights
 
-- **Missing rasters**: Ensure GeoTIFF files are in `data/raw/` directory or use the automatic download feature. Files should be GeoTIFF format and contain keywords like "moisture", "SOC", "ph", or "temp" in their names.
+- **Missing rasters**: Ensure GeoTIFF files are in `data/` directory or use the automatic download feature. Files should be GeoTIFF format and contain keywords like "moisture", "SOC", "ph", or "temp" in their names.
 - **No data found**: Check that required files are present: `soil_moisture_res_250_sm_surface.tif`, `SOC_res_250_b0.tif`, `SOC_res_250_b10.tif`, `soil_pH_res_250_b0.tif`, `soil_pH_res_250_b10.tif`, `soil_temp_res_250_soil_temp_layer1.tif`
 - **Empty CSV outputs**: Make sure the clipping circle overlaps the raster (edge circles often produce sparse data—use the verification helpers to confirm coverage).
 - **Cache issues**: If you suspect cache problems, delete `data/processed/cache/` directory to force regeneration. Cache automatically invalidates when source files change, but manual deletion can help troubleshoot.

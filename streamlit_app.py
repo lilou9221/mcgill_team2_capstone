@@ -6,7 +6,6 @@ import pandas as pd
 from pathlib import Path
 import sys
 import subprocess
-import os
 import time
 import traceback
 
@@ -39,7 +38,7 @@ def get_config():
     try:
         config = load_config()
         defaults = {
-            "data": {"raw": "data/raw", "processed": "data/processed"},
+            "data": {"raw": "data", "processed": "data/processed"},  # Flat structure: data/ contains all input files
             "output": {"html": "output/html"},
             "processing": {"h3_resolution": 7}
         }
@@ -48,26 +47,23 @@ def get_config():
         return config
     except:
         return {
-            "data": {"raw": "data/raw", "processed": "data/processed"},
+            "data": {"raw": "data", "processed": "data/processed"},  # Flat structure: data/ contains all input files
             "output": {"html": "output/html"},
             "processing": {"h3_resolution": 7}
         }
 
 config = get_config()
-DOWNLOAD_SCRIPT = PROJECT_ROOT / "scripts" / "download_assets.py"
+# Check essential files - must match download_assets.py targets (flat data/ structure)
+# Shapefiles need all components to work properly
 REQUIRED_DATA_FILES = [
-    PROJECT_ROOT / "data" / "boundaries" / "BR_Municipios_2024" / "BR_Municipios_2024.shp",
-    PROJECT_ROOT / "data" / "boundaries" / "BR_Municipios_2024" / "BR_Municipios_2024.dbf",
-    PROJECT_ROOT / "data" / "boundaries" / "BR_Municipios_2024" / "BR_Municipios_2024.shx",
-    PROJECT_ROOT / "data" / "boundaries" / "BR_Municipios_2024" / "BR_Municipios_2024.prj",
-    PROJECT_ROOT / "data" / "boundaries" / "BR_Municipios_2024" / "BR_Municipios_2024.cpg",
-    PROJECT_ROOT / "data" / "crop_data" / "Updated_municipality_crop_production_data.csv",
-    PROJECT_ROOT / "data" / "raw" / "SOC_res_250_b0.tif",
-    PROJECT_ROOT / "data" / "raw" / "SOC_res_250_b10.tif",
-    PROJECT_ROOT / "data" / "raw" / "soil_moisture_res_250_sm_surface.tif",
-    PROJECT_ROOT / "data" / "raw" / "soil_pH_res_250_b0.tif",
-    PROJECT_ROOT / "data" / "raw" / "soil_pH_res_250_b10.tif",
-    PROJECT_ROOT / "data" / "raw" / "soil_temp_res_250_soil_temp_layer1.tif",
+    # Shapefile components (all required for shapefile to work)
+    PROJECT_ROOT / "data" / "BR_Municipios_2024.shp",
+    PROJECT_ROOT / "data" / "BR_Municipios_2024.dbf",
+    PROJECT_ROOT / "data" / "BR_Municipios_2024.shx",
+    PROJECT_ROOT / "data" / "BR_Municipios_2024.prj",
+    PROJECT_ROOT / "data" / "BR_Municipios_2024.cpg",
+    # Crop data
+    PROJECT_ROOT / "data" / "Updated_municipality_crop_production_data.csv",
 ]
 
 @st.cache_data(ttl=3600, show_spinner=False)
@@ -78,127 +74,32 @@ def check_required_files_exist():
             missing.append(path)
     return len(missing) == 0, missing
 
-def ensure_required_data():
-    if st.session_state.get("data_downloaded", False):
-        return
+def check_data_availability():
+    """Check what data is available - graceful, no crashes."""
     all_exist, missing = check_required_files_exist()
     if all_exist:
         st.session_state["data_downloaded"] = True
-        return
-    status_placeholder = st.empty()
-    status_placeholder.info("Downloading required geo datasets from Google Drive (first run only). This may take a few minutes.\n\n**Note:** Soil data covers Mato Grosso state only.")
-    if not DOWNLOAD_SCRIPT.exists():
-        status_placeholder.empty()
-        st.error("Download script missing. Please run `scripts/download_assets.py` manually.")
-        st.stop()
+        return True
     
-    result = None
-    try:
-        result = subprocess.run(
-            [sys.executable, str(DOWNLOAD_SCRIPT)],
-            cwd=str(PROJECT_ROOT),
-            capture_output=True,
-            text=True,
-            timeout=600,
-            env=os.environ.copy()
-        )
+    # Show helpful message but don't crash
+    if not st.session_state.get("data_warning_shown", False):
+        st.info("""
+        **Data Files Missing**
         
-        # Always show download output for debugging
-        if result.stdout:
-            print(f"[DOWNLOAD STDOUT]\n{result.stdout}", flush=True)
-        if result.stderr:
-            print(f"[DOWNLOAD STDERR]\n{result.stderr}", flush=True)
+        Some data files are not available. The app will work with available data.
         
-        if result.returncode != 0:
-            status_placeholder.empty()
-            st.error("Automatic data download failed.")
-            
-            # Check for Google Drive blocking/rate limiting issues
-            error_output = (result.stderr or "") + (result.stdout or "")
-            if any(keyword in error_output.lower() for keyword in ["403", "forbidden", "rate limit", "blocked", "access denied", "quota"]):
-                st.warning("""
-                **Google Drive Access Issue Detected**
-                
-                Google Drive downloads may be blocked or rate-limited on Streamlit Cloud servers. 
-                This is a known limitation when accessing Google Drive from cloud hosting platforms.
-                
-                **Solutions:**
-                1. **Manual Download (Recommended):** Download the data files manually from the Google Drive folder and place them in the project directory.
-                2. **Alternative Hosting:** Consider using alternative file hosting (AWS S3, GitHub Releases, etc.) for production deployments.
-                3. **Local Development:** The download works fine when running locally.
-                
-                **Required Files:**
-                - Shapefiles: `data/boundaries/BR_Municipios_2024/` (all .shp, .dbf, .shx, .prj, .cpg files)
-                - Crop Data: `data/crop_data/Updated_municipality_crop_production_data.csv`
-                - Soil Data (Mato Grosso only): `data/raw/*.tif` (6 GeoTIFF files)
-                """)
-            
-            st.code(f"Exit code: {result.returncode}\n\nSTDOUT:\n{result.stdout}\n\nSTDERR:\n{result.stderr}")
-            st.stop()
-    except subprocess.TimeoutExpired:
-        status_placeholder.empty()
-        st.error("Data download timed out after 10 minutes.")
-        st.warning("""
-        **Possible Causes:**
-        - Google Drive rate limiting on Streamlit Cloud
-        - Network connectivity issues
-        - Large file sizes taking longer than expected
+        **To download data manually:**
+        1. Run `python scripts/download_assets.py` locally
+        2. Or download from Google Drive and place files in the project directory
         
-        **Note:** Soil data covers Mato Grosso state only. Consider downloading files manually if this persists.
+        **Note:** Soil data covers Mato Grosso state only.
         """)
-        if result and result.stdout:
-            st.code(result.stdout)
-        st.stop()
-    except Exception as exc:
-        status_placeholder.empty()
-        st.error(f"Download failed: {exc}")
-        st.warning("""
-        **Google Drive Access Issue**
-        
-        If you're running on Streamlit Cloud, Google Drive downloads may be blocked or rate-limited.
-        Please download the data files manually and place them in the project directory.
-        
-        **Note:** All soil data is for Mato Grosso state only.
-        """)
-        if result:
-            st.code(f"STDOUT:\n{result.stdout}\n\nSTDERR:\n{result.stderr}")
-        st.stop()
+        st.session_state["data_warning_shown"] = True
     
-    # Give filesystem time to sync, especially on cloud platforms
-    time.sleep(3)
-    
-    # Clear cache to force re-check
-    check_required_files_exist.clear()
-    
-    status_placeholder.empty()
-    all_exist, remaining_missing = check_required_files_exist()
-    if not all_exist:
-        st.error("Some files still missing after download.")
-        st.code("\n".join(str(p) for p in remaining_missing))
-        
-        # Check if this might be a Google Drive blocking issue
-        st.warning("""
-        **Possible Google Drive Access Issue**
-        
-        If you're on Streamlit Cloud, Google Drive downloads may be blocked or rate-limited.
-        The download script may have failed silently due to network restrictions.
-        
-        **Note:** All soil data is for Mato Grosso state only.
-        
-        **Solutions:**
-        1. Download files manually from Google Drive and place them in the project
-        2. Check the download script output below for specific error messages
-        """)
-        
-        # Show download script output for debugging
-        if result:
-            with st.expander("Download script output (for debugging)", expanded=True):
-                st.code(f"Exit code: {result.returncode}\n\nSTDOUT:\n{result.stdout}\n\nSTDERR:\n{result.stderr}")
-            st.info(f"**Debug Info:**\n- PROJECT_ROOT: `{PROJECT_ROOT}`\n- PROJECT_ROOT exists: {PROJECT_ROOT.exists()}")
-        st.stop()
-    st.session_state["data_downloaded"] = True
+    return False
 
-ensure_required_data()
+# Check data availability (graceful, no crashes)
+check_data_availability()
 
 # ============================================================
 # GLOBAL STYLING (100% YOUR ORIGINAL)
@@ -235,42 +136,56 @@ st.markdown('<div class="header-title">Biochar Suitability Mapper</div>', unsafe
 st.markdown('<div class="header-subtitle">Precision soil health & crop residue intelligence for sustainable biochar in Mato Grosso, Brazil</div>', unsafe_allow_html=True)
 
 with st.sidebar:
-    st.markdown("### Analysis Settings")
-    use_coords = st.checkbox("Analyze around a location", value=True)
-    lat = lon = radius = None
-    if use_coords:
-        c1, c2 = st.columns(2)
-        with c1: lat = st.number_input("Latitude", value=-13.0, format="%.6f")
-        with c2: lon = st.number_input("Longitude", value=-56.0, format="%.6f")
-        radius = st.slider("Radius (km)", 25, 100, 100, 25)
-    h3_res = st.slider("H3 Resolution", 5, 9, 7)
-    run_btn = st.button("Run Analysis", type="primary", width='stretch')
+    st.markdown("### View Results")
     if st.button("Reset Cache & Restart"):
         st.cache_data.clear()
         st.session_state.clear()
         st.rerun()
+    
+    # Optional: Analysis runner (hidden by default to prevent crashes)
+    run_btn = False
+    with st.expander("⚙️ Run New Analysis (Advanced)", expanded=False):
+        st.warning("**Note:** Running analysis requires data files and may take several minutes.")
+        use_coords = st.checkbox("Analyze around a location", value=True)
+        lat = lon = radius = None
+        if use_coords:
+            c1, c2 = st.columns(2)
+            with c1: lat = st.number_input("Latitude", value=-13.0, format="%.6f")
+            with c2: lon = st.number_input("Longitude", value=-56.0, format="%.6f")
+            radius = st.slider("Radius (km)", 25, 100, 100, 25)
+        h3_res = st.slider("H3 Resolution", 5, 9, 7)
+        run_btn = st.button("Run Analysis", type="primary", width='stretch')
 
 # ============================================================
-# RUN ANALYSIS PIPELINE (YOUR ORIGINAL – UNCHANGED)
+# RUN ANALYSIS PIPELINE (OPTIONAL - HIDDEN BY DEFAULT)
 # ============================================================
 if run_btn:
     st.session_state.analysis_results = None
     if st.session_state.analysis_running:
         st.warning("Analysis already running. Please wait…")
         st.stop()
-    st.session_state.analysis_running = True
-    raw_dir = PROJECT_ROOT / config["data"]["raw"]
-    tif_files = list(raw_dir.glob("*.tif"))
+    
+    # Check if required files exist before running (flat data/ structure)
+    data_dir = PROJECT_ROOT / "data"
+    tif_files = list(data_dir.glob("*.tif"))
     if len(tif_files) < 5:
-        st.error("Not enough GeoTIFF files in data/raw/.")
+        st.error("Not enough GeoTIFF files in data/. Please ensure data files are available.")
+        st.info("Run `python scripts/download_assets.py` to download required files.")
         st.stop()
+    
     wrapper_script = PROJECT_ROOT / "scripts" / "run_analysis.py"
+    if not wrapper_script.exists():
+        st.error("Analysis script not found. Analysis feature unavailable.")
+        st.stop()
+    
+    st.session_state.analysis_running = True
     cli = [sys.executable, str(wrapper_script), "--h3-resolution", str(h3_res)]
     config_file = PROJECT_ROOT / "configs" / "config.yaml"
     if config_file.exists():
         cli += ["--config", str(config_file)]
     if use_coords:
         cli += ["--lat", str(lat), "--lon", str(lon), "--radius", str(radius)]
+    
     status = st.empty()
     logs = []
     try:
@@ -597,11 +512,11 @@ with farmer_tab:
         # Cache data loading functions (moved outside to avoid redefinition on reruns)
         @st.cache_data(ttl=3600, show_spinner=False)
         def load_ratios():
-            return pd.read_csv(PROJECT_ROOT / "data" / "raw" / "residue_ratios.csv")
+            return pd.read_csv(PROJECT_ROOT / "data" / "residue_ratios.csv")
 
         @st.cache_data(ttl=3600, show_spinner=False)
         def load_harvest_data():
-            return pd.read_csv(PROJECT_ROOT / "data" / "raw" / "brazil_crop_harvest_area_2017-2024.csv")
+            return pd.read_csv(PROJECT_ROOT / "data" / "brazil_crop_harvest_area_2017-2024.csv")
         
         # Mapping: English crop name -> (Portuguese name in harvest file, English name in ratios file)
         crop_mapping = {
@@ -727,17 +642,19 @@ with investor_tab:
     with investor_container:
         st.markdown("### Crop Residue Availability – Biochar Feedstock Opportunity")
 
-        boundaries_dir = PROJECT_ROOT / "data" / "boundaries" / "BR_Municipios_2024"
-        crop_data_csv = PROJECT_ROOT / "data" / "crop_data" / "Updated_municipality_crop_production_data.csv"
+        # Flat structure: shapefile components and CSV are directly in data/
+        boundaries_dir = PROJECT_ROOT / "data"
+        crop_data_csv = PROJECT_ROOT / "data" / "Updated_municipality_crop_production_data.csv"
 
-        # Cache file existence checks
-        @st.cache_data(ttl=3600)
+        # Cache file existence checks - must check for .shp file
+        @st.cache_data(ttl=3600, show_spinner=False)
         def check_investor_data_exists():
-            return boundaries_dir.exists() and crop_data_csv.exists()
+            shp_file = boundaries_dir / "BR_Municipios_2024.shp"
+            return shp_file.exists() and crop_data_csv.exists()
 
         if not check_investor_data_exists():
             st.warning("Investor map data missing.")
-            st.info("Required:\n• data/boundaries/BR_Municipios_2024/\n• data/crop_data/Updated_municipality_crop_production_data.csv")
+            st.info("Required:\n• data/BR_Municipios_2024.shp (and .dbf, .shx, .prj, .cpg)\n• data/Updated_municipality_crop_production_data.csv")
         else:
             try:
                 from src.map_generators.pydeck_maps.municipality_waste_map import (

@@ -2,7 +2,7 @@
 Optional: Check Google Earth Engine Export Task Status (Template)
 
 NOTE: This script is OPTIONAL and is a TEMPLATE. Data acquisition is done manually outside the codebase.
-GeoTIFF files should be manually placed in data/raw/ directory.
+GeoTIFF files should be manually placed in data/ directory (flat structure).
 
 This script is a TEMPLATE that can be used to check GEE export task status if needed,
 but it is NOT FUNCTIONAL until you provide credentials in configs/config.yaml.

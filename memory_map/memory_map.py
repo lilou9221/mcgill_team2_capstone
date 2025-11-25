@@ -111,7 +111,7 @@ def create_data_flow_diagram():
                                    boxstyle="round,pad=0.1", 
                                    facecolor=file_color, edgecolor=edge_color, linewidth=2)
     ax.add_patch(raw_data_box)
-    ax.text(col1_x + file_box_width/2, center_y, 'Raw GeoTIFF Files\n(data/raw/*.tif)', 
+    ax.text(col1_x + file_box_width/2, center_y, 'Raw GeoTIFF Files\n(data/*.tif)',  # Flat structure 
             ha='center', va='center', fontsize=label_font, fontweight='bold')
     
     # Column 2: Optional Clipping

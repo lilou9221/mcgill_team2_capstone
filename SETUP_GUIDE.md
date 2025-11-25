@@ -5,7 +5,7 @@
 - [ ] Python 3.9+ installed
 - [ ] Virtual environment created and activated
 - [ ] Dependencies installed (including raster libraries)
-- [ ] GeoTIFF data files manually placed in `data/raw/` directory
+- [ ] GeoTIFF data files manually placed in `data/` directory (flat structure)
 - [ ] (Optional) Configuration file updated (`configs/config.yaml`) for custom settings
 
 ## Detailed Setup Instructions
@@ -50,9 +50,9 @@ python scripts/download_assets.py
 ```
 
 This will download:
-- 5 shapefile components for Brazilian municipality boundaries to `data/boundaries/BR_Municipios_2024/`
-- 1 crop production CSV file to `data/crop_data/`
-- 6 GeoTIFF files for soil properties to `data/raw/`
+- 5 shapefile components for Brazilian municipality boundaries to `data/` (flat structure)
+- 1 crop production CSV file to `data/`
+- 6 GeoTIFF files for soil properties to `data/`
 
 **Required files for biochar suitability scoring:**
 - `soil_moisture_res_250_sm_surface.tif` - Soil moisture
@@ -75,7 +75,7 @@ data/
 │   ├── soil_pH_res_250_b0.tif
 │   ├── soil_pH_res_250_b10.tif
 │   └── soil_temp_res_250_soil_temp_layer1.tif
-├── boundaries/BR_Municipios_2024/
+├── BR_Municipios_2024.shp (and .dbf, .shx, .prj, .cpg)  # Flat structure: all files in data/
 │   ├── BR_Municipios_2024.shp
 │   ├── BR_Municipios_2024.dbf
 │   ├── BR_Municipios_2024.shx
@@ -97,7 +97,7 @@ Configuration is optional - the tool works with sensible defaults. If you want t
    ```
 
 2. Edit `configs/config.yaml` to customize:
-   - Data directories (default: `data/raw`, `data/processed`)
+   - Data directories (default: `data/` for inputs, `data/processed/` for outputs - flat structure)
    - Output directories (default: `output/html`)
    - H3 resolution (default: 7)
    - Processing options
@@ -109,7 +109,7 @@ Configuration is optional - the tool works with sensible defaults. If you want t
 python -c "import h3, rasterio, shapely, geopandas; print('Core imports OK')"
 
 # Verify data files are present
-python -c "from pathlib import Path; files = list(Path('data/raw').glob('*.tif')); print(f'Found {len(files)} GeoTIFF files')"
+python -c "from pathlib import Path; files = list(Path('data').glob('*.tif')); print(f'Found {len(files)} GeoTIFF files')"
 ```
 
 ### 6. (Optional) Add Project to PYTHONPATH
@@ -137,7 +137,7 @@ If you run scripts from terminals outside PyCharm, add the project root to `PYTH
 
 Configuration is optional - the tool works with sensible defaults. If you want to customize settings, edit `configs/config.yaml`:
 
-- **Data Directories**: Default `data/raw` and `data/processed`
+- **Data Directories**: Default `data/` (flat structure for inputs) and `data/processed/` (for outputs)
 - **Output Directories**: Default `output/html`
 - **H3 Resolution**: Default 7 for clipped areas (higher = finer hexagons). Full state uses resolution 5 for suitability map and resolution 9 for SOC map automatically.
 - **Persist Snapshots**: Set `processing.persist_snapshots` to `true` to keep intermediate CSV tables for debugging
@@ -150,7 +150,7 @@ Configuration is optional - the tool works with sensible defaults. If you want t
 ### Issue: "No GeoTIFF files found"
 
 **Solution:**
-1. Ensure GeoTIFF files are manually placed in `data/raw/` directory
+1. Ensure GeoTIFF files are manually placed in `data/` directory (flat structure)
 2. Check that files have `.tif` or `.tiff` extension
 3. Verify required files are present:
    - `soil_moisture_res_250_sm_surface.tif`

@@ -2,7 +2,7 @@
 
 **NOTE:** This is a **template/reference guide only**. Data acquisition is done manually outside the codebase.
 
-GeoTIFF files should be manually placed in `data/raw/` directory. The core pipeline does not require these scripts.
+GeoTIFF files should be manually placed in `data/` directory (flat structure). The core pipeline does not require these scripts.
 
 ## Purpose
 
@@ -42,13 +42,13 @@ This will:
 - Load datasets from Google Earth Engine
 - Create export tasks to Google Drive
 - You can then manually download the exported GeoTIFF files
-- Place the downloaded files in `data/raw/` directory
+- Place the downloaded files in `data/` directory (flat structure)
 
 ### Step 4: Manual Data Placement
 
 After exports complete:
 1. Download GeoTIFF files from Google Drive
-2. Manually place them in `data/raw/` directory
+2. Manually place them in `data/` directory (flat structure)
 3. Run the main pipeline: `python src/main.py`
 
 ## Files in This Directory
@@ -87,5 +87,5 @@ You can obtain GeoTIFF files from any source:
 - Existing datasets
 - Manual downloads
 
-As long as files are in GeoTIFF format and placed in `data/raw/`, the pipeline will process them.
+As long as files are in GeoTIFF format and placed in `data/`, the pipeline will process them.
 

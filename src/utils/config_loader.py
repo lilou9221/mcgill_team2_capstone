@@ -90,7 +90,7 @@ def _get_default_config(project_root: Path) -> Dict[str, Any]:
     """
     return {
         "data": {
-            "raw": "data/raw",
+            "raw": "data",  # Flat structure: all input files in data/
             "processed": "data/processed",
             "external": "data/external"
         },

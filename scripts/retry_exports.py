@@ -2,7 +2,7 @@
 Optional: Retry Google Earth Engine Export Tasks (Template)
 
 NOTE: This script is OPTIONAL and is a TEMPLATE. Data acquisition is done manually outside the codebase.
-GeoTIFF files should be manually placed in data/raw/ directory.
+GeoTIFF files should be manually placed in data/ directory (flat structure).
 
 This script is a TEMPLATE that can be used to retry GEE export tasks if needed,
 but it is NOT FUNCTIONAL until you provide credentials in configs/config.yaml.

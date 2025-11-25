@@ -2,6 +2,9 @@
 """
 Download required GeoTIFF and shapefile assets from Google Drive.
 
+The Google Drive folder is FLAT (all files in one folder).
+This script finds files by filename and organizes them into the local directory structure.
+
 Usage:
     python scripts/download_assets.py
 
@@ -30,42 +33,21 @@ GOOGLE_DRIVE_FOLDER_ID = "1FvG4FM__Eam2pXggHdo5piV7gg2bljjt"
 GOOGLE_DRIVE_URL = f"https://drive.google.com/drive/folders/{GOOGLE_DRIVE_FOLDER_ID}"
 
 REQUIRED_FILES = [
-    {
-        "filename": "BR_Municipios_2024.shp",
-        "target": "data/boundaries/BR_Municipios_2024/BR_Municipios_2024.shp",
-    },
-    {
-        "filename": "BR_Municipios_2024.dbf",
-        "target": "data/boundaries/BR_Municipios_2024/BR_Municipios_2024.dbf",
-    },
-    {
-        "filename": "BR_Municipios_2024.shx",
-        "target": "data/boundaries/BR_Municipios_2024/BR_Municipios_2024.shx",
-    },
-    {
-        "filename": "BR_Municipios_2024.prj",
-        "target": "data/boundaries/BR_Municipios_2024/BR_Municipios_2024.prj",
-    },
-    {
-        "filename": "BR_Municipios_2024.cpg",
-        "target": "data/boundaries/BR_Municipios_2024/BR_Municipios_2024.cpg",
-    },
-    {
-        "filename": "Updated_municipality_crop_production_data.csv",
-        "target": "data/crop_data/Updated_municipality_crop_production_data.csv",
-    },
-    {"filename": "SOC_res_250_b0.tif", "target": "data/raw/SOC_res_250_b0.tif"},
-    {"filename": "SOC_res_250_b10.tif", "target": "data/raw/SOC_res_250_b10.tif"},
-    {
-        "filename": "soil_moisture_res_250_sm_surface.tif",
-        "target": "data/raw/soil_moisture_res_250_sm_surface.tif",
-    },
-    {"filename": "soil_pH_res_250_b0.tif", "target": "data/raw/soil_pH_res_250_b0.tif"},
-    {"filename": "soil_pH_res_250_b10.tif", "target": "data/raw/soil_pH_res_250_b10.tif"},
-    {
-        "filename": "soil_temp_res_250_soil_temp_layer1.tif",
-        "target": "data/raw/soil_temp_res_250_soil_temp_layer1.tif",
-    },
+    # All files go directly into data/ to match flat Google Drive structure
+    {"filename": "BR_Municipios_2024.shp", "target": "data/BR_Municipios_2024.shp"},
+    {"filename": "BR_Municipios_2024.dbf", "target": "data/BR_Municipios_2024.dbf"},
+    {"filename": "BR_Municipios_2024.shx", "target": "data/BR_Municipios_2024.shx"},
+    {"filename": "BR_Municipios_2024.prj", "target": "data/BR_Municipios_2024.prj"},
+    {"filename": "BR_Municipios_2024.cpg", "target": "data/BR_Municipios_2024.cpg"},
+    {"filename": "Updated_municipality_crop_production_data.csv", "target": "data/Updated_municipality_crop_production_data.csv"},
+    {"filename": "SOC_res_250_b0.tif", "target": "data/SOC_res_250_b0.tif"},
+    {"filename": "SOC_res_250_b10.tif", "target": "data/SOC_res_250_b10.tif"},
+    {"filename": "soil_moisture_res_250_sm_surface.tif", "target": "data/soil_moisture_res_250_sm_surface.tif"},
+    {"filename": "soil_pH_res_250_b0.tif", "target": "data/soil_pH_res_250_b0.tif"},
+    {"filename": "soil_pH_res_250_b10.tif", "target": "data/soil_pH_res_250_b10.tif"},
+    {"filename": "soil_temp_res_250_soil_temp_layer1.tif", "target": "data/soil_temp_res_250_soil_temp_layer1.tif"},
+    {"filename": "residue_ratios.csv", "target": "data/residue_ratios.csv"},
+    {"filename": "brazil_crop_harvest_area_2017-2024.csv", "target": "data/brazil_crop_harvest_area_2017-2024.csv"},
 ]
 
 
@@ -119,7 +101,10 @@ def _download_drive_folder(tmp_dir: Path) -> Path:
 
 
 def _locate_source_file(source_root: Path, filename: str) -> Path | None:
-    """Find a file inside the downloaded Drive folder by name (case-insensitive search)."""
+    """Find a file in the flat Google Drive folder by filename (case-insensitive search).
+    
+    The Google Drive folder is flat (all files in one folder), so we search by filename only.
+    """
     # Try exact match first
     matches = list(source_root.rglob(filename))
     if not matches:
@@ -137,7 +122,11 @@ def _locate_source_file(source_root: Path, filename: str) -> Path | None:
 
 
 def _copy_required_assets(source_root: Path, force: bool) -> tuple[list[Path], list[Path]]:
-    """Copy required assets from source to destination.
+    """Copy required assets from flat Google Drive folder to flat local data/ directory.
+    
+    Both source (Google Drive) and destination (local) are flat - all files in data/.
+    Maps each filename from the flat Drive folder to data/.
+    Only data/processed/ is kept separate for pipeline outputs.
     
     Returns:
         Tuple of (copied_files, missing_files)

@@ -688,10 +688,10 @@ Raster Clipping - Debug Mode
                 print(f"  FAIL: Error testing clip function: {type(e).__name__}: {e}")
         else:
             print(f"""  No GeoTIFF files found in {input_dir}
-  Note: Place GeoTIFF files in data/raw/ to test clipping""")
+  Note: Place GeoTIFF files in data/ to test clipping (flat structure)""")
     else:
         print(f"""  Input directory not found: {input_dir}
-  Note: Create data/raw/ directory and add GeoTIFF files to test""")
+  Note: Create data/ directory and add GeoTIFF files to test (flat structure)""")
     
     print("""
 ------------------------------------------------------------
@@ -701,7 +701,7 @@ Usage Example:
   from src.utils.geospatial import create_circle_buffer
   circle = create_circle_buffer(lat=-12.0, lon=-55.0, radius_km=100.0)
   clipped_files, cache_used = clip_all_rasters_to_circle(
-      input_dir=Path('data/raw'),
+      input_dir=Path('data'),  # Flat structure: all input files in data/
       output_dir=Path('data/processed'),
       circle_geometry=circle,
       lat=-12.0,

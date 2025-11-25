@@ -11,7 +11,7 @@
 
 # Data directories
 data:
-  raw: "data/raw"
+  raw: "data"  # Flat structure: all input files in data/
   processed: "data/processed"
   external: "data/external"
 

@@ -37,7 +37,7 @@ def initialize_project(config_path: str = "configs/config.yaml") -> Tuple[Dict, 
         Tuple containing:
         - config: Loaded configuration dictionary
         - project_root: Path to project root directory
-        - raw_dir: Path to data/raw/ directory
+        - raw_dir: Path to data/ directory (flat structure)
         - processed_dir: Path to data/processed/ directory
     """
     # Use module-level project root (calculated once)
@@ -50,7 +50,7 @@ def initialize_project(config_path: str = "configs/config.yaml") -> Tuple[Dict, 
     
     # Get data directories from config
     data_config = config.get("data", {})
-    raw_dir = Path(data_config.get("raw", "data/raw"))
+    raw_dir = Path(data_config.get("raw", "data"))  # Flat structure: all input files in data/
     processed_dir = Path(data_config.get("processed", "data/processed"))
     
     # Resolve relative paths relative to project root

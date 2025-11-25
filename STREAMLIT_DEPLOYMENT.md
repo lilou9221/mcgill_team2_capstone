@@ -45,14 +45,14 @@ python scripts/download_assets.py --force
 ## Required files pulled from Drive
 
 ```
-data/boundaries/BR_Municipios_2024/BR_Municipios_2024.{shp, dbf, shx, prj, cpg}
-data/crop_data/Updated_municipality_crop_production_data.csv
-data/raw/SOC_res_250_b0.tif
-data/raw/SOC_res_250_b10.tif
-data/raw/soil_moisture_res_250_sm_surface.tif
-data/raw/soil_pH_res_250_b0.tif
-data/raw/soil_pH_res_250_b10.tif
-data/raw/soil_temp_res_250_soil_temp_layer1.tif
+data/BR_Municipios_2024.{shp, dbf, shx, prj, cpg}  # Flat structure: all files in data/
+data/Updated_municipality_crop_production_data.csv
+data/SOC_res_250_b0.tif
+data/SOC_res_250_b10.tif
+data/soil_moisture_res_250_sm_surface.tif
+data/soil_pH_res_250_b0.tif
+data/soil_pH_res_250_b10.tif
+data/soil_temp_res_250_soil_temp_layer1.tif
 ```
 
 The Drive folder may have a flat structure with all files in one folder. The download script handles both flat and nested folder structures by searching for files by name.

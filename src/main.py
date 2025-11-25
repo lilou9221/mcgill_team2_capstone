@@ -5,7 +5,7 @@ Biochar Suitability Mapping Tool
 This module serves as the main entry point for the biochar suitability mapping pipeline.
 It orchestrates the complete workflow from raw GeoTIFF data to interactive map generation.
 
-The pipeline processes manually provided GeoTIFF data files from the data/raw/ directory.
+The pipeline processes manually provided GeoTIFF data files from the data/ directory (flat structure).
 Data acquisition is done manually outside the codebase.
 
 Workflow:
@@ -46,7 +46,7 @@ from src.map_generators.pydeck_maps.municipality_waste_map import (
 
 def ensure_rasters_acquired(raw_dir: Path) -> List[Path]:
     """
-    Validate that required GeoTIFF files are present in data/raw/ directory.
+    Validate that required GeoTIFF files are present in data/ directory (flat structure).
     
     Filters to only scoring-required datasets and preferred resolutions.
     Excludes lower resolution files when higher resolution versions are available.
@@ -54,7 +54,7 @@ def ensure_rasters_acquired(raw_dir: Path) -> List[Path]:
     Parameters
     ----------
     raw_dir : Path
-        Directory containing raw GeoTIFF files
+        Directory containing raw GeoTIFF files (data/ in flat structure)
         
     Returns
     -------
@@ -290,9 +290,12 @@ def main() -> int:
     # Investor crop area map (municipality-level, optional)
     investor_map_path = output_dir / "investor_crop_area_map.html"
     if not args.skip_investor:
-        boundaries_dir = project_root / "data" / "boundaries" / "BR_Municipios_2024"
-        waste_csv_path = project_root / "data" / "crop_data" / "Updated_municipality_crop_production_data.csv"
-        if boundaries_dir.exists() and waste_csv_path.exists():
+        # Flat structure: shapefile components and CSV are directly in data/
+        boundaries_dir = project_root / "data"
+        waste_csv_path = project_root / "data" / "Updated_municipality_crop_production_data.csv"
+        # Check for .shp file existence
+        shp_file = boundaries_dir / "BR_Municipios_2024.shp"
+        if shp_file.exists() and waste_csv_path.exists():
             try:
                 _, merged_gdf = build_investor_waste_deck_html(
                     boundaries_dir, waste_csv_path, investor_map_path, simplify_tolerance=0.01

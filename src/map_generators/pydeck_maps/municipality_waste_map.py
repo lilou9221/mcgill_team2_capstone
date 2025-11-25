@@ -23,7 +23,10 @@ except ImportError:
 
 
 def _find_boundary_file(boundary_dir: Path) -> Path:
-    """Return the first boundary file we can read (GPKG or SHP)."""
+    """Return the first boundary file we can read (GPKG or SHP).
+    
+    In flat structure, boundary_dir is data/ and shapefile components are directly in it.
+    """
     for pattern in ("*.gpkg", "*.shp"):
         matches = sorted(boundary_dir.glob(pattern))
         if matches:

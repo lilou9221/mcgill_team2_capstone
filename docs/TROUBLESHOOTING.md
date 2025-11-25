@@ -63,16 +63,16 @@ pip install earthengine-api rasterio pandas h3 pydeck shapely pyyaml pyarrow
 
 ### No GeoTIFF files found
 
-**Problem**: `data/raw/` directory is empty or files are missing.
+**Problem**: `data/` directory is empty or files are missing (flat structure).
 
 **Solution**:
 1. Run the acquisition tool: `python src/data_acquisition/gee_loader.py`
 2. When prompted, choose how many datasets to export (0 = all), review the task summary, and start the Drive tasks
 3. Wait for the exports to complete in Google Earth Engine
-4. **Automatic downloads**: Once Google Drive API is configured (see SETUP_GUIDE.md Step 4), files are automatically downloaded from Google Drive to `data/raw/` as export tasks complete. No manual step required.
-5. If downloads are not working automatically, re-run the acquisition tool once exports complete; it will automatically download any newly available rasters to `data/raw/`
-6. SMAP rasters should appear with `_res_250_...` filenames (e.g., `soil_moisture_res_250_sm_surface.tif`). The pipeline automatically filters out any old `_res_3000_...` files when 250m versions exist, so you can safely keep both in `data/raw/` - only the 250m versions will be used.
-7. **Dataset filtering**: Only scoring-required datasets are imported for processing. Files like `land_cover_res_250_Map.tif` and `soil_type_res_250_b0.tif` will be in `data/raw/` (exported to Google Drive) but are automatically excluded from processing. This is expected behavior - only scoring-required files (soil_moisture, SOC b0/b10, pH b0/b10, soil_temperature) are processed.
+4. **Automatic downloads**: Once Google Drive API is configured (see SETUP_GUIDE.md Step 4), files are automatically downloaded from Google Drive to `data/` as export tasks complete. No manual step required.
+5. If downloads are not working automatically, re-run the acquisition tool once exports complete; it will automatically download any newly available rasters to `data/`
+6. SMAP rasters should appear with `_res_250_...` filenames (e.g., `soil_moisture_res_250_sm_surface.tif`). The pipeline automatically filters out any old `_res_3000_...` files when 250m versions exist, so you can safely keep both in `data/` - only the 250m versions will be used.
+7. **Dataset filtering**: Only scoring-required datasets are imported for processing. Files like `land_cover_res_250_Map.tif` and `soil_type_res_250_b0.tif` will be in `data/` (exported to Google Drive) but are automatically excluded from processing. This is expected behavior - only scoring-required files (soil_moisture, SOC b0/b10, pH b0/b10, soil_temperature) are processed.
 8. **Depth layers**: For SOC and pH, ensure both `*_b0.tif` and `*_b10.tif` files are present. The system averages both layers for more accurate scoring. Deeper layers (b30, b60) are not needed.
 
 ### Final merged data CSV is empty
@@ -98,7 +98,7 @@ pip install earthengine-api rasterio pandas h3 pydeck shapely pyyaml pyarrow
   - If only one layer is available, it will use that layer
 - Check that moisture and temperature have valid values or will use default values (50% moisture, 20°C temperature)
 - Inspect the biochar suitability score columns to see which properties might be causing issues
-- Verify that b0 and b10 files are present in `data/raw/` for SOC and pH datasets
+- Verify that b0 and b10 files are present in `data/` for SOC and pH datasets
 
 ## Configuration Issues
 
@@ -291,7 +291,7 @@ pip install earthengine-api rasterio pandas h3 pydeck shapely pyyaml pyarrow
   - Verify that `data/processed/merged_soil_data.csv` contains the required columns:
     - For SOC: `SOC_res_250_b0 (g/kg)` and `SOC_res_250_b10 (g/kg)`
     - For pH: `soil_pH_res_250_b0` and `soil_pH_res_250_b10`
-  - Check that both b0 and b10 layers are present in `data/raw/` for SOC and pH datasets
+  - Check that both b0 and b10 layers are present in `data/` for SOC and pH datasets
   - Re-run the analysis if maps are missing
 - **Map colors incorrect**: If map colors don't match expectations:
   - For pH map: Ensure you have the latest version with updated color scheme (lighter, more yellow-tinted for acidic soils)
