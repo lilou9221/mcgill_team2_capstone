@@ -149,7 +149,7 @@ def get_config():
 config = get_config()
 
 # Legacy compatibility
-REQUIRED_DATA_FILES = [PROJECT_ROOT / "data" / f for f in REQUIRED_FILES[:6]]
+REQUIRED_DATA_FILES = [PROJECT_ROOT / "data" / f for f in list(REQUIRED_FILES.keys())[:6]]
 
 @st.cache_data(ttl=3600, show_spinner=False)
 def check_required_files_exist():
