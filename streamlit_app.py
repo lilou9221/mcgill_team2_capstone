@@ -316,25 +316,32 @@ if run_btn:
 # ============================================================
 csv_path = df = map_paths = None
 
+def _get_file_mtime(p: str) -> float:
+    """Get file modification time, or 0 if file doesn't exist."""
+    path = Path(p)
+    return path.stat().st_mtime if path.exists() else 0
+
 @st.cache_data(ttl=3600, show_spinner=False)
-def load_results_csv(p: str) -> pd.DataFrame:
+def load_results_csv(p: str, _mtime: float = 0) -> pd.DataFrame:
     """
-    Load analysis results from CSV file. Cached for 1 hour.
+    Load analysis results from CSV file. Cache invalidates when file changes.
     
     Args:
         p: Path to CSV file.
+        _mtime: File modification time (for cache invalidation).
     Returns:
         pd.DataFrame: Loaded data.
     """
     return pd.read_csv(p)
 
 @st.cache_data(ttl=3600, show_spinner=False)
-def load_html_map(p: str) -> str | None:
+def load_html_map(p: str, _mtime: float = 0) -> str | None:
     """
-    Load HTML map content from file. Cached for 1 hour.
+    Load HTML map content from file. Cache invalidates when file changes.
     
     Args:
         p: Path to HTML file.
+        _mtime: File modification time (for cache invalidation).
     Returns:
         str | None: HTML content or None if file doesn't exist.
     """
@@ -350,7 +357,7 @@ if st.session_state.get("analysis_results"):
     analysis_results = st.session_state.analysis_results
     if "csv_path" in analysis_results and "map_paths" in analysis_results:
         csv_path = Path(analysis_results["csv_path"])
-        df = load_results_csv(str(csv_path))
+        df = load_results_csv(str(csv_path), _mtime=_get_file_mtime(str(csv_path)))
         map_paths = analysis_results["map_paths"]
     else:
         # Invalid analysis_results structure, reset it
@@ -369,7 +376,7 @@ elif not st.session_state.get("analysis_running") and not st.session_state.get("
             }
         }
         csv_path = potential_csv
-        df = load_results_csv(str(csv_path))
+        df = load_results_csv(str(csv_path), _mtime=_get_file_mtime(str(csv_path)))
         map_paths = st.session_state.analysis_results["map_paths"]
     st.session_state["existing_results_checked"] = True
 
@@ -419,8 +426,8 @@ with farmer_tab:
         tab1, tab2, tab3, tab4, rec_tab = st.tabs(["Biochar Suitability", "Soil Organic Carbon", "Soil pH", "Soil Moisture", "Top 10 Recommendations"])
 
         def load_map(path):
-            """Load and display HTML map. Uses cached content."""
-            html_content = load_html_map(path)
+            """Load and display HTML map. Cache invalidates when file changes."""
+            html_content = load_html_map(path, _mtime=_get_file_mtime(path))
             if html_content:
                 st.components.v1.html(html_content, height=720, scrolling=False)
             else:
