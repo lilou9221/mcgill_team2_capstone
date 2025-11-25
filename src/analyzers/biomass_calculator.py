@@ -1,9 +1,13 @@
 import pandas as pd
 import streamlit as st
+from pathlib import Path
+
+# Get project root (assuming this file is in src/analyzers/)
+PROJECT_ROOT = Path(__file__).parent.parent.parent.resolve()
 
 @st.cache_data(ttl=3600)
 def load_residue_ratios():
-    return pd.read_excel("data/raw/residue_ratios.xlsx", sheet_name="Sheet1")
+    return pd.read_csv(PROJECT_ROOT / "data" / "raw" / "residue_ratios.csv")
 
 def calculate_biochar_from_yield(yield_kg_ha, crop_name, pyrolysis_yield=0.30):
     ratios = load_residue_ratios()
@@ -18,7 +22,7 @@ def calculate_biochar_from_yield(yield_kg_ha, crop_name, pyrolysis_yield=0.30):
     return round(residue_t_ha, 2), round(biochar_t_ha, 2), urr
 
 def get_mato_grosso_crop_table(crop_portuguese_name, farmer_yield=None):
-    harvest = pd.read_excel("data/raw/brazil_crop_harvest_area_2017-2024.xlsx")
+    harvest = pd.read_csv(PROJECT_ROOT / "data" / "raw" / "brazil_crop_harvest_area_2017-2024.csv")
     df = harvest[(harvest["Crop"] == crop_portuguese_name) & 
                  (harvest["Municipality"].str.contains("(MT)"))]
     latest_year = df["Year"].max()

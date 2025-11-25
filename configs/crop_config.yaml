@@ -1,4 +1,4 @@
-# Residue ratios taken exactly from your residue_ratios.xlsx
+# Residue ratios taken exactly from your residue_ratios.csv
 crops:
   soybean:
     portuguese: "Soja (em grão)"
