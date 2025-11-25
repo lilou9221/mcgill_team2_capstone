@@ -124,6 +124,57 @@ with st.sidebar:
 # FARMER TAB – ADD YOUR REQUESTED SOURCING TOOL HERE
 # ========================================================
 with farmer_tab:
+            # === SOURCING TOOL – YOUR REQUEST (ADDED ONLY) ===
+        st.markdown("### Sourcing Tool – Crop Residue & Biochar Potential (Mato Grosso only)")
+
+        @st.cache_data(ttl=3600)
+        def load_ratios():
+            return pd.read_excel("data/raw/residue_ratios.xlsx")
+
+        ratios = load_ratios()
+
+        crop_mapping = {
+            "Soybean": "Soja (em grão)",
+            "Maize": "Milho (em grão)",
+            "Sugarcane": "Cana-de-açúcar",
+            "Cotton": "Algodão herbáceo (em caroço)"
+        }
+
+        col1, col2 = st.columns(2)
+        with col1:
+            crop = st.selectbox("Select crop", options=list(crop_mapping.keys()), key="sourcing_crop")
+        with col2:
+            farmer_yield = st.number_input("Your yield (kg/ha) – optional", min_value=0, value=None, step=100, key="sourcing_yield")
+
+        if st.button("Calculate Biochar Potential", type="primary", key="calc_sourcing"):
+            harvest = pd.read_excel("data/raw/brazil_crop_harvest_area_2017-2024.xlsx")
+            df_crop = harvest[(harvest["Crop"] == crop_mapping[crop]) & 
+                            (harvest["Municipality"].str.contains("(MT)"))]
+            latest_year = df_crop["Year"].max()
+            df_crop = df_crop[df_crop["Year"] == latest_year].copy()
+
+            ratio_row = ratios[ratios["Crop"] == crop.split()[0]].iloc[0]
+            urr = ratio_row["URR (t residue/t grain) Assuming AF = 0.5"] if pd.notna(ratio_row["URR (t residue/t grain) Assuming AF = 0.5"]) else ratio_row["Doesn't require AF"]
+
+            yield_used = farmer_yield or 3500
+            residue_t_ha = (yield_used / 1000) * urr
+            biochar_t_ha = residue_t_ha * 0.30
+
+            df_crop["Residue_t_total"] = residue_t_ha * df_crop["Harvested_area_ha"]
+            df_crop["Biochar_t_total"] = biochar_t_ha * df_crop["Harvested_area_ha"]
+            df_crop["Biochar_t_per_ha"] = biochar_t_ha
+
+            total_biochar = df_crop["Biochar_t_total"].sum()
+            st.success(f"{latest_year} • {len(df_crop)} municipalities • Total biochar: {total_biochar:,.0f} tons")
+
+            display = df_crop[["Municipality", "Harvested_area_ha", "Biochar_t_per_ha", "Biochar_t_total"]].head(50)
+            display = display.rename(columns={
+                "Harvested_area_ha": "Area (ha)",
+                "Biochar_t_per_ha": "Biochar (t/ha)",
+                "Biochar_t_total": "Total Biochar (tons)"
+            })
+            st.dataframe(display, use_container_width=True)
+            st.download_button("Download full table", df_crop.to_csv(index=False).encode(), f"MT_{crop}_biochar.csv", key="dl_sourcing")
     if csv_path and df is not None and map_paths:
         # Your existing soil maps & recs code stays here
 
