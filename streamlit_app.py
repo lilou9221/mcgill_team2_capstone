@@ -704,11 +704,12 @@ with investor_tab:
     boundaries_dir = PROJECT_ROOT / "data"
     crop_data_csv = PROJECT_ROOT / "data" / "Updated_municipality_crop_production_data.csv"
 
-    # Cache file existence checks - must check for .shp file
-    @st.cache_data(ttl=3600, show_spinner=False)
+    # Check file existence (no cache - cheap operation, needs to be accurate after downloads)
     def check_investor_data_exists():
         shp_file = boundaries_dir / "BR_Municipios_2024.shp"
-        return shp_file.exists() and crop_data_csv.exists()
+        shp_exists = shp_file.exists()
+        csv_exists = crop_data_csv.exists()
+        return shp_exists and csv_exists, shp_exists, csv_exists
 
     # Automatically load and display investor map when data is available
     # This is completely independent of the analysis pipeline
@@ -718,7 +719,9 @@ with investor_tab:
             create_municipality_waste_deck,
         )
         
-        if check_investor_data_exists():
+        data_available, shp_exists, csv_exists = check_investor_data_exists()
+        
+        if data_available:
             @st.cache_data(show_spinner=False)
             def get_gdf():
                     return prepare_investor_crop_area_geodata(
@@ -788,10 +791,14 @@ with investor_tab:
                 else:
                     st.metric("Total Residue", "N/A")
         else:
-            st.info("Investor map data not available.")
+            missing = []
+            if not shp_exists:
+                missing.append("BR_Municipios_2024.shp (shapefile)")
+            if not csv_exists:
+                missing.append("Updated_municipality_crop_production_data.csv")
+            st.info(f"Investor map data not available. Missing: {', '.join(missing)}")
     except Exception as e:
-        st.error("Failed to load investor map")
-        st.code(str(e))
+        st.error(f"Failed to load investor map: {str(e)}")
 
 # ============================================================
 # FOOTER (YOUR ORIGINAL)
