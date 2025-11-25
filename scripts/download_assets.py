@@ -83,7 +83,15 @@ def _download_drive_folder(tmp_dir: Path) -> Path:
             remaining_ok=True,
         )
     except Exception as e:
-        print(f"[ERROR] Failed to download folder: {e}", file=sys.stderr)
+        error_msg = str(e).lower()
+        print(f"[ERROR] Failed to download folder: {e}", file=sys.stderr, flush=True)
+        
+        # Detect common Google Drive blocking/rate limiting issues
+        if any(keyword in error_msg for keyword in ["403", "forbidden", "rate limit", "quota", "blocked", "access denied"]):
+            print("\n[WARNING] Google Drive access may be blocked or rate-limited.", file=sys.stderr, flush=True)
+            print("[WARNING] This is common on Streamlit Cloud due to network restrictions.", file=sys.stderr, flush=True)
+            print("[WARNING] Consider using alternative hosting or manual file placement.", file=sys.stderr, flush=True)
+        
         raise
     
     # gdown may create a subdirectory with the folder name, or put files directly in output_dir
@@ -216,11 +224,18 @@ def download_assets(force: bool = False) -> int:
                 if not dest.exists():
                     verified_missing.append(dest)
                     print(f"[ERROR] File not found after copy: {dest}", file=sys.stderr, flush=True)
+                elif dest.exists() and dest.stat().st_size == 0:
+                    verified_missing.append(dest)
+                    print(f"[ERROR] File exists but is empty: {dest}", file=sys.stderr, flush=True)
+                else:
+                    print(f"[VERIFY] File OK: {dest} ({dest.stat().st_size} bytes)", flush=True)
             
             if verified_missing:
-                print(f"\n[ERROR] {len(verified_missing)} files are still missing after copy:", file=sys.stderr, flush=True)
+                print(f"\n[ERROR] {len(verified_missing)} files are still missing or empty after copy:", file=sys.stderr, flush=True)
                 for m in verified_missing:
                     print(f"  - {m}", file=sys.stderr, flush=True)
+                print(f"\n[DEBUG] PROJECT_ROOT: {PROJECT_ROOT}", file=sys.stderr, flush=True)
+                print(f"[DEBUG] PROJECT_ROOT exists: {PROJECT_ROOT.exists()}", file=sys.stderr, flush=True)
                 return 1
             
             if missing:
