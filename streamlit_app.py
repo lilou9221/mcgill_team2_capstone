@@ -181,7 +181,7 @@ with st.sidebar:
         with c2: lon = st.number_input("Longitude", value=-56.0, format="%.6f")
         radius = st.slider("Radius (km)", 25, 100, 100, 25)
     h3_res = st.slider("H3 Resolution", 5, 9, 7)
-    run_btn = st.button("Run Analysis", type="primary", width='stretch')
+    run_btn = st.button("Run Analysis", type="primary", use_container_width=True)
     
     st.markdown("---")
     if st.button("Reset Cache & Restart"):
@@ -538,7 +538,7 @@ with farmer_tab:
                     }
                     top10_display = top10_display.rename(columns=rename_map)
                     
-                    st.dataframe(top10_display, width='stretch', hide_index=True)
+                    st.dataframe(top10_display, use_container_width=True, hide_index=True)
                     
                     # Show feedstock distribution (cached)
                     @st.cache_data(show_spinner=False)
@@ -642,7 +642,7 @@ with farmer_tab:
                         "Biochar_t_per_ha": "Biochar (t/ha)",
                         "Biochar_t_total": "Total Biochar (tons)"
                     })
-                    st.dataframe(display, width='stretch')
+                    st.dataframe(display, use_container_width=True)
                 else:
                     st.warning("Required columns not found in crop data.")
                 
@@ -676,7 +676,7 @@ with farmer_tab:
                 return df.to_csv(index=False).encode()
             
             csv_data = get_csv_data(df)
-            st.download_button("Download Full Results (CSV)", csv_data, f"biochar_results_{pd.Timestamp.now():%Y%m%d_%H%M}.csv", "text/csv", width='stretch')
+            st.download_button("Download Full Results (CSV)", csv_data, f"biochar_results_{pd.Timestamp.now():%Y%m%d_%H%M}.csv", "text/csv", use_container_width=True)
     else:
         st.info("Run the analysis to view results.")
 
@@ -738,7 +738,7 @@ with investor_tab:
             data_type = data_type_map.get(data_type_radio, "area")
 
             deck = create_municipality_waste_deck(gdf, data_type=data_type)
-            st.pydeck_chart(deck, width='stretch')
+            st.pydeck_chart(deck, use_container_width=True)
 
             # Show legend for all data types with appropriate labels
             legend_titles = {
