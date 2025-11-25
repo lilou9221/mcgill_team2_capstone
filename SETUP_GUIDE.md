@@ -64,25 +64,26 @@ This will download:
 
 **Manual Data Placement (Alternative):**
 
-If you prefer to place files manually, ensure the following structure:
+If you prefer to place files manually, ensure the following flat structure:
 
 ```bash
 data/
-├── raw/
-│   ├── SOC_res_250_b0.tif
-│   ├── SOC_res_250_b10.tif
-│   ├── soil_moisture_res_250_sm_surface.tif
-│   ├── soil_pH_res_250_b0.tif
-│   ├── soil_pH_res_250_b10.tif
-│   └── soil_temp_res_250_soil_temp_layer1.tif
-├── BR_Municipios_2024.shp (and .dbf, .shx, .prj, .cpg)  # Flat structure: all files in data/
-│   ├── BR_Municipios_2024.shp
-│   ├── BR_Municipios_2024.dbf
-│   ├── BR_Municipios_2024.shx
-│   ├── BR_Municipios_2024.prj
-│   └── BR_Municipios_2024.cpg
-└── crop_data/
-    └── Updated_municipality_crop_production_data.csv
+├── SOC_res_250_b0.tif
+├── SOC_res_250_b10.tif
+├── soil_moisture_res_250_sm_surface.tif
+├── soil_pH_res_250_b0.tif
+├── soil_pH_res_250_b10.tif
+├── soil_temp_res_250_soil_temp_layer1.tif
+├── BR_Municipios_2024.shp
+├── BR_Municipios_2024.dbf
+├── BR_Municipios_2024.shx
+├── BR_Municipios_2024.prj
+├── BR_Municipios_2024.cpg
+├── Updated_municipality_crop_production_data.csv
+├── brazil_crop_harvest_area_2017-2024.csv
+├── residue_ratios.csv
+├── processed/           # Pipeline outputs (auto-generated)
+└── pyrolysis/           # Pyrolysis reference data (included in repo)
 ```
 
 **Note:** The Streamlit app will automatically download missing files on first run. See `STREAMLIT_DEPLOYMENT.md` for more details.

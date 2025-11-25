@@ -48,14 +48,21 @@ run.log
 data/processed/merged_soil_data.csv
 data/processed/suitability_scores.csv
 
-# External datasets are downloaded from Google Drive
-data/raw/**
-!data/raw/.gitkeep
-data/boundaries/BR_Municipios_2024/**
-!data/boundaries/.gitkeep
-!data/boundaries/BR_Municipios_2024/.gitkeep
-data/crop_data/*.csv
-!data/crop_data/.gitkeep
+# External datasets downloaded from Google Drive (flat data/ structure)
+# GeoTIFF files
+data/*.tif
+
+# Shapefile components (BR_Municipios_2024)
+data/BR_Municipios_2024.shp
+data/BR_Municipios_2024.dbf
+data/BR_Municipios_2024.shx
+data/BR_Municipios_2024.prj
+data/BR_Municipios_2024.cpg
+
+# Crop data CSVs
+data/Updated_municipality_crop_production_data.csv
+data/brazil_crop_harvest_area_2017-2024.csv
+data/residue_ratios.csv
 
 # Processed Data Cache
 data/processed/cache/
