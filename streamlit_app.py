@@ -6,6 +6,7 @@
 # for sustainable biochar application in Mato Grosso, Brazil.
 # ============================================================
 
+from __future__ import annotations
 import streamlit as st
 import pandas as pd
 from pathlib import Path
@@ -13,6 +14,7 @@ import sys
 import subprocess
 import time
 import traceback
+from typing import Optional
 
 # ============================================================
 # PAGE CONFIG + SESSION STATE
@@ -335,7 +337,7 @@ def load_results_csv(p: str, _mtime: float = 0) -> pd.DataFrame:
     return pd.read_csv(p)
 
 @st.cache_data(ttl=3600, show_spinner=False)
-def load_html_map(p: str, _mtime: float = 0) -> str | None:
+def load_html_map(p: str, _mtime: float = 0) -> Optional[str]:
     """
     Load HTML map content from file. Cache invalidates when file changes.
     
