@@ -31,21 +31,9 @@ R2_BASE_URL = "https://pub-d86172a936014bdc9e794890543c5f66.r2.dev"
 GOOGLE_DRIVE_FOLDER_ID = "1FvG4FM__Eam2pXggHdo5piV7gg2bljjt"
 GOOGLE_DRIVE_URL = f"https://drive.google.com/drive/folders/{GOOGLE_DRIVE_FOLDER_ID}"
 
+# Only file that needs R2 download (others are in GitHub repo)
 REQUIRED_FILES = [
-    "BR_Municipios_2024_simplified.shp",
-    "BR_Municipios_2024_simplified.dbf",
-    "BR_Municipios_2024_simplified.shx",
-    "BR_Municipios_2024_simplified.prj",
-    "BR_Municipios_2024_simplified.cpg",
-    "Updated_municipality_crop_production_data.csv",
-    "SOC_res_250_b0.tif",
-    "SOC_res_250_b10.tif",
     "soil_moisture_res_250_sm_surface.tif",
-    "soil_pH_res_250_b0.tif",
-    "soil_pH_res_250_b10.tif",
-    "soil_temp_res_250_soil_temp_layer1.tif",
-    "residue_ratios.csv",
-    "brazil_crop_harvest_area_2017-2024.csv",
 ]
 
 

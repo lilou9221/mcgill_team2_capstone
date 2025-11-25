@@ -34,14 +34,19 @@ sys.path.insert(0, str(PROJECT_ROOT))
 from src.utils.config_loader import load_config
 
 # ============================================================
-# DATA FILE MANAGEMENT - Downloads from Cloudflare R2
+# DATA FILE MANAGEMENT
 # ============================================================
+# Most files are in the GitHub repo. Only large files (>50MB) need R2 download.
 import requests
 
 R2_BASE_URL = "https://pub-d86172a936014bdc9e794890543c5f66.r2.dev"
 
-# Required files with expected sizes for verification (prevents corrupted downloads)
-# Using simplified shapefile (11MB vs 287MB) for faster/reliable downloads
+# Files that must be downloaded from R2 (too large for GitHub)
+R2_FILES = {
+    "soil_moisture_res_250_sm_surface.tif": 58559674,
+}
+
+# All required files (for validation)
 REQUIRED_FILES = {
     "BR_Municipios_2024_simplified.shp": 5222040,
     "BR_Municipios_2024_simplified.dbf": 6381599,
@@ -60,30 +65,26 @@ REQUIRED_FILES = {
 }
 
 def check_data_files():
-    """Check if required data files exist and are complete."""
+    """Check if required data files exist."""
     try:
         data_dir = PROJECT_ROOT / "data"
-        for filename, expected_size in REQUIRED_FILES.items():
-            filepath = data_dir / filename
-            if not filepath.exists():
-                return False
-            # Allow 1% tolerance for size differences
-            if filepath.stat().st_size < expected_size * 0.99:
+        for filename in REQUIRED_FILES:
+            if not (data_dir / filename).exists():
                 return False
         return True
     except Exception:
         return False
 
 @st.cache_resource(show_spinner=False)
-def download_data_from_r2():
-    """Download missing/incomplete data files from Cloudflare R2."""
+def download_r2_files():
+    """Download large files from Cloudflare R2 (files too big for GitHub)."""
     data_dir = PROJECT_ROOT / "data"
     data_dir.mkdir(parents=True, exist_ok=True)
     
     downloaded = []
     errors = []
     
-    for filename, expected_size in REQUIRED_FILES.items():
+    for filename, expected_size in R2_FILES.items():
         dest = data_dir / filename
         
         # Skip if file exists and is complete
@@ -96,37 +97,31 @@ def download_data_from_r2():
         
         url = f"{R2_BASE_URL}/{filename}"
         try:
-            # Use longer timeout for large files (10 min for shapefile)
-            timeout = 600 if expected_size > 100000000 else 300
-            response = requests.get(url, timeout=timeout, stream=True)
+            response = requests.get(url, timeout=600, stream=True)
             response.raise_for_status()
             
-            # Write with larger chunks for faster download
             with open(dest, 'wb') as f:
-                for chunk in response.iter_content(chunk_size=1048576):  # 1MB chunks
+                for chunk in response.iter_content(chunk_size=1048576):
                     f.write(chunk)
             
-            # Verify download
             if dest.stat().st_size >= expected_size * 0.99:
                 downloaded.append(filename)
             else:
                 errors.append(f"{filename}: incomplete download")
                 dest.unlink()
-        except requests.exceptions.RequestException as e:
-            errors.append(f"{filename}: {e}")
         except Exception as e:
             errors.append(f"{filename}: {e}")
     
     return downloaded, errors
 
-# Auto-download on startup if files are missing or incomplete
+# Download large files from R2 if missing
 if not check_data_files():
-    with st.spinner("Downloading data files from cloud storage (this may take a few minutes on first run)..."):
-        downloaded, errors = download_data_from_r2()
+    with st.spinner("Downloading large data file from cloud storage..."):
+        downloaded, errors = download_r2_files()
         if downloaded:
-            st.success(f"Downloaded {len(downloaded)} data files.")
+            st.success(f"Downloaded {len(downloaded)} file(s).")
         if errors:
-            st.error(f"Failed to download {len(errors)} files. Check Streamlit Cloud logs for details.")
+            st.error(f"Failed to download: {errors}")
 
 @st.cache_data
 def get_config():

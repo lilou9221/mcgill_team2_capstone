@@ -48,21 +48,15 @@ run.log
 data/processed/merged_soil_data.csv
 data/processed/suitability_scores.csv
 
-# External datasets downloaded from Google Drive (flat data/ structure)
-# GeoTIFF files
-data/*.tif
+# Large file downloaded from Cloudflare R2 (too big for GitHub)
+data/soil_moisture_res_250_sm_surface.tif
 
-# Shapefile components (BR_Municipios_2024)
+# Old non-simplified shapefile (no longer used)
 data/BR_Municipios_2024.shp
 data/BR_Municipios_2024.dbf
 data/BR_Municipios_2024.shx
 data/BR_Municipios_2024.prj
 data/BR_Municipios_2024.cpg
-
-# Crop data CSVs
-data/Updated_municipality_crop_production_data.csv
-data/brazil_crop_harvest_area_2017-2024.csv
-data/residue_ratios.csv
 
 # Processed Data Cache
 data/processed/cache/
