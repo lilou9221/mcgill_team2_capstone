@@ -103,8 +103,8 @@ def load_crop_area_dataframe(csv_path: Path) -> pd.DataFrame:
         
         totals = pd.DataFrame({
             "total_crop_area_ha": df[area_cols].fillna(0).sum(axis=1),
-            "total_crop_production_ton": df[production_cols].fillna(0).sum(axis=1).round().astype(int),
-            "total_crop_residue_ton": df[residue_cols].fillna(0).sum(axis=1).round().astype(int)
+            "total_crop_production_ton": pd.to_numeric(df[production_cols].fillna(0).sum(axis=1), errors='coerce').fillna(0).round().astype(int),
+            "total_crop_residue_ton": pd.to_numeric(df[residue_cols].fillna(0).sum(axis=1), errors='coerce').fillna(0).round().astype(int)
         })
         df = pd.concat([df, totals], axis=1)
 
@@ -115,8 +115,8 @@ def load_crop_area_dataframe(csv_path: Path) -> pd.DataFrame:
                 "total_crop_residue_ton": "sum"
             })
         )
-        agg["total_crop_production_ton"] = agg["total_crop_production_ton"].round().astype(int)
-        agg["total_crop_residue_ton"] = agg["total_crop_residue_ton"].round().astype(int)
+        agg["total_crop_production_ton"] = pd.to_numeric(agg["total_crop_production_ton"], errors='coerce').fillna(0).round().astype(int)
+        agg["total_crop_residue_ton"] = pd.to_numeric(agg["total_crop_residue_ton"], errors='coerce').fillna(0).round().astype(int)
         return agg
     
     if HAS_STREAMLIT:
@@ -156,10 +156,10 @@ def prepare_investor_crop_area_geodata(
         how="left",
     )
     # Fill NaN values with 0.0 for all three data types
-    # Production and residue are already integers from load_crop_area_dataframe
-    merged["total_crop_area_ha"] = merged["total_crop_area_ha"].fillna(0.0)
-    merged["total_crop_production_ton"] = merged["total_crop_production_ton"].fillna(0).astype(int)
-    merged["total_crop_residue_ton"] = merged["total_crop_residue_ton"].fillna(0).astype(int)
+    # Safely convert to numeric and then to int
+    merged["total_crop_area_ha"] = pd.to_numeric(merged["total_crop_area_ha"], errors='coerce').fillna(0.0)
+    merged["total_crop_production_ton"] = pd.to_numeric(merged["total_crop_production_ton"], errors='coerce').fillna(0).astype(int)
+    merged["total_crop_residue_ton"] = pd.to_numeric(merged["total_crop_residue_ton"], errors='coerce').fillna(0).astype(int)
     
     # Mark when production/residue should show N/A (area > 0 but production/residue = 0)
     merged["production_is_na"] = (merged["total_crop_area_ha"] > 0) & (merged["total_crop_production_ton"] == 0)
@@ -242,17 +242,19 @@ def create_municipality_waste_deck(
     # Format as N/A if area > 0 but production/residue = 0
     # Format numbers with comma separators for thousands
     if data_type == "production":
-        merged_gdf["display_value_raw"] = merged_gdf[value_col].round().astype(int)
+        # Safely convert to int, handling NA values
+        merged_gdf["display_value_raw"] = pd.to_numeric(merged_gdf[value_col], errors='coerce').fillna(0).astype(int)
         # Format as string: show "N/A" if area > 0 but production = 0, otherwise show the number with commas
         merged_gdf["display_value"] = merged_gdf.apply(
-            lambda row: "N/A" if row["production_is_na"] else f"{row['display_value_raw']:,}",
+            lambda row: "N/A" if row["production_is_na"] else f"{int(row['display_value_raw']):,}",
             axis=1
         )
     elif data_type == "residue":
-        merged_gdf["display_value_raw"] = merged_gdf[value_col].round().astype(int)
+        # Safely convert to int, handling NA values
+        merged_gdf["display_value_raw"] = pd.to_numeric(merged_gdf[value_col], errors='coerce').fillna(0).astype(int)
         # Format as string: show "N/A" if area > 0 but residue = 0, otherwise show the number with commas
         merged_gdf["display_value"] = merged_gdf.apply(
-            lambda row: "N/A" if row["residue_is_na"] else f"{row['display_value_raw']:,}",
+            lambda row: "N/A" if row["residue_is_na"] else f"{int(row['display_value_raw']):,}",
             axis=1
         )
     else:  # area
