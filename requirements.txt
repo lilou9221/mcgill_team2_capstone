@@ -27,7 +27,8 @@ pyyaml>=6.0
 
 # Utilities
 python-dotenv>=1.0.0
-gdown>=5.0.0  # For downloading data from Google Drive
+requests>=2.31.0  # For downloading data from Cloudflare R2
+gdown>=5.0.0  # For downloading data from Google Drive (fallback)
 
 # Streamlit UI
 streamlit>=1.38.0

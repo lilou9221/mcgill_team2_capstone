@@ -36,7 +36,7 @@ from src.utils.config_loader import load_config
 # ============================================================
 # DATA FILE MANAGEMENT - Downloads from Cloudflare R2
 # ============================================================
-import urllib.request
+import requests
 
 R2_BASE_URL = "https://pub-d86172a936014bdc9e794890543c5f66.r2.dev"
 
@@ -83,8 +83,14 @@ def download_data_from_r2():
         
         url = f"{R2_BASE_URL}/{filename}"
         try:
-            urllib.request.urlretrieve(url, dest)
+            response = requests.get(url, timeout=300, stream=True)
+            response.raise_for_status()
+            with open(dest, 'wb') as f:
+                for chunk in response.iter_content(chunk_size=8192):
+                    f.write(chunk)
             downloaded.append(filename)
+        except requests.exceptions.RequestException as e:
+            errors.append(f"{filename}: {e}")
         except Exception as e:
             errors.append(f"{filename}: {e}")
     
@@ -92,12 +98,12 @@ def download_data_from_r2():
 
 # Auto-download on startup if files are missing
 if not check_data_files():
-    with st.spinner("Downloading data files from cloud storage..."):
+    with st.spinner("Downloading data files from cloud storage (this may take a few minutes on first run)..."):
         downloaded, errors = download_data_from_r2()
         if downloaded:
             st.success(f"Downloaded {len(downloaded)} data files.")
         if errors:
-            st.warning(f"Some files failed to download: {len(errors)} errors")
+            st.error(f"Failed to download {len(errors)} files. Check Streamlit Cloud logs for details.")
 
 @st.cache_data
 def get_config():

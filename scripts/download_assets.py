@@ -15,8 +15,12 @@ from __future__ import annotations
 
 import argparse
 import sys
-import urllib.request
 from pathlib import Path
+
+try:
+    import requests
+except ImportError:
+    requests = None
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
@@ -47,6 +51,10 @@ REQUIRED_FILES = [
 
 def download_from_r2(force: bool = False) -> int:
     """Download assets from Cloudflare R2 (fast and reliable)."""
+    if requests is None:
+        print("[ERROR] requests library not installed. Run: pip install requests", file=sys.stderr)
+        return 1
+    
     data_dir = PROJECT_ROOT / "data"
     data_dir.mkdir(parents=True, exist_ok=True)
     
@@ -68,7 +76,11 @@ def download_from_r2(force: bool = False) -> int:
         url = f"{R2_BASE_URL}/{filename}"
         try:
             print(f"[DOWNLOAD] {filename}...", end=" ", flush=True)
-            urllib.request.urlretrieve(url, dest)
+            response = requests.get(url, timeout=300, stream=True)
+            response.raise_for_status()
+            with open(dest, 'wb') as f:
+                for chunk in response.iter_content(chunk_size=8192):
+                    f.write(chunk)
             size_mb = dest.stat().st_size / (1024 * 1024)
             print(f"OK ({size_mb:.1f} MB)")
             downloaded.append(filename)
