@@ -385,9 +385,190 @@ elif not st.session_state.get("analysis_running") and not st.session_state.get("
 farmer_tab, investor_tab = st.tabs(["Farmer Perspective", "Investor Perspective"])
 
 # ========================================================
-# FARMER TAB – YOUR ORIGINAL + YOUR REQUESTED SOURCING TOOL
+# FARMER TAB – YOUR ORIGINAL + OPTIMISING TOOL
 # ========================================================
 with farmer_tab:
+    # === OPTIMISING TOOL – CROP RESIDUE & BIOCHAR POTENTIAL (at top) ===
+    st.markdown("### Optimising Tool – Crop Residue & Biochar Potential (Mato Grosso only)")
+
+    # Cache data loading functions for optimising tool
+    @st.cache_data(ttl=3600, show_spinner=False)
+    def load_ratios() -> pd.DataFrame:
+        """Load crop residue ratios from CSV."""
+        return pd.read_csv(PROJECT_ROOT / "data" / "residue_ratios.csv")
+
+    @st.cache_data(ttl=3600, show_spinner=False)
+    def load_harvest_data() -> pd.DataFrame:
+        """Load Brazil crop harvest data (2017-2024)."""
+        return pd.read_csv(PROJECT_ROOT / "data" / "brazil_crop_harvest_area_2017-2024.csv")
+    
+    @st.cache_data(ttl=3600, show_spinner=False)
+    def load_pyrolysis_data() -> pd.DataFrame:
+        """Load pyrolysis parameters from CSV."""
+        return pd.read_csv(PROJECT_ROOT / "data" / "pyrolysis" / "pyrolysis_data.csv")
+    
+    # Mapping: English crop name -> (Portuguese name in harvest file, English name in ratios file)
+    crop_mapping = {
+        "Soybean": ("Soja (em grão)", "Soybeans (grain)"),
+        "Maize": ("Milho (em grão)", "Corn (grain)"),
+        "Sugarcane": ("Cana-de-açúcar", "Sugarcane"),
+        "Cotton": ("Algodão herbáceo (em caroço)", "Herbaceous cotton (seed)")
+    }
+    
+    # Mapping: Dropdown crop name -> pyrolysis feedstock types in pyrolysis_data.csv
+    pyrolysis_crop_mapping = {
+        "Soybean": ["Soybean Straw"],
+        "Maize": ["Corn cob", "Corn Straw"],
+        "Sugarcane": ["Sugarcane Bagasse"],  # May not have data
+        "Cotton": ["Cotton Stalk"],  # May not have data
+    }
+
+    # Crop options with "General" for all crops
+    crop_options = ["General"] + list(crop_mapping.keys())
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        crop = st.selectbox("Select crop", options=crop_options, key="sourcing_crop")
+    with col2:
+        farmer_yield = st.number_input("Your yield (kg/ha)", min_value=0, value=None, step=100, key="sourcing_yield", help="Leave empty to use default yield from crop data")
+
+    if st.button("Calculate Biochar Potential", type="primary", key="calc_sourcing"):
+        # Load data only when button is clicked (lazy loading)
+        with st.spinner("Loading crop data..."):
+            ratios = load_ratios()
+            harvest = load_harvest_data()
+            pyrolysis_df = load_pyrolysis_data()
+        
+        try:
+            # Handle "General" case vs specific crop
+            if crop == "General":
+                # For general case, we show all pyrolysis data
+                crops_to_process = list(crop_mapping.keys())
+            else:
+                crops_to_process = [crop]
+            
+            # Calculate residue for each crop
+            residue_by_crop = {}
+            for c in crops_to_process:
+                crop_portuguese, crop_english = crop_mapping[c]
+                
+                # Look up residue ratio from ratios file
+                ratio_row = ratios[ratios["Crop"] == crop_english]
+                if not ratio_row.empty:
+                    ratio_row = ratio_row.iloc[0]
+                    urr = ratio_row["URR (t residue/t grain) Assuming AF = 0.5"] if pd.notna(ratio_row["URR (t residue/t grain) Assuming AF = 0.5"]) else ratio_row["Doesn't require AF"]
+                    if pd.notna(urr):
+                        yield_used = farmer_yield if farmer_yield is not None else 3500
+                        residue_t_ha = (yield_used / 1000) * urr
+                        residue_by_crop[c] = residue_t_ha
+            
+            if not residue_by_crop:
+                st.error("Could not calculate residue for any selected crop.")
+                st.stop()
+            
+            # Get pyrolysis feedstock types for selected crops
+            if crop == "General":
+                feedstock_types = []
+                for c in crops_to_process:
+                    feedstock_types.extend(pyrolysis_crop_mapping.get(c, []))
+            else:
+                feedstock_types = pyrolysis_crop_mapping.get(crop, [])
+            
+            # Filter pyrolysis data for relevant feedstocks
+            pyrolysis_filtered = pyrolysis_df[pyrolysis_df["Type"].isin(feedstock_types)].copy()
+            
+            if pyrolysis_filtered.empty:
+                st.warning(f"No pyrolysis data available for {crop}. Showing general biochar calculation.")
+                # Fall back to showing residue calculation only
+                for c in crops_to_process:
+                    if c in residue_by_crop:
+                        residue_t_ha = residue_by_crop[c]
+                        biochar_t_ha = residue_t_ha * 0.30  # Default 30% yield
+                        st.info(f"**{c}**: Residue = {residue_t_ha:.2f} t/ha, Estimated Biochar (30% yield) = {biochar_t_ha:.2f} t/ha")
+            else:
+                # Map feedstock type back to crop name for display
+                feedstock_to_crop = {}
+                for c, feedstocks in pyrolysis_crop_mapping.items():
+                    for f in feedstocks:
+                        feedstock_to_crop[f] = c
+                
+                # Add crop name column
+                pyrolysis_filtered["Crop"] = pyrolysis_filtered["Type"].map(feedstock_to_crop)
+                
+                # Calculate biochar yield based on farmer's residue
+                def calc_biochar_from_residue(row):
+                    crop_name = row["Crop"]
+                    if crop_name in residue_by_crop:
+                        residue = residue_by_crop[crop_name]
+                        biochar_yield_pct = row["Biochar Yield (%)"]
+                        if pd.notna(biochar_yield_pct):
+                            return residue * (biochar_yield_pct / 100)
+                    return None
+                
+                pyrolysis_filtered["Biochar from Residue (t/ha)"] = pyrolysis_filtered.apply(calc_biochar_from_residue, axis=1)
+                
+                # Clean up residence time column name (has extra quotes)
+                residence_col = [col for col in pyrolysis_filtered.columns if "Residence" in col]
+                if residence_col:
+                    pyrolysis_filtered = pyrolysis_filtered.rename(columns={residence_col[0]: "Residence Time (min)"})
+                
+                # Prepare display table
+                display_cols = ["Crop", "Type", "Final Temperature", "Heating Rate", "Residence Time (min)", 
+                               "Biochar Yield (%)", "Biochar from Residue (t/ha)", "Soil Challenges to amend"]
+                display_cols = [c for c in display_cols if c in pyrolysis_filtered.columns]
+                
+                display_df = pyrolysis_filtered[display_cols].copy()
+                
+                # Rename columns for better display
+                display_df = display_df.rename(columns={
+                    "Type": "Feedstock",
+                    "Final Temperature": "Pyrolysis Temp (°C)",
+                    "Heating Rate": "Heating Rate (°C/min)",
+                    "Biochar Yield (%)": "Biochar Yield (%)",
+                    "Soil Challenges to amend": "Soil Challenges Addressed"
+                })
+                
+                # Sort by crop and temperature
+                if "Pyrolysis Temp (°C)" in display_df.columns:
+                    display_df = display_df.sort_values(["Crop", "Pyrolysis Temp (°C)"])
+                
+                # Show summary
+                yield_used = farmer_yield if farmer_yield is not None else 3500
+                if crop == "General":
+                    st.success(f"Showing pyrolysis parameters for all crops • Yield used: {yield_used:,.0f} kg/ha {'(user input)' if farmer_yield is not None else '(default)'}")
+                else:
+                    residue = residue_by_crop.get(crop, 0)
+                    st.success(f"**{crop}** • Yield: {yield_used:,.0f} kg/ha • Residue: {residue:.2f} t/ha")
+                
+                st.markdown("#### Pyrolysis Parameters & Biochar Yield")
+                st.dataframe(display_df, use_container_width=True, hide_index=True)
+                
+                # Show calculation details
+                with st.expander("Calculation Details", expanded=False):
+                    st.write(f"**Crop(s):** {crop if crop != 'General' else ', '.join(crops_to_process)}")
+                    st.write(f"**Yield used:** {yield_used:,.0f} kg/ha {'(user input)' if farmer_yield is not None else '(default)'}")
+                    for c, residue in residue_by_crop.items():
+                        st.write(f"**{c} residue per hectare:** {residue:.2f} t/ha")
+                    st.write("**Biochar from Residue** = Residue (t/ha) × Biochar Yield (%)")
+                
+                # Download button
+                st.download_button(
+                    "Download Pyrolysis Results (CSV)", 
+                    display_df.to_csv(index=False).encode(), 
+                    f"pyrolysis_params_{crop}_{pd.Timestamp.now():%Y%m%d}.csv", 
+                    "text/csv",
+                    key="dl_sourcing",
+                    use_container_width=True
+                )
+                
+        except Exception as e:
+            st.error(f"Error calculating biochar potential: {str(e)}")
+            import traceback
+            with st.expander("Error Details", expanded=False):
+                st.code(traceback.format_exc())
+
+    st.markdown("---")  # Separator between Optimising Tool and analysis results
+    
     if csv_path and df is not None and map_paths:
         # === YOUR ORIGINAL MAPS & RECOMMENDATIONS (UNCHANGED) ===
         st.markdown("### Soil Health & Biochar Suitability Insights (Mato Grosso State)")
@@ -615,124 +796,6 @@ with farmer_tab:
                     st.info("No biochar recommendations available. All locations show 'No recommendation'.")
             else:
                 st.info("Biochar feedstock recommendations not available in this run. Please run the analysis with recommendations enabled.")
-
-        # === SOURCING TOOL – CROP RESIDUE & BIOCHAR POTENTIAL ===
-        st.markdown("### Sourcing Tool – Crop Residue & Biochar Potential (Mato Grosso only)")
-
-        # Cache data loading functions (moved outside to avoid redefinition on reruns)
-        @st.cache_data(ttl=3600, show_spinner=False)
-        def load_ratios() -> pd.DataFrame:
-            """Load crop residue ratios from CSV."""
-            return pd.read_csv(PROJECT_ROOT / "data" / "residue_ratios.csv")
-
-        @st.cache_data(ttl=3600, show_spinner=False)
-        def load_harvest_data() -> pd.DataFrame:
-            """Load Brazil crop harvest data (2017-2024)."""
-            return pd.read_csv(PROJECT_ROOT / "data" / "brazil_crop_harvest_area_2017-2024.csv")
-        
-        # Mapping: English crop name -> (Portuguese name in harvest file, English name in ratios file)
-        crop_mapping = {
-            "Soybean": ("Soja (em grão)", "Soybeans (grain)"),
-            "Maize": ("Milho (em grão)", "Corn (grain)"),
-            "Sugarcane": ("Cana-de-açúcar", "Sugarcane"),
-            "Cotton": ("Algodão herbáceo (em caroço)", "Herbaceous cotton (seed)")
-        }
-
-        col1, col2 = st.columns(2)
-        with col1:
-            crop = st.selectbox("Select crop", options=list(crop_mapping.keys()), key="sourcing_crop")
-        with col2:
-            farmer_yield = st.number_input("Your yield (kg/ha)", min_value=0, value=None, step=100, key="sourcing_yield", help="Leave empty to use default yield from crop data")
-
-        if st.button("Calculate Biochar Potential", type="primary", key="calc_sourcing"):
-            # Load data only when button is clicked (lazy loading)
-            with st.spinner("Loading crop data..."):
-                ratios = load_ratios()
-                harvest = load_harvest_data()
-            try:
-                crop_portuguese, crop_english = crop_mapping[crop]
-                
-                # Filter for Mato Grosso municipalities (optimized: filter by state first)
-                df_crop = harvest[
-                    (harvest["Crop"] == crop_portuguese) & 
-                    harvest["Municipality"].str.contains("\\(MT\\)", na=False, regex=True)
-                ].copy()
-                
-                # Early exit if no data
-                if df_crop.empty:
-                    st.error(f"No data found for {crop} in Mato Grosso. Please check the crop data file.")
-                    st.stop()
-                
-                latest_year = df_crop["Year"].max()
-                df_crop = df_crop[df_crop["Year"] == latest_year].copy()
-                
-                if df_crop.empty:
-                    st.error(f"No data found for {crop} in Mato Grosso for year {latest_year}.")
-                    st.stop()
-
-                # Look up residue ratio from ratios file
-                ratio_row = ratios[ratios["Crop"] == crop_english]
-                if ratio_row.empty:
-                    st.error(f"Residue ratio not found for {crop} ({crop_english}) in ratios file.")
-                    st.stop()
-                
-                ratio_row = ratio_row.iloc[0]
-                urr = ratio_row["URR (t residue/t grain) Assuming AF = 0.5"] if pd.notna(ratio_row["URR (t residue/t grain) Assuming AF = 0.5"]) else ratio_row["Doesn't require AF"]
-                
-                if pd.isna(urr):
-                    st.error(f"Residue ratio (URR) not available for {crop}.")
-                    st.stop()
-
-                # Calculate biochar potential
-                yield_used = farmer_yield if farmer_yield is not None else 3500  # Default yield if not provided
-                residue_t_ha = (yield_used / 1000) * urr
-                biochar_t_ha = residue_t_ha * 0.30  # 30% pyrolysis yield
-
-                df_crop["Residue_t_total"] = residue_t_ha * df_crop["Harvested_area_ha"]
-                df_crop["Biochar_t_total"] = biochar_t_ha * df_crop["Harvested_area_ha"]
-                df_crop["Biochar_t_per_ha"] = biochar_t_ha
-
-                total_biochar = df_crop["Biochar_t_total"].sum()
-                total_residue = df_crop["Residue_t_total"].sum()
-                
-                st.success(f"{latest_year} • {len(df_crop)} municipalities • Total biochar: {total_biochar:,.0f} tons • Total residue: {total_residue:,.0f} tons")
-
-                # Display top municipalities
-                display_cols = ["Municipality", "Harvested_area_ha", "Biochar_t_per_ha", "Biochar_t_total"]
-                display_cols = [c for c in display_cols if c in df_crop.columns]
-                if display_cols:
-                    display = df_crop[display_cols].head(50)
-                    display = display.rename(columns={
-                        "Harvested_area_ha": "Area (ha)",
-                        "Biochar_t_per_ha": "Biochar (t/ha)",
-                        "Biochar_t_total": "Total Biochar (tons)"
-                    })
-                    st.dataframe(display, use_container_width=True)
-                else:
-                    st.warning("Required columns not found in crop data.")
-                
-                # Show summary info
-                with st.expander("Calculation Details", expanded=False):
-                    st.write(f"**Crop:** {crop}")
-                    st.write(f"**Year:** {latest_year}")
-                    st.write(f"**Yield used:** {yield_used:,.0f} kg/ha {'(user input)' if farmer_yield is not None else '(default)'}")
-                    st.write(f"**Residue ratio (URR):** {urr:.3f} t residue/t grain")
-                    st.write(f"**Residue per hectare:** {residue_t_ha:.2f} t/ha")
-                    st.write(f"**Biochar per hectare:** {biochar_t_ha:.2f} t/ha (30% pyrolysis yield)")
-                    st.write(f"**Total harvested area:** {df_crop['Harvested_area_ha'].sum():,.0f} ha")
-                
-                st.download_button(
-                    "Download full table", 
-                    df_crop.to_csv(index=False).encode(), 
-                    f"MT_{crop}_biochar_{latest_year}.csv", 
-                    "text/csv",
-                    key="dl_sourcing"
-                )
-            except Exception as e:
-                st.error(f"Error calculating biochar potential: {str(e)}")
-                import traceback
-                with st.expander("Error Details", expanded=False):
-                    st.code(traceback.format_exc())
 
         if csv_path and df is not None:
             @st.cache_data(show_spinner=False)
