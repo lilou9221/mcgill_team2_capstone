@@ -166,6 +166,23 @@ def get_config() -> dict:
 
 config = get_config()
 
+# Legacy compatibility - list of essential data file paths
+REQUIRED_DATA_FILES = [PROJECT_ROOT / "data" / f for f in list(REQUIRED_FILES.keys())[:6]]
+
+@st.cache_data(ttl=3600, show_spinner=False)
+def check_required_files_exist() -> tuple[bool, list[Path]]:
+    """
+    Check if essential data files exist and are non-empty.
+    
+    Returns:
+        tuple: (all_exist: bool, missing_files: list[Path])
+    """
+    missing = []
+    for path in REQUIRED_DATA_FILES:
+        if not path.exists() or (path.exists() and path.stat().st_size == 0):
+            missing.append(path)
+    return len(missing) == 0, missing
+
 # ============================================================
 # GLOBAL STYLING (100% YOUR ORIGINAL)
 # ============================================================
@@ -214,27 +231,49 @@ st.markdown("""
     // Save scroll position before any form widget interaction
     const saveScroll = function() {
         scrollPosition = window.scrollY || window.pageYOffset || 0;
-        if (scrollPosition > 0) {
-            sessionStorage.setItem('preserveScrollPos', scrollPosition.toString());
-            isFormInteraction = true;
+        // FIXED: Always set isFormInteraction to true on any form interaction,
+        // regardless of scroll position. This ensures scroll preservation works
+        // even when the user is at the top of the page (scrollPosition === 0).
+        isFormInteraction = true;
+        sessionStorage.setItem('preserveScrollPos', scrollPosition.toString());
+    };
+    
+    // Detect any interaction with sidebar widgets (sliders, inputs, checkboxes)
+    // Works with or without form wrapper - detects sidebar widget interactions
+    const sidebar = document.querySelector('[data-testid="stSidebar"]');
+    const detectWidgetInteraction = function(e) {
+        const target = e.target;
+        if (target && (target.type === 'range' || 
+                      target.type === 'number' || 
+                      target.type === 'checkbox' ||
+                      target.closest('[data-baseweb="slider"]') ||
+                      target.closest('[data-baseweb="select"]'))) {
+            saveScroll();
         }
     };
     
-    // Detect any interaction with form widgets (sliders, inputs, checkboxes)
-    const formContainer = document.querySelector('form[data-testid*="stForm"]');
-    if (formContainer) {
-        formContainer.addEventListener('mousedown', function(e) {
-            if (e.target && (e.target.type === 'range' || 
-                            e.target.type === 'number' || 
-                            e.target.type === 'checkbox' ||
-                            e.target.closest('[data-baseweb="slider"]'))) {
-                saveScroll();
-            }
-        }, true);
-        
-        formContainer.addEventListener('input', saveScroll, true);
-        formContainer.addEventListener('change', saveScroll, true);
+    if (sidebar) {
+        sidebar.addEventListener('mousedown', detectWidgetInteraction, true);
+        sidebar.addEventListener('input', detectWidgetInteraction, true);
+        sidebar.addEventListener('change', detectWidgetInteraction, true);
     }
+    
+    // Also listen globally for sidebar widget interactions as fallback
+    document.addEventListener('mousedown', function(e) {
+        if (e.target && e.target.closest('[data-testid="stSidebar"]')) {
+            detectWidgetInteraction(e);
+        }
+    }, true);
+    document.addEventListener('input', function(e) {
+        if (e.target && e.target.closest('[data-testid="stSidebar"]')) {
+            detectWidgetInteraction(e);
+        }
+    }, true);
+    document.addEventListener('change', function(e) {
+        if (e.target && e.target.closest('[data-testid="stSidebar"]')) {
+            detectWidgetInteraction(e);
+        }
+    }, true);
     
     // Restore scroll position aggressively after any rerun
     const restoreScroll = function() {
@@ -303,19 +342,15 @@ st.markdown('<div class="header-subtitle">Precision soil health & crop residue i
 
 with st.sidebar:
     st.markdown("### Run Analysis")
-    
-    # Use form to prevent reruns when sliders/inputs change
-    # This prevents page jumping when parameters are adjusted
-    with st.form("analysis_parameters_form", clear_on_submit=False):
-        use_coords = st.checkbox("Analyze around a location", value=True, key="use_coords_checkbox")
-        lat = lon = radius = None
-        if use_coords:
-            c1, c2 = st.columns(2)
-            with c1: lat = st.number_input("Latitude", value=-13.0, format="%.6f", key="lat_input")
-            with c2: lon = st.number_input("Longitude", value=-56.0, format="%.6f", key="lon_input")
-            radius = st.slider("Radius (km)", 25, 100, 100, 25, key="radius_slider")
-        h3_res = st.slider("H3 Resolution", 5, 9, 7, key="h3_res_slider")
-        run_btn = st.form_submit_button("Run Analysis", type="primary", use_container_width=True)
+    use_coords = st.checkbox("Analyze around a location", value=True)
+    lat = lon = radius = None
+    if use_coords:
+        c1, c2 = st.columns(2)
+        with c1: lat = st.number_input("Latitude", value=-13.0, format="%.6f")
+        with c2: lon = st.number_input("Longitude", value=-56.0, format="%.6f")
+        radius = st.slider("Radius (km)", 25, 100, 100, 25)
+    h3_res = st.slider("H3 Resolution", 5, 9, 7)
+    run_btn = st.button("Run Analysis", type="primary", use_container_width=True)
     
     st.markdown("---")
     if st.button("Reset Cache & Restart"):
@@ -327,9 +362,6 @@ with st.sidebar:
 # RUN ANALYSIS PIPELINE (ON DEMAND)
 # ============================================================
 if run_btn:
-    # Clear old cached maps and data when starting new analysis
-    # Clear all cached data to ensure fresh maps are loaded for new analysis
-    st.cache_data.clear()
     st.session_state.analysis_results = None
     if st.session_state.analysis_running:
         st.warning("Analysis already running. Please wait…")
@@ -394,16 +426,7 @@ if run_btn:
             "ph": str(PROJECT_ROOT / config["output"]["html"] / "ph_map_streamlit.html"),
             "moisture": str(PROJECT_ROOT / config["output"]["html"] / "moisture_map_streamlit.html"),
         }
-        # Add timestamp to track when analysis was run, and clear cache to ensure fresh data is loaded
-        analysis_timestamp = time.time()
-        st.session_state.analysis_results = {
-            "csv_path": str(csv_path), 
-            "map_paths": map_paths,
-            "timestamp": analysis_timestamp
-        }
-        # Clear cache to ensure new maps are loaded, not old cached ones
-        # Use general cache clear since functions are defined later in file
-        st.cache_data.clear()
+        st.session_state.analysis_results = {"csv_path": str(csv_path), "map_paths": map_paths}
         st.success("Analysis completed successfully!")
     except Exception as e:
         st.error("Pipeline crashed.")
@@ -422,28 +445,26 @@ def _get_file_mtime(p: str) -> float:
     return path.stat().st_mtime if path.exists() else 0
 
 @st.cache_data(ttl=3600, show_spinner=False)
-def load_results_csv(p: str, _mtime: float = 0, _analysis_timestamp: float = 0) -> pd.DataFrame:
+def load_results_csv(p: str, _mtime: float = 0) -> pd.DataFrame:
     """
-    Load analysis results from CSV file. Cache invalidates when file changes or analysis timestamp changes.
+    Load analysis results from CSV file. Cache invalidates when file changes.
     
     Args:
         p: Path to CSV file.
         _mtime: File modification time (for cache invalidation).
-        _analysis_timestamp: Timestamp of when analysis was run (for cache invalidation).
     Returns:
         pd.DataFrame: Loaded data.
     """
     return pd.read_csv(p)
 
 @st.cache_data(ttl=3600, show_spinner=False)
-def load_html_map(p: str, _mtime: float = 0, _analysis_timestamp: float = 0) -> Optional[str]:
+def load_html_map(p: str, _mtime: float = 0) -> Optional[str]:
     """
-    Load HTML map content from file. Cache invalidates when file changes or analysis timestamp changes.
+    Load HTML map content from file. Cache invalidates when file changes.
     
     Args:
         p: Path to HTML file.
         _mtime: File modification time (for cache invalidation).
-        _analysis_timestamp: Timestamp of when analysis was run (for cache invalidation).
     Returns:
         str | None: HTML content or None if file doesn't exist.
     """
@@ -459,8 +480,7 @@ if st.session_state.get("analysis_results"):
     analysis_results = st.session_state.analysis_results
     if "csv_path" in analysis_results and "map_paths" in analysis_results:
         csv_path = Path(analysis_results["csv_path"])
-        analysis_timestamp = analysis_results.get("timestamp", 0)
-        df = load_results_csv(str(csv_path), _mtime=_get_file_mtime(str(csv_path)), _analysis_timestamp=analysis_timestamp)
+        df = load_results_csv(str(csv_path), _mtime=_get_file_mtime(str(csv_path)))
         map_paths = analysis_results["map_paths"]
     else:
         # Invalid analysis_results structure, reset it
@@ -469,8 +489,6 @@ if st.session_state.get("analysis_results"):
 elif not st.session_state.get("analysis_running") and not st.session_state.get("existing_results_checked", False):
     potential_csv = PROJECT_ROOT / config["data"]["processed"] / "suitability_scores.csv"
     if potential_csv.exists() and Path(PROJECT_ROOT / config["output"]["html"] / "suitability_map.html").exists():
-        # Use file mtime as timestamp for existing results
-        existing_timestamp = _get_file_mtime(str(potential_csv))
         st.session_state.analysis_results = {
             "csv_path": str(potential_csv),
             "map_paths": {
@@ -478,40 +496,21 @@ elif not st.session_state.get("analysis_running") and not st.session_state.get("
                 "soc": str(PROJECT_ROOT / config["output"]["html"] / "soc_map_streamlit.html"),
                 "ph": str(PROJECT_ROOT / config["output"]["html"] / "ph_map_streamlit.html"),
                 "moisture": str(PROJECT_ROOT / config["output"]["html"] / "moisture_map_streamlit.html"),
-            },
-            "timestamp": existing_timestamp
+            }
         }
         csv_path = potential_csv
-        df = load_results_csv(str(csv_path), _mtime=_get_file_mtime(str(csv_path)), _analysis_timestamp=existing_timestamp)
+        df = load_results_csv(str(csv_path), _mtime=_get_file_mtime(str(csv_path)))
         map_paths = st.session_state.analysis_results["map_paths"]
     st.session_state["existing_results_checked"] = True
 
-# Track active tab in session state to prevent tab resets
-if "active_tab" not in st.session_state:
-    st.session_state.active_tab = "farmer"
-
-# Custom tab selector using buttons - this prevents tab resets on reruns
-col1, col2 = st.columns(2)
-with col1:
-    if st.button("Farmer Perspective", use_container_width=True, 
-                 type="primary" if st.session_state.active_tab == "farmer" else "secondary",
-                 key="tab_farmer_btn"):
-        st.session_state.active_tab = "farmer"
-        st.rerun()
-with col2:
-    if st.button("Investor Perspective", use_container_width=True,
-                 type="primary" if st.session_state.active_tab == "investor" else "secondary",
-                 key="tab_investor_btn"):
-        st.session_state.active_tab = "investor"
-        st.rerun()
-
-# Add visual separator
-st.markdown("---")
+# Create tabs - Streamlit maintains tab state automatically
+# Tabs are always created to prevent tab resets on reruns
+farmer_tab, investor_tab = st.tabs(["Farmer Perspective", "Investor Perspective"])
 
 # ========================================================
 # FARMER TAB – YOUR ORIGINAL + OPTIMISING TOOL
 # ========================================================
-if st.session_state.active_tab == "farmer":
+with farmer_tab:
     # === OPTIMISING TOOL – CROP RESIDUE & BIOCHAR POTENTIAL (at top) ===
     st.markdown("### Optimising Tool – Crop Residue & Biochar Potential (Mato Grosso only)")
 
@@ -648,6 +647,7 @@ if st.session_state.active_tab == "farmer":
                     "Type": "Feedstock",
                     "Final Temperature": "Pyrolysis Temp (°C)",
                     "Heating Rate": "Heating Rate (°C/min)",
+                    "Biochar Yield (%)": "Biochar Yield (%)",
                     "Soil Challenges to amend": "Soil Challenges Addressed"
                 })
                 
@@ -686,6 +686,7 @@ if st.session_state.active_tab == "farmer":
                 
         except Exception as e:
             st.error(f"Error calculating biochar potential: {str(e)}")
+            import traceback
             with st.expander("Error Details", expanded=False):
                 st.code(traceback.format_exc())
 
@@ -729,12 +730,8 @@ if st.session_state.active_tab == "farmer":
         tab1, tab2, tab3, tab4, rec_tab = st.tabs(["Biochar Suitability", "Soil Organic Carbon", "Soil pH", "Soil Moisture", "Top 10 Recommendations"])
 
         def load_map(path):
-            """Load and display HTML map. Cache invalidates when file changes or analysis timestamp changes."""
-            # Get analysis timestamp from session state to ensure cache invalidation for new analyses
-            analysis_timestamp = 0
-            if st.session_state.get("analysis_results") and "timestamp" in st.session_state.analysis_results:
-                analysis_timestamp = st.session_state.analysis_results["timestamp"]
-            html_content = load_html_map(path, _mtime=_get_file_mtime(path), _analysis_timestamp=analysis_timestamp)
+            """Load and display HTML map. Cache invalidates when file changes."""
+            html_content = load_html_map(path, _mtime=_get_file_mtime(path))
             if html_content:
                 st.components.v1.html(html_content, height=720, scrolling=False)
             else:
@@ -937,7 +934,7 @@ if st.session_state.active_tab == "farmer":
 # ========================================================
 # INVESTOR TAB - Independent feature, loads automatically
 # ========================================================
-if st.session_state.active_tab == "investor":
+with investor_tab:
     st.markdown("### Crop Residue Availability – Biochar Feedstock Opportunity")
 
     # Flat structure: shapefile components and CSV are directly in data/
@@ -975,6 +972,7 @@ if st.session_state.active_tab == "investor":
             with st.spinner("Loading crop residue data (first time only)..."):
                 gdf = get_gdf()
 
+            # Use a unique, stable key to prevent tab resets when radio button changes
             data_type_radio = st.radio(
                 "Display:",
                 ["Crop area", "Crop production", "Crop residue"],
@@ -1039,6 +1037,7 @@ if st.session_state.active_tab == "investor":
                 missing.append("Updated_municipality_crop_production_data.csv")
             st.info(f"Investor map data not available. Missing: {', '.join(missing)}")
     except Exception as e:
+        import traceback
         st.error(f"Failed to load investor map: {str(e)}")
         st.code(traceback.format_exc(), language="text")
 
