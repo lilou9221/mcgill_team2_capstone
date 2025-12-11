@@ -207,71 +207,88 @@ st.markdown("""
 </style>
 <script>
 (function() {
-    // Prevent page jumping when sliders change by preserving scroll position
-    let shouldPreserveScroll = false;
-    let savedScrollPosition = 0;
+    // Aggressively prevent page jumping by maintaining scroll position
+    let scrollPosition = 0;
+    let isFormInteraction = false;
     
-    // Detect slider interactions
-    const detectSliderInteraction = function(e) {
-        const target = e.target;
-        const isSlider = target && (
-            target.type === 'range' || 
-            target.closest('[data-baseweb="slider"]') ||
-            target.closest('[role="slider"]')
-        );
-        
-        if (isSlider) {
-            shouldPreserveScroll = true;
-            savedScrollPosition = window.scrollY || window.pageYOffset || 0;
-            sessionStorage.setItem('sliderScrollPos', savedScrollPosition.toString());
+    // Save scroll position before any form widget interaction
+    const saveScroll = function() {
+        scrollPosition = window.scrollY || window.pageYOffset || 0;
+        if (scrollPosition > 0) {
+            sessionStorage.setItem('preserveScrollPos', scrollPosition.toString());
+            isFormInteraction = true;
         }
     };
     
-    // Listen for slider interactions
-    document.addEventListener('mousedown', detectSliderInteraction, true);
-    document.addEventListener('touchstart', detectSliderInteraction, true);
-    document.addEventListener('input', detectSliderInteraction, true);
-    document.addEventListener('change', detectSliderInteraction, true);
+    // Detect any interaction with form widgets (sliders, inputs, checkboxes)
+    const formContainer = document.querySelector('form[data-testid*="stForm"]');
+    if (formContainer) {
+        formContainer.addEventListener('mousedown', function(e) {
+            if (e.target && (e.target.type === 'range' || 
+                            e.target.type === 'number' || 
+                            e.target.type === 'checkbox' ||
+                            e.target.closest('[data-baseweb="slider"]'))) {
+                saveScroll();
+            }
+        }, true);
+        
+        formContainer.addEventListener('input', saveScroll, true);
+        formContainer.addEventListener('change', saveScroll, true);
+    }
     
-    // Restore scroll position after rerun
-    const restoreScrollPosition = function() {
-        const saved = sessionStorage.getItem('sliderScrollPos');
-        if (saved !== null && shouldPreserveScroll) {
+    // Restore scroll position aggressively after any rerun
+    const restoreScroll = function() {
+        const saved = sessionStorage.getItem('preserveScrollPos');
+        if (saved !== null && isFormInteraction) {
             const pos = parseFloat(saved);
-            if (!isNaN(pos) && pos > 0) {
-                // Use requestAnimationFrame for smooth restoration
+            if (!isNaN(pos) && pos >= 0) {
+                // Multiple attempts to ensure it sticks
+                window.scrollTo(0, pos);
                 requestAnimationFrame(function() {
                     window.scrollTo(0, pos);
-                    // Try again after a short delay to ensure it sticks
+                    setTimeout(function() {
+                        window.scrollTo(0, pos);
+                    }, 10);
                     setTimeout(function() {
                         window.scrollTo(0, pos);
                     }, 50);
+                    setTimeout(function() {
+                        window.scrollTo(0, pos);
+                    }, 100);
                 });
             }
-            // Clear after restoring
-            shouldPreserveScroll = false;
         }
     };
     
-    // Restore on various events to catch Streamlit reruns
-    if (document.readyState === 'complete') {
-        restoreScrollPosition();
-    } else {
-        window.addEventListener('load', restoreScrollPosition);
-        document.addEventListener('DOMContentLoaded', restoreScrollPosition);
+    // Watch for Streamlit reruns using MutationObserver
+    const observer = new MutationObserver(function(mutations) {
+        if (isFormInteraction) {
+            restoreScroll();
+        }
+    });
+    
+    // Observe the main content area
+    const mainContent = document.querySelector('[data-testid="stAppViewContainer"]') || document.body;
+    if (mainContent) {
+        observer.observe(mainContent, {
+            childList: true,
+            subtree: true,
+            attributes: true
+        });
     }
     
-    // Also try after delays to catch late reruns
-    setTimeout(restoreScrollPosition, 100);
-    setTimeout(restoreScrollPosition, 300);
-    setTimeout(restoreScrollPosition, 600);
+    // Also restore on various events
+    window.addEventListener('load', restoreScroll);
+    document.addEventListener('DOMContentLoaded', restoreScroll);
+    setTimeout(restoreScroll, 50);
+    setTimeout(restoreScroll, 150);
+    setTimeout(restoreScroll, 300);
     
-    // Clear saved position when Run Analysis is clicked
+    // Clear when Run Analysis is actually submitted
     document.addEventListener('click', function(e) {
-        const target = e.target;
-        if (target && (target.textContent && target.textContent.includes('Run Analysis'))) {
-            sessionStorage.removeItem('sliderScrollPos');
-            shouldPreserveScroll = false;
+        if (e.target && e.target.textContent && e.target.textContent.includes('Run Analysis')) {
+            sessionStorage.removeItem('preserveScrollPos');
+            isFormInteraction = false;
         }
     }, true);
 })();
@@ -286,15 +303,19 @@ st.markdown('<div class="header-subtitle">Precision soil health & crop residue i
 
 with st.sidebar:
     st.markdown("### Run Analysis")
-    use_coords = st.checkbox("Analyze around a location", value=True, key="use_coords_checkbox")
-    lat = lon = radius = None
-    if use_coords:
-        c1, c2 = st.columns(2)
-        with c1: lat = st.number_input("Latitude", value=-13.0, format="%.6f", key="lat_input")
-        with c2: lon = st.number_input("Longitude", value=-56.0, format="%.6f", key="lon_input")
-        radius = st.slider("Radius (km)", 25, 100, 100, 25, key="radius_slider")
-    h3_res = st.slider("H3 Resolution", 5, 9, 7, key="h3_res_slider")
-    run_btn = st.button("Run Analysis", type="primary", use_container_width=True)
+    
+    # Use form to prevent reruns when sliders/inputs change
+    # This prevents page jumping when parameters are adjusted
+    with st.form("analysis_parameters_form", clear_on_submit=False):
+        use_coords = st.checkbox("Analyze around a location", value=True, key="use_coords_checkbox")
+        lat = lon = radius = None
+        if use_coords:
+            c1, c2 = st.columns(2)
+            with c1: lat = st.number_input("Latitude", value=-13.0, format="%.6f", key="lat_input")
+            with c2: lon = st.number_input("Longitude", value=-56.0, format="%.6f", key="lon_input")
+            radius = st.slider("Radius (km)", 25, 100, 100, 25, key="radius_slider")
+        h3_res = st.slider("H3 Resolution", 5, 9, 7, key="h3_res_slider")
+        run_btn = st.form_submit_button("Run Analysis", type="primary", use_container_width=True)
     
     st.markdown("---")
     if st.button("Reset Cache & Restart"):
