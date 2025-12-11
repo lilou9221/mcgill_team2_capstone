@@ -393,9 +393,88 @@ elif not st.session_state.get("analysis_running") and not st.session_state.get("
         map_paths = st.session_state.analysis_results["map_paths"]
     st.session_state["existing_results_checked"] = True
 
+# Track active tab using query parameters to maintain state across reruns
+query_params = st.query_params
+
 # Create tabs - Streamlit maintains tab state automatically
 # Tabs are always created to prevent tab resets on reruns
 farmer_tab, investor_tab = st.tabs(["Farmer Perspective", "Investor Perspective"])
+
+# Inject JavaScript to maintain investor tab selection after rerun
+# This ensures that when radio buttons in investor tab are clicked, we stay on that tab
+st.markdown("""
+<script>
+(function() {
+    // Check if we should be on investor tab (from query params or sessionStorage)
+    const urlParams = new URLSearchParams(window.location.search);
+    const shouldBeInvestor = urlParams.get('tab') === 'investor' || 
+                             sessionStorage.getItem('lastActiveTab') === 'investor';
+    
+    if (shouldBeInvestor) {
+        // Function to switch to investor tab
+        function switchToInvestorTab() {
+            const tabs = document.querySelectorAll('button[data-baseweb="tab"]');
+            if (tabs.length >= 2 && !tabs[1].getAttribute('aria-selected')) {
+                tabs[1].click();
+                sessionStorage.setItem('lastActiveTab', 'investor');
+                // Update URL without causing a full page reload
+                const url = new URL(window.location);
+                url.searchParams.set('tab', 'investor');
+                window.history.replaceState({}, '', url);
+                return true;
+            }
+            return false;
+        }
+        
+        // Try multiple times with increasing delays to catch tabs when they're ready
+        let attempts = 0;
+        const maxAttempts = 20;
+        const interval = setInterval(function() {
+            attempts++;
+            if (switchToInvestorTab() || attempts >= maxAttempts) {
+                clearInterval(interval);
+            }
+        }, 50);
+    }
+    
+    // Track tab clicks to maintain state
+    document.addEventListener('click', function(e) {
+        const tab = e.target.closest('button[data-baseweb="tab"]');
+        if (tab) {
+            const allTabs = Array.from(document.querySelectorAll('button[data-baseweb="tab"]'));
+            const tabIndex = allTabs.indexOf(tab);
+            if (tabIndex === 1) {
+                sessionStorage.setItem('lastActiveTab', 'investor');
+                // Update URL without causing a full page reload
+                const url = new URL(window.location);
+                url.searchParams.set('tab', 'investor');
+                window.history.replaceState({}, '', url);
+            } else if (tabIndex === 0) {
+                sessionStorage.setItem('lastActiveTab', 'farmer');
+                const url = new URL(window.location);
+                url.searchParams.set('tab', 'farmer');
+                window.history.replaceState({}, '', url);
+            }
+        }
+    });
+    
+    // Also track when radio buttons in investor tab are clicked
+    // This ensures we maintain the investor tab state
+    document.addEventListener('change', function(e) {
+        if (e.target && e.target.closest('[data-testid*="stRadio"]')) {
+            // Check if we're likely in the investor tab context
+            const investorTab = document.querySelector('button[data-baseweb="tab"]:nth-child(2)');
+            if (investorTab && investorTab.getAttribute('aria-selected') === 'true') {
+                sessionStorage.setItem('lastActiveTab', 'investor');
+                const url = new URL(window.location);
+                url.searchParams.set('tab', 'investor');
+                window.history.replaceState({}, '', url);
+            }
+        }
+    });
+})();
+</script>
+""", unsafe_allow_html=True)
 
 # ========================================================
 # FARMER TAB – YOUR ORIGINAL + OPTIMISING TOOL
