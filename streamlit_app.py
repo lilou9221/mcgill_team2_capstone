@@ -180,11 +180,12 @@ st.markdown("""
     .header-subtitle {text-align: center; color: #444444; font-size: 1.3rem; margin-bottom: 3rem;}
     .stButton > button {background-color: #64955d !important; color: white !important; border-radius: 999px; font-weight: 600; height: 3.2em;}
     .stButton > button:hover {background-color: #527a48 !important;}
-    .metric-card {background: white; padding: 1.8rem; border-radius: 14px; border-left: 6px solid #64955d; box-shadow: 0 6px 20px rgba(0,0,0,0.08); text-align: center; min-height: 140px; display: flex; flex-direction: column; justify-content: center; align-items: center; width: 100%;}
+    .metrics-container {display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem; margin-bottom: 2rem;}
+    .metric-card {background: white; padding: 1.8rem; border-radius: 14px; border-left: 6px solid #64955d; box-shadow: 0 6px 20px rgba(0,0,0,0.08); text-align: center; height: 140px; display: flex; flex-direction: column; justify-content: center; align-items: center; box-sizing: border-box;}
     .metric-card h4 {margin: 0 0 0.8rem 0; font-size: 1rem; font-weight: 600; color: #173a30;}
     .metric-card p {margin: 0; font-size: 1.8rem; font-weight: 700; color: #2c5530;}
     .metric-card small {font-size: 0.9rem; font-weight: 400; color: #666;}
-    div[data-testid="column"] {align-items: stretch;}
+    @media (max-width: 768px) {.metrics-container {grid-template-columns: 1fr;}}
     .legend-box {background: white; padding: 28px; border-radius: 16px; box-shadow: 0 8px 30px rgba(0,0,0,0.1); max-width: 760px; margin: 50px auto; text-align: center; border: 1px solid #eee;}
     .legend-title {font-size: 1.3rem; font-weight: 600; color: #173a30; margin-bottom: 16px;}
     .legend-row {display: flex; justify-content: center; gap: 24px; flex-wrap: wrap; margin-top: 16px;}
@@ -735,19 +736,18 @@ with farmer_tab:
         
         metrics = calculate_metrics(df)
         
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            st.markdown(f'<div class="metric-card"><h4>Hexagons Analyzed</h4><p>{metrics["count"]:,}</p></div>', unsafe_allow_html=True)
-        with col2:
-            if metrics["mean_score"] is not None:
-                st.markdown(f'<div class="metric-card"><h4>Mean Suitability Score</h4><p>{metrics["mean_score"]:.2f}</p></div>', unsafe_allow_html=True)
-            else:
-                st.markdown(f'<div class="metric-card"><h4>Mean Suitability Score</h4><p>N/A</p></div>', unsafe_allow_html=True)
-        with col3:
-            if metrics["high_count"] is not None:
-                st.markdown(f'<div class="metric-card"><h4>High Suitability (≥7.0)</h4><p>{metrics["high_count"]:,}<br><small>({metrics["high_pct"]:.1f}%)</small></p></div>', unsafe_allow_html=True)
-            else:
-                st.markdown(f'<div class="metric-card"><h4>High Suitability (≥7.0)</h4><p>N/A</p></div>', unsafe_allow_html=True)
+        # Use CSS Grid for equal-sized, aligned cards
+        card1_html = f'<div class="metric-card"><h4>Hexagons Analyzed</h4><p>{metrics["count"]:,}</p></div>'
+        if metrics["mean_score"] is not None:
+            card2_html = f'<div class="metric-card"><h4>Mean Suitability Score</h4><p>{metrics["mean_score"]:.2f}</p></div>'
+        else:
+            card2_html = '<div class="metric-card"><h4>Mean Suitability Score</h4><p>N/A</p></div>'
+        if metrics["high_count"] is not None:
+            card3_html = f'<div class="metric-card"><h4>High Suitability (≥7.0)</h4><p>{metrics["high_count"]:,}<br><small>({metrics["high_pct"]:.1f}%)</small></p></div>'
+        else:
+            card3_html = '<div class="metric-card"><h4>High Suitability (≥7.0)</h4><p>N/A</p></div>'
+        
+        st.markdown(f'<div class="metrics-container">{card1_html}{card2_html}{card3_html}</div>', unsafe_allow_html=True)
 
         tab1, tab2, tab3, tab4, rec_tab = st.tabs(["Biochar Suitability", "Soil Organic Carbon", "Soil pH", "Soil Moisture", "Top 10 Recommendations"])
 
