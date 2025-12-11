@@ -166,23 +166,6 @@ def get_config() -> dict:
 
 config = get_config()
 
-# Legacy compatibility - list of essential data file paths
-REQUIRED_DATA_FILES = [PROJECT_ROOT / "data" / f for f in list(REQUIRED_FILES.keys())[:6]]
-
-@st.cache_data(ttl=3600, show_spinner=False)
-def check_required_files_exist() -> tuple[bool, list[Path]]:
-    """
-    Check if essential data files exist and are non-empty.
-    
-    Returns:
-        tuple: (all_exist: bool, missing_files: list[Path])
-    """
-    missing = []
-    for path in REQUIRED_DATA_FILES:
-        if not path.exists() or (path.exists() and path.stat().st_size == 0):
-            missing.append(path)
-    return len(missing) == 0, missing
-
 # ============================================================
 # GLOBAL STYLING (100% YOUR ORIGINAL)
 # ============================================================
@@ -222,6 +205,77 @@ st.markdown("""
     [data-baseweb="popover"] li:hover {background-color: #333 !important;}
     div[data-baseweb="popover"] * {color: #fff !important;}
 </style>
+<script>
+(function() {
+    // Prevent page jumping when sliders change by preserving scroll position
+    let shouldPreserveScroll = false;
+    let savedScrollPosition = 0;
+    
+    // Detect slider interactions
+    const detectSliderInteraction = function(e) {
+        const target = e.target;
+        const isSlider = target && (
+            target.type === 'range' || 
+            target.closest('[data-baseweb="slider"]') ||
+            target.closest('[role="slider"]')
+        );
+        
+        if (isSlider) {
+            shouldPreserveScroll = true;
+            savedScrollPosition = window.scrollY || window.pageYOffset || 0;
+            sessionStorage.setItem('sliderScrollPos', savedScrollPosition.toString());
+        }
+    };
+    
+    // Listen for slider interactions
+    document.addEventListener('mousedown', detectSliderInteraction, true);
+    document.addEventListener('touchstart', detectSliderInteraction, true);
+    document.addEventListener('input', detectSliderInteraction, true);
+    document.addEventListener('change', detectSliderInteraction, true);
+    
+    // Restore scroll position after rerun
+    const restoreScrollPosition = function() {
+        const saved = sessionStorage.getItem('sliderScrollPos');
+        if (saved !== null && shouldPreserveScroll) {
+            const pos = parseFloat(saved);
+            if (!isNaN(pos) && pos > 0) {
+                // Use requestAnimationFrame for smooth restoration
+                requestAnimationFrame(function() {
+                    window.scrollTo(0, pos);
+                    // Try again after a short delay to ensure it sticks
+                    setTimeout(function() {
+                        window.scrollTo(0, pos);
+                    }, 50);
+                });
+            }
+            // Clear after restoring
+            shouldPreserveScroll = false;
+        }
+    };
+    
+    // Restore on various events to catch Streamlit reruns
+    if (document.readyState === 'complete') {
+        restoreScrollPosition();
+    } else {
+        window.addEventListener('load', restoreScrollPosition);
+        document.addEventListener('DOMContentLoaded', restoreScrollPosition);
+    }
+    
+    // Also try after delays to catch late reruns
+    setTimeout(restoreScrollPosition, 100);
+    setTimeout(restoreScrollPosition, 300);
+    setTimeout(restoreScrollPosition, 600);
+    
+    // Clear saved position when Run Analysis is clicked
+    document.addEventListener('click', function(e) {
+        const target = e.target;
+        if (target && (target.textContent && target.textContent.includes('Run Analysis'))) {
+            sessionStorage.removeItem('sliderScrollPos');
+            shouldPreserveScroll = false;
+        }
+    }, true);
+})();
+</script>
 """, unsafe_allow_html=True)
 
 # ============================================================
@@ -232,14 +286,14 @@ st.markdown('<div class="header-subtitle">Precision soil health & crop residue i
 
 with st.sidebar:
     st.markdown("### Run Analysis")
-    use_coords = st.checkbox("Analyze around a location", value=True)
+    use_coords = st.checkbox("Analyze around a location", value=True, key="use_coords_checkbox")
     lat = lon = radius = None
     if use_coords:
         c1, c2 = st.columns(2)
-        with c1: lat = st.number_input("Latitude", value=-13.0, format="%.6f")
-        with c2: lon = st.number_input("Longitude", value=-56.0, format="%.6f")
-        radius = st.slider("Radius (km)", 25, 100, 100, 25)
-    h3_res = st.slider("H3 Resolution", 5, 9, 7)
+        with c1: lat = st.number_input("Latitude", value=-13.0, format="%.6f", key="lat_input")
+        with c2: lon = st.number_input("Longitude", value=-56.0, format="%.6f", key="lon_input")
+        radius = st.slider("Radius (km)", 25, 100, 100, 25, key="radius_slider")
+    h3_res = st.slider("H3 Resolution", 5, 9, 7, key="h3_res_slider")
     run_btn = st.button("Run Analysis", type="primary", use_container_width=True)
     
     st.markdown("---")
@@ -573,7 +627,6 @@ if st.session_state.active_tab == "farmer":
                     "Type": "Feedstock",
                     "Final Temperature": "Pyrolysis Temp (°C)",
                     "Heating Rate": "Heating Rate (°C/min)",
-                    "Biochar Yield (%)": "Biochar Yield (%)",
                     "Soil Challenges to amend": "Soil Challenges Addressed"
                 })
                 
@@ -612,7 +665,6 @@ if st.session_state.active_tab == "farmer":
                 
         except Exception as e:
             st.error(f"Error calculating biochar potential: {str(e)}")
-            import traceback
             with st.expander("Error Details", expanded=False):
                 st.code(traceback.format_exc())
 
@@ -902,7 +954,6 @@ if st.session_state.active_tab == "investor":
             with st.spinner("Loading crop residue data (first time only)..."):
                 gdf = get_gdf()
 
-            # Use a unique, stable key to prevent tab resets when radio button changes
             data_type_radio = st.radio(
                 "Display:",
                 ["Crop area", "Crop production", "Crop residue"],
@@ -967,7 +1018,6 @@ if st.session_state.active_tab == "investor":
                 missing.append("Updated_municipality_crop_production_data.csv")
             st.info(f"Investor map data not available. Missing: {', '.join(missing)}")
     except Exception as e:
-        import traceback
         st.error(f"Failed to load investor map: {str(e)}")
         st.code(traceback.format_exc(), language="text")
 
