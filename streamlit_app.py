@@ -180,7 +180,11 @@ st.markdown("""
     .header-subtitle {text-align: center; color: #444444; font-size: 1.3rem; margin-bottom: 3rem;}
     .stButton > button {background-color: #64955d !important; color: white !important; border-radius: 999px; font-weight: 600; height: 3.2em;}
     .stButton > button:hover {background-color: #527a48 !important;}
-    .metric-card {background: white; padding: 1.8rem; border-radius: 14px; border-left: 6px solid #64955d; box-shadow: 0 6px 20px rgba(0,0,0,0.08); text-align: center;}
+    .metric-card {background: white; padding: 1.8rem; border-radius: 14px; border-left: 6px solid #64955d; box-shadow: 0 6px 20px rgba(0,0,0,0.08); text-align: center; min-height: 140px; display: flex; flex-direction: column; justify-content: center; align-items: center; width: 100%;}
+    .metric-card h4 {margin: 0 0 0.8rem 0; font-size: 1rem; font-weight: 600; color: #173a30;}
+    .metric-card p {margin: 0; font-size: 1.8rem; font-weight: 700; color: #2c5530;}
+    .metric-card small {font-size: 0.9rem; font-weight: 400; color: #666;}
+    div[data-testid="column"] {align-items: stretch;}
     .legend-box {background: white; padding: 28px; border-radius: 16px; box-shadow: 0 8px 30px rgba(0,0,0,0.1); max-width: 760px; margin: 50px auto; text-align: center; border: 1px solid #eee;}
     .legend-title {font-size: 1.3rem; font-weight: 600; color: #173a30; margin-bottom: 16px;}
     .legend-row {display: flex; justify-content: center; gap: 24px; flex-wrap: wrap; margin-top: 16px;}
