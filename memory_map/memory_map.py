@@ -96,12 +96,12 @@ def create_data_flow_diagram() -> "matplotlib.figure.Figure":
     file_box_width = 2.8
     file_box_height = 1.0
     process_box_width = 2.8
-    process_box_height = 0.9
+    process_box_height = 1.0  # Increased slightly for multi-line text
     column_spacing = 3.5  # Horizontal spacing between columns
     vertical_spacing = 1.5  # Vertical spacing for parallel paths
     
     # Column positions (x coordinates)
-    col1_x = 1.0  # Raw data
+    col1_x = 0.5  # Raw data
     col2_x = col1_x + column_spacing  # Clipping
     col3_x = col2_x + column_spacing  # Convert to DataFrames
     col4_x = col3_x + column_spacing  # H3 indexing
@@ -240,12 +240,12 @@ def create_data_flow_diagram() -> "matplotlib.figure.Figure":
                              arrowstyle='->', mutation_scale=15, linewidth=1.5, color=edge_color)
     ax.add_patch(arrow4b)
     
-    # Column 6: Calculate Suitability Scores
+    # Column 6: Calculate Suitability Scores & Recommendations
     score_process = FancyBboxPatch((col6_x, center_y - process_box_height/2), process_box_width, process_box_height, 
                                    boxstyle="round,pad=0.1", 
                                    facecolor=process_color, edgecolor=edge_color, linewidth=1.5)
     ax.add_patch(score_process)
-    ax.text(col6_x + process_box_width/2, center_y, 'calculate_biochar_suitability_scores\n(biochar_suitability.py)', 
+    ax.text(col6_x + process_box_width/2, center_y, 'calculate_scores & recommend\n(biochar_suitability.py,\nbiochar_recommender.py)', 
             ha='center', va='center', fontsize=label_font)
     
     # Arrow from merged to score
@@ -261,7 +261,7 @@ def create_data_flow_diagram() -> "matplotlib.figure.Figure":
                                facecolor=file_color, edgecolor=edge_color, linewidth=2)
     ax.add_patch(scores_box)
     ax.text(col6_x + file_box_width/2, center_y - process_box_height/2 - vertical_spacing, 
-            'suitability_scores.csv\n(biochar scores)', 
+            'suitability_scores.csv\n(biochar scores + recs)', 
             ha='center', va='center', fontsize=label_font, fontweight='bold')
     
     # Arrow from score to scores
@@ -331,7 +331,7 @@ def create_data_flow_diagram() -> "matplotlib.figure.Figure":
                                  boxstyle="round,pad=0.1", 
                                  facecolor=map_color, edgecolor='#1976D2', linewidth=2)
     ax.add_patch(map2_output)
-    ax.text(col8_x + file_box_width/2, map2_y, 'soc_map.html\n(Soil Organic Carbon)', 
+    ax.text(col8_x + file_box_width/2, map2_y, 'soc_map_streamlit.html\n(Soil Organic Carbon)', 
             ha='center', va='center', fontsize=label_font, fontweight='bold')
     
     arrow_map2b = FancyArrowPatch((col7_x + process_box_width, map2_y), 
@@ -358,7 +358,7 @@ def create_data_flow_diagram() -> "matplotlib.figure.Figure":
                                  boxstyle="round,pad=0.1", 
                                  facecolor=map_color, edgecolor='#F57C00', linewidth=2)
     ax.add_patch(map3_output)
-    ax.text(col8_x + file_box_width/2, map3_y, 'ph_map.html\n(Soil pH)', 
+    ax.text(col8_x + file_box_width/2, map3_y, 'ph_map_streamlit.html\n(Soil pH)', 
             ha='center', va='center', fontsize=label_font, fontweight='bold')
     
     arrow_map3b = FancyArrowPatch((col7_x + process_box_width, map3_y), 
@@ -385,7 +385,7 @@ def create_data_flow_diagram() -> "matplotlib.figure.Figure":
                                  boxstyle="round,pad=0.1", 
                                  facecolor=map_color, edgecolor='#0288D1', linewidth=2)
     ax.add_patch(map4_output)
-    ax.text(col8_x + file_box_width/2, map4_y, 'moisture_map.html\n(Soil Moisture)', 
+    ax.text(col8_x + file_box_width/2, map4_y, 'moisture_map_streamlit.html\n(Soil Moisture)', 
             ha='center', va='center', fontsize=label_font, fontweight='bold')
     
     arrow_map4b = FancyArrowPatch((col7_x + process_box_width, map4_y), 
@@ -395,20 +395,29 @@ def create_data_flow_diagram() -> "matplotlib.figure.Figure":
     
     # 5. Investor Crop Area Map (separate data sources - starts at col1)
     # Data sources in column 1 (below raw data)
+    
+    # Pyrolysis Data (used in scoring/recommender)
+    pyrolysis_data_y = center_y + 2.5
+    pyrolysis_box = FancyBboxPatch((col1_x, pyrolysis_data_y - file_box_height/2), file_box_width, file_box_height, 
+                                   boxstyle="round,pad=0.1", 
+                                   facecolor=file_color, edgecolor=edge_color, linewidth=1.5)
+    ax.add_patch(pyrolysis_box)
+    ax.text(col1_x + file_box_width/2, pyrolysis_data_y, 'Pyrolysis Data CSV\n(pyrolysis_data.csv)', 
+            ha='center', va='center', fontsize=label_font)
+
+    # Arrow from Pyrolysis to Score Process (long jump)
+    arrow_pyrolysis = FancyArrowPatch((col1_x + file_box_width, pyrolysis_data_y), 
+                                     (col6_x, center_y + process_box_height/2),
+                                     arrowstyle='->', mutation_scale=15, linewidth=1.0, 
+                                     color=edge_color, connectionstyle="arc3,rad=-0.10", linestyle="--")
+    ax.add_patch(arrow_pyrolysis)
+
     boundaries_y = center_y - 4.5
     boundaries_box = FancyBboxPatch((col1_x, boundaries_y - file_box_height/2), file_box_width, file_box_height, 
                                     boxstyle="round,pad=0.1", 
                                     facecolor=file_color, edgecolor=edge_color, linewidth=1.5)
     ax.add_patch(boundaries_box)
-    ax.text(col1_x + file_box_width/2, boundaries_y, 'Municipality\nBoundaries\n(GPKG/SHP)', 
-            ha='center', va='center', fontsize=label_font)
-    
-    crop_data_y = boundaries_y - vertical_spacing
-    crop_data_box = FancyBboxPatch((col1_x, crop_data_y - file_box_height/2), file_box_width, file_box_height, 
-                                   boxstyle="round,pad=0.1", 
-                                   facecolor=file_color, edgecolor=edge_color, linewidth=1.5)
-    ax.add_patch(crop_data_box)
-    ax.text(col1_x + file_box_width/2, crop_data_y, 'Crop Area CSV\n(Brazil_Municipality_\nCrop_Area_2024.csv)', 
+    ax.text(col1_x + file_box_width/2, boundaries_y, 'Municipality\nBoundaries\n(BR_Municipios_*.shp)', 
             ha='center', va='center', fontsize=label_font)
     
     # Process in column 7
@@ -417,6 +426,14 @@ def create_data_flow_diagram() -> "matplotlib.figure.Figure":
                                   facecolor=process_color, edgecolor=edge_color, linewidth=1.5)
     ax.add_patch(map5_process)
     ax.text(col7_x + process_box_width/2, map5_y, 'build_investor_waste_deck\n(municipality_waste_map.py)', 
+            ha='center', va='center', fontsize=label_font)
+
+    crop_data_y = boundaries_y - vertical_spacing
+    crop_data_box = FancyBboxPatch((col1_x, crop_data_y - file_box_height/2), file_box_width, file_box_height, 
+                                   boxstyle="round,pad=0.1", 
+                                   facecolor=file_color, edgecolor=edge_color, linewidth=1.5)
+    ax.add_patch(crop_data_box)
+    ax.text(col1_x + file_box_width/2, crop_data_y, 'Crop Area CSV\n(Updated_municipality_\ncrop_production_data.csv)', 
             ha='center', va='center', fontsize=label_font)
     
     # Arrows from data sources to process
@@ -431,17 +448,48 @@ def create_data_flow_diagram() -> "matplotlib.figure.Figure":
                                  color=edge_color, connectionstyle="arc3,rad=0.2")
     ax.add_patch(arrow_map5b)
     
-    map5_output = FancyBboxPatch((col8_x, map5_y - file_box_height/2), file_box_width, file_box_height, 
+    # Output Maps for Investor (Area, Production, Residue)
+    # 1. Area (HTML file)
+    map5_area_y = map5_y + 1.2
+    map5_output_area = FancyBboxPatch((col8_x, map5_area_y - file_box_height/2), file_box_width, file_box_height, 
                                  boxstyle="round,pad=0.1", 
                                  facecolor=map_color, edgecolor='#7B1FA2', linewidth=2)
-    ax.add_patch(map5_output)
-    ax.text(col8_x + file_box_width/2, map5_y, 'investor_crop_area_map.html\n(Investor Crop Area)', 
+    ax.add_patch(map5_output_area)
+    ax.text(col8_x + file_box_width/2, map5_area_y, 'investor_crop_area_map.html\n(Crop Area)', 
             ha='center', va='center', fontsize=label_font, fontweight='bold')
     
     arrow_map5c = FancyArrowPatch((col7_x + process_box_width, map5_y), 
-                                 (col8_x, map5_y),
+                                 (col8_x, map5_area_y),
                                  arrowstyle='->', mutation_scale=15, linewidth=1.5, color=edge_color)
     ax.add_patch(arrow_map5c)
+
+    # 2. Production (Streamlit View)
+    map5_prod_y = map5_y
+    map5_output_prod = FancyBboxPatch((col8_x, map5_prod_y - file_box_height/2), file_box_width, file_box_height, 
+                                 boxstyle="round,pad=0.1", 
+                                 facecolor=map_color, edgecolor='#7B1FA2', linewidth=2, linestyle='--')
+    ax.add_patch(map5_output_prod)
+    ax.text(col8_x + file_box_width/2, map5_prod_y, 'Streamlit View\n(Crop Production)', 
+            ha='center', va='center', fontsize=label_font, fontweight='bold')
+    
+    arrow_map5d = FancyArrowPatch((col7_x + process_box_width, map5_y), 
+                                 (col8_x, map5_prod_y),
+                                 arrowstyle='->', mutation_scale=15, linewidth=1.5, color=edge_color)
+    ax.add_patch(arrow_map5d)
+
+    # 3. Residue (Streamlit View)
+    map5_res_y = map5_y - 1.2
+    map5_output_res = FancyBboxPatch((col8_x, map5_res_y - file_box_height/2), file_box_width, file_box_height, 
+                                 boxstyle="round,pad=0.1", 
+                                 facecolor=map_color, edgecolor='#7B1FA2', linewidth=2, linestyle='--')
+    ax.add_patch(map5_output_res)
+    ax.text(col8_x + file_box_width/2, map5_res_y, 'Streamlit View\n(Crop Residue)', 
+            ha='center', va='center', fontsize=label_font, fontweight='bold')
+    
+    arrow_map5e = FancyArrowPatch((col7_x + process_box_width, map5_y), 
+                                 (col8_x, map5_res_y),
+                                 arrowstyle='->', mutation_scale=15, linewidth=1.5, color=edge_color)
+    ax.add_patch(arrow_map5e)
     
     # ===================================================================
     # Additional annotations
@@ -454,7 +502,7 @@ def create_data_flow_diagram() -> "matplotlib.figure.Figure":
                               facecolor='#FFF9C4', edgecolor='#F9A825', linewidth=1.5)
     ax.add_patch(note_box)
     ax.text((col1_x + col8_x + file_box_width) / 2, note_y, 
-            'Note: SOC, pH, and Moisture maps are also copied as *_streamlit.html for Streamlit app', 
+            'Note: All maps are generated in the output/html directory for use by the Streamlit app.', 
             ha='center', va='center', fontsize=small_font, style='italic')
     
     # Output directory note
@@ -496,4 +544,3 @@ if __name__ == "__main__":
     print("  - Rounded boxes: Processes and functions")
     print("  - Green rounded boxes: Final map outputs")
     print("  - Arrows: Data flow direction")
-

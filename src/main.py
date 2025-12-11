@@ -230,7 +230,7 @@ def main() -> int:
     except Exception as e:
         print(f"Map error: {e}")
 
-    # Create SOC map (optional, can be skipped for faster processing)
+    # Create SOC map
     if not args.skip_maps:
         soc_map_path = output_dir / "soc_map_streamlit.html"
         try:
@@ -249,7 +249,7 @@ def main() -> int:
     else:
         print("Skipping SOC map (--skip-maps flag)")
 
-    # Create pH map (optional, can be skipped for faster processing)
+    # Create pH map
     if not args.skip_maps:
         ph_map_path = output_dir / "ph_map_streamlit.html"
         try:
@@ -268,7 +268,7 @@ def main() -> int:
     else:
         print("Skipping pH map (--skip-maps flag)")
 
-    # Create moisture map (optional, can be skipped for faster processing)
+    # Create moisture map
     if not args.skip_maps:
         moisture_map_path = output_dir / "moisture_map_streamlit.html"
         try:
@@ -287,7 +287,7 @@ def main() -> int:
     else:
         print("Skipping moisture map (--skip-maps flag)")
 
-    # Investor crop area map (municipality-level, optional)
+    # Investor crop area map (municipality-level)
     investor_map_path = output_dir / "investor_crop_area_map.html"
     if not args.skip_investor:
         # Flat structure: shapefile components and CSV are directly in data/
