@@ -252,6 +252,9 @@ with st.sidebar:
 # RUN ANALYSIS PIPELINE (ON DEMAND)
 # ============================================================
 if run_btn:
+    # Clear old cached maps and data when starting new analysis
+    # Clear all cached data to ensure fresh maps are loaded for new analysis
+    st.cache_data.clear()
     st.session_state.analysis_results = None
     if st.session_state.analysis_running:
         st.warning("Analysis already running. Please wait…")
@@ -316,7 +319,16 @@ if run_btn:
             "ph": str(PROJECT_ROOT / config["output"]["html"] / "ph_map_streamlit.html"),
             "moisture": str(PROJECT_ROOT / config["output"]["html"] / "moisture_map_streamlit.html"),
         }
-        st.session_state.analysis_results = {"csv_path": str(csv_path), "map_paths": map_paths}
+        # Add timestamp to track when analysis was run, and clear cache to ensure fresh data is loaded
+        analysis_timestamp = time.time()
+        st.session_state.analysis_results = {
+            "csv_path": str(csv_path), 
+            "map_paths": map_paths,
+            "timestamp": analysis_timestamp
+        }
+        # Clear cache to ensure new maps are loaded, not old cached ones
+        # Use general cache clear since functions are defined later in file
+        st.cache_data.clear()
         st.success("Analysis completed successfully!")
     except Exception as e:
         st.error("Pipeline crashed.")
@@ -335,26 +347,28 @@ def _get_file_mtime(p: str) -> float:
     return path.stat().st_mtime if path.exists() else 0
 
 @st.cache_data(ttl=3600, show_spinner=False)
-def load_results_csv(p: str, _mtime: float = 0) -> pd.DataFrame:
+def load_results_csv(p: str, _mtime: float = 0, _analysis_timestamp: float = 0) -> pd.DataFrame:
     """
-    Load analysis results from CSV file. Cache invalidates when file changes.
+    Load analysis results from CSV file. Cache invalidates when file changes or analysis timestamp changes.
     
     Args:
         p: Path to CSV file.
         _mtime: File modification time (for cache invalidation).
+        _analysis_timestamp: Timestamp of when analysis was run (for cache invalidation).
     Returns:
         pd.DataFrame: Loaded data.
     """
     return pd.read_csv(p)
 
 @st.cache_data(ttl=3600, show_spinner=False)
-def load_html_map(p: str, _mtime: float = 0) -> Optional[str]:
+def load_html_map(p: str, _mtime: float = 0, _analysis_timestamp: float = 0) -> Optional[str]:
     """
-    Load HTML map content from file. Cache invalidates when file changes.
+    Load HTML map content from file. Cache invalidates when file changes or analysis timestamp changes.
     
     Args:
         p: Path to HTML file.
         _mtime: File modification time (for cache invalidation).
+        _analysis_timestamp: Timestamp of when analysis was run (for cache invalidation).
     Returns:
         str | None: HTML content or None if file doesn't exist.
     """
@@ -370,7 +384,8 @@ if st.session_state.get("analysis_results"):
     analysis_results = st.session_state.analysis_results
     if "csv_path" in analysis_results and "map_paths" in analysis_results:
         csv_path = Path(analysis_results["csv_path"])
-        df = load_results_csv(str(csv_path), _mtime=_get_file_mtime(str(csv_path)))
+        analysis_timestamp = analysis_results.get("timestamp", 0)
+        df = load_results_csv(str(csv_path), _mtime=_get_file_mtime(str(csv_path)), _analysis_timestamp=analysis_timestamp)
         map_paths = analysis_results["map_paths"]
     else:
         # Invalid analysis_results structure, reset it
@@ -379,6 +394,8 @@ if st.session_state.get("analysis_results"):
 elif not st.session_state.get("analysis_running") and not st.session_state.get("existing_results_checked", False):
     potential_csv = PROJECT_ROOT / config["data"]["processed"] / "suitability_scores.csv"
     if potential_csv.exists() and Path(PROJECT_ROOT / config["output"]["html"] / "suitability_map.html").exists():
+        # Use file mtime as timestamp for existing results
+        existing_timestamp = _get_file_mtime(str(potential_csv))
         st.session_state.analysis_results = {
             "csv_path": str(potential_csv),
             "map_paths": {
@@ -386,10 +403,11 @@ elif not st.session_state.get("analysis_running") and not st.session_state.get("
                 "soc": str(PROJECT_ROOT / config["output"]["html"] / "soc_map_streamlit.html"),
                 "ph": str(PROJECT_ROOT / config["output"]["html"] / "ph_map_streamlit.html"),
                 "moisture": str(PROJECT_ROOT / config["output"]["html"] / "moisture_map_streamlit.html"),
-            }
+            },
+            "timestamp": existing_timestamp
         }
         csv_path = potential_csv
-        df = load_results_csv(str(csv_path), _mtime=_get_file_mtime(str(csv_path)))
+        df = load_results_csv(str(csv_path), _mtime=_get_file_mtime(str(csv_path)), _analysis_timestamp=existing_timestamp)
         map_paths = st.session_state.analysis_results["map_paths"]
     st.session_state["existing_results_checked"] = True
 
@@ -638,8 +656,12 @@ if st.session_state.active_tab == "farmer":
         tab1, tab2, tab3, tab4, rec_tab = st.tabs(["Biochar Suitability", "Soil Organic Carbon", "Soil pH", "Soil Moisture", "Top 10 Recommendations"])
 
         def load_map(path):
-            """Load and display HTML map. Cache invalidates when file changes."""
-            html_content = load_html_map(path, _mtime=_get_file_mtime(path))
+            """Load and display HTML map. Cache invalidates when file changes or analysis timestamp changes."""
+            # Get analysis timestamp from session state to ensure cache invalidation for new analyses
+            analysis_timestamp = 0
+            if st.session_state.get("analysis_results") and "timestamp" in st.session_state.analysis_results:
+                analysis_timestamp = st.session_state.analysis_results["timestamp"]
+            html_content = load_html_map(path, _mtime=_get_file_mtime(path), _analysis_timestamp=analysis_timestamp)
             if html_content:
                 st.components.v1.html(html_content, height=720, scrolling=False)
             else:
