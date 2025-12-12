@@ -176,6 +176,16 @@ st.markdown("""
     body, html, .stApp, div, span, p, h1, h2, h3, h4, h5, h6 {color: #000 !important;}
     section[data-testid="stSidebar"] {background-color: #173a30 !important;}
     section[data-testid="stSidebar"] * {color: white !important;}
+    /* Style Streamlit's default sidebar toggle button to have white font/icon */
+    button[data-testid="baseButton-header"] {color: white !important;}
+    button[data-testid="baseButton-header"] svg {color: white !important; fill: white !important; stroke: white !important;}
+    [data-testid="stHeader"] button[aria-label*="sidebar"], [data-testid="stHeader"] button[aria-label*="menu"] {color: white !important;}
+    [data-testid="stHeader"] button[aria-label*="sidebar"] svg, [data-testid="stHeader"] button[aria-label*="menu"] svg {color: white !important; fill: white !important; stroke: white !important;}
+    [data-testid="stHeader"] button svg {color: white !important; fill: white !important; stroke: white !important;}
+    [data-testid="stHeader"] button {color: white !important;}
+    /* Target the hamburger menu icon specifically */
+    [data-testid="stHeader"] button[title*="sidebar"], [data-testid="stHeader"] button[title*="menu"] {color: white !important;}
+    [data-testid="stHeader"] button[title*="sidebar"] svg, [data-testid="stHeader"] button[title*="menu"] svg {fill: white !important; stroke: white !important; color: white !important;}
     .header-title {font-size: 3.4rem; font-weight: 700; text-align: center; color: #173a30; margin: 2rem 0 0.5rem;}
     .header-subtitle {text-align: center; color: #444444; font-size: 1.3rem; margin-bottom: 3rem;}
     .stButton > button {background-color: #64955d !important; color: white !important; border-radius: 999px; font-weight: 600; height: 3.2em;}
