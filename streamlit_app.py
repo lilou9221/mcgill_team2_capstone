@@ -527,14 +527,25 @@ elif not st.session_state.get("analysis_running") and not st.session_state.get("
         map_paths = st.session_state.analysis_results["map_paths"]
     st.session_state["existing_results_checked"] = True
 
-# Create tabs - Streamlit maintains tab state automatically
-# Tabs are always created to prevent tab resets on reruns
-farmer_tab, investor_tab = st.tabs(["Farmer Perspective", "Investor Perspective"])
+# Initialize active tab in session state
+if "active_tab" not in st.session_state:
+    st.session_state.active_tab = "farmer"
+
+# Custom tab buttons to prevent tab resets when radio buttons are clicked
+col1, col2 = st.columns(2)
+with col1:
+    if st.button("Farmer Perspective", use_container_width=True, type="primary" if st.session_state.active_tab == "farmer" else "secondary"):
+        st.session_state.active_tab = "farmer"
+        st.rerun()
+with col2:
+    if st.button("Investor Perspective", use_container_width=True, type="primary" if st.session_state.active_tab == "investor" else "secondary"):
+        st.session_state.active_tab = "investor"
+        st.rerun()
 
 # ========================================================
 # FARMER TAB
 # ========================================================
-with farmer_tab:
+if st.session_state.active_tab == "farmer":
     # === OPTIMISING TOOL – CROP RESIDUE & BIOCHAR POTENTIAL (at top) ===
     st.markdown("### Optimising Tool – Crop Residue & Biochar Potential (Mato Grosso only)")
 
@@ -960,7 +971,7 @@ with farmer_tab:
 # ========================================================
 # INVESTOR TAB - Independent feature, loads automatically
 # ========================================================
-with investor_tab:
+elif st.session_state.active_tab == "investor":
     st.markdown("### Crop Residue Availability – Biochar Feedstock Opportunity")
 
     # Flat structure: shapefile components and CSV are directly in data/
