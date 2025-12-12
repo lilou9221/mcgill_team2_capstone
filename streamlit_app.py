@@ -174,16 +174,17 @@ st.markdown("""
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
     html, body, .stApp {font-family: 'Inter', sans-serif; background-color: #FFFFFF !important; color: #000 !important;}
     body, html, .stApp, div, span, p, h1, h2, h3, h4, h5, h6 {color: #000 !important;}
-    /* Exclude header buttons from black color rule */
-    [data-testid="stHeader"] button, [data-testid="stHeader"] button * {color: white !important;}
-    section[data-testid="stSidebar"] {background-color: #173a30 !important;}
-    section[data-testid="stSidebar"] * {color: white !important;}
-    /* Header buttons should be white (sidebar toggle) */
-    [data-testid="stHeader"] button svg {
+    /* Exclude header buttons from black color rule - applies in all states (sidebar open/closed) */
+    [data-testid="stHeader"] button, 
+    [data-testid="stHeader"] button *,
+    [data-testid="stHeader"] button svg,
+    [data-testid="stHeader"] button svg * {
+        color: white !important;
         fill: white !important;
         stroke: white !important;
-        color: white !important;
     }
+    section[data-testid="stSidebar"] {background-color: #173a30 !important;}
+    section[data-testid="stSidebar"] * {color: white !important;}
     .header-title {font-size: 3.4rem; font-weight: 700; text-align: center; color: #173a30; margin: 2rem 0 0.5rem;}
     .header-subtitle {text-align: center; color: #444444; font-size: 1.3rem; margin-bottom: 3rem;}
     .stButton > button {background-color: #64955d !important; color: white !important; border-radius: 999px; font-weight: 600; height: 3.2em;}
