@@ -175,6 +175,7 @@ st.markdown("""
     html, body, .stApp {font-family: 'Inter', sans-serif; background-color: #FFFFFF !important; color: #000 !important;}
     body, html, .stApp, div, span, p, h1, h2, h3, h4, h5, h6 {color: #000 !important;}
     /* Exclude header buttons from black color rule - applies in all states (sidebar open/closed) */
+    /* Make sidebar toggle button always visible and white */
     [data-testid="stHeader"] button, 
     [data-testid="stHeader"] button *,
     [data-testid="stHeader"] button svg,
@@ -182,6 +183,23 @@ st.markdown("""
         color: white !important;
         fill: white !important;
         stroke: white !important;
+        opacity: 1 !important;
+        visibility: visible !important;
+        display: block !important;
+    }
+    /* Ensure the first button (sidebar toggle) is always visible */
+    [data-testid="stHeader"] button:first-child {
+        opacity: 1 !important;
+        visibility: visible !important;
+        display: block !important;
+        pointer-events: auto !important;
+    }
+    /* Override any hover states that might hide the button */
+    [data-testid="stHeader"] button:hover,
+    [data-testid="stHeader"] button:focus,
+    [data-testid="stHeader"] button:active {
+        opacity: 1 !important;
+        visibility: visible !important;
     }
     section[data-testid="stSidebar"] {background-color: #173a30 !important;}
     section[data-testid="stSidebar"] * {color: white !important;}
