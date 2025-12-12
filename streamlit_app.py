@@ -175,7 +175,6 @@ st.markdown("""
     html, body, .stApp {font-family: 'Inter', sans-serif; background-color: #FFFFFF !important; color: #000 !important;}
     body, html, .stApp, div, span, p, h1, h2, h3, h4, h5, h6 {color: #000 !important;}
     /* Exclude header buttons from black color rule - applies in all states (sidebar open/closed) */
-    /* Make sidebar toggle button always visible and white */
     [data-testid="stHeader"] button, 
     [data-testid="stHeader"] button *,
     [data-testid="stHeader"] button svg,
@@ -183,26 +182,23 @@ st.markdown("""
         color: white !important;
         fill: white !important;
         stroke: white !important;
-        opacity: 1 !important;
-        visibility: visible !important;
-        display: block !important;
-    }
-    /* Ensure the first button (sidebar toggle) is always visible */
-    [data-testid="stHeader"] button:first-child {
-        opacity: 1 !important;
-        visibility: visible !important;
-        display: block !important;
-        pointer-events: auto !important;
-    }
-    /* Override any hover states that might hide the button */
-    [data-testid="stHeader"] button:hover,
-    [data-testid="stHeader"] button:focus,
-    [data-testid="stHeader"] button:active {
-        opacity: 1 !important;
-        visibility: visible !important;
     }
     section[data-testid="stSidebar"] {background-color: #173a30 !important;}
     section[data-testid="stSidebar"] * {color: white !important;}
+    /* Define sidebar toggle button as white - it's part of the sidebar UI definition */
+    [data-testid="stHeader"] button[data-testid="baseButton-header"],
+    [data-testid="stHeader"] > div:first-child button,
+    [data-testid="stHeader"] button:first-of-type {
+        color: white;
+    }
+    [data-testid="stHeader"] button[data-testid="baseButton-header"] svg,
+    [data-testid="stHeader"] > div:first-child button svg,
+    [data-testid="stHeader"] button:first-of-type svg,
+    [data-testid="stHeader"] button:first-of-type svg * {
+        fill: white;
+        stroke: white;
+        color: white;
+    }
     .header-title {font-size: 3.4rem; font-weight: 700; text-align: center; color: #173a30; margin: 2rem 0 0.5rem;}
     .header-subtitle {text-align: center; color: #444444; font-size: 1.3rem; margin-bottom: 3rem;}
     .stButton > button {background-color: #64955d !important; color: white !important; border-radius: 999px; font-weight: 600; height: 3.2em;}
@@ -354,7 +350,6 @@ st.markdown("""
             isFormInteraction = false;
         }
     }, true);
-    
 })();
 </script>
 """, unsafe_allow_html=True)
