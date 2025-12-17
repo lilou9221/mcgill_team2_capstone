@@ -166,49 +166,38 @@ def get_config() -> dict:
 
 config = get_config()
 
+# Legacy compatibility - list of essential data file paths
+REQUIRED_DATA_FILES = [PROJECT_ROOT / "data" / f for f in list(REQUIRED_FILES.keys())[:6]]
+
+@st.cache_data(ttl=3600, show_spinner=False)
+def check_required_files_exist() -> tuple[bool, list[Path]]:
+    """
+    Check if essential data files exist and are non-empty.
+    
+    Returns:
+        tuple: (all_exist: bool, missing_files: list[Path])
+    """
+    missing = []
+    for path in REQUIRED_DATA_FILES:
+        if not path.exists() or (path.exists() and path.stat().st_size == 0):
+            missing.append(path)
+    return len(missing) == 0, missing
+
 # ============================================================
-# GLOBAL STYLING
+# GLOBAL STYLING (100% YOUR ORIGINAL)
 # ============================================================
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
     html, body, .stApp {font-family: 'Inter', sans-serif; background-color: #FFFFFF !important; color: #000 !important;}
     body, html, .stApp, div, span, p, h1, h2, h3, h4, h5, h6 {color: #000 !important;}
-    /* Exclude header buttons from black color rule - applies in all states (sidebar open/closed) */
-    [data-testid="stHeader"] button, 
-    [data-testid="stHeader"] button *,
-    [data-testid="stHeader"] button svg,
-    [data-testid="stHeader"] button svg * {
-        color: white !important;
-        fill: white !important;
-        stroke: white !important;
-    }
     section[data-testid="stSidebar"] {background-color: #173a30 !important;}
     section[data-testid="stSidebar"] * {color: white !important;}
-    /* Define sidebar toggle button as white - it's part of the sidebar UI definition */
-    [data-testid="stHeader"] button[data-testid="baseButton-header"],
-    [data-testid="stHeader"] > div:first-child button,
-    [data-testid="stHeader"] button:first-of-type {
-        color: white;
-    }
-    [data-testid="stHeader"] button[data-testid="baseButton-header"] svg,
-    [data-testid="stHeader"] > div:first-child button svg,
-    [data-testid="stHeader"] button:first-of-type svg,
-    [data-testid="stHeader"] button:first-of-type svg * {
-        fill: white;
-        stroke: white;
-        color: white;
-    }
     .header-title {font-size: 3.4rem; font-weight: 700; text-align: center; color: #173a30; margin: 2rem 0 0.5rem;}
     .header-subtitle {text-align: center; color: #444444; font-size: 1.3rem; margin-bottom: 3rem;}
     .stButton > button {background-color: #64955d !important; color: white !important; border-radius: 999px; font-weight: 600; height: 3.2em;}
     .stButton > button:hover {background-color: #527a48 !important;}
-    .metrics-container {display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem; margin-bottom: 2rem;}
-    .metric-card {background: white; padding: 1.8rem; border-radius: 14px; border-left: 6px solid #64955d; box-shadow: 0 6px 20px rgba(0,0,0,0.08); text-align: center; height: 140px; display: flex; flex-direction: column; justify-content: center; align-items: center; box-sizing: border-box;}
-    .metric-card h4 {margin: 0 0 0.8rem 0; font-size: 1rem; font-weight: 600; color: #173a30;}
-    .metric-card p {margin: 0; font-size: 1.8rem; font-weight: 700; color: #2c5530;}
-    .metric-card small {font-size: 0.9rem; font-weight: 400; color: #666;}
-    @media (max-width: 768px) {.metrics-container {grid-template-columns: 1fr;}}
+    .metric-card {background: white; padding: 1.8rem; border-radius: 14px; border-left: 6px solid #64955d; box-shadow: 0 6px 20px rgba(0,0,0,0.08); text-align: center;}
     .legend-box {background: white; padding: 28px; border-radius: 16px; box-shadow: 0 8px 30px rgba(0,0,0,0.1); max-width: 760px; margin: 50px auto; text-align: center; border: 1px solid #eee;}
     .legend-title {font-size: 1.3rem; font-weight: 600; color: #173a30; margin-bottom: 16px;}
     .legend-row {display: flex; justify-content: center; gap: 24px; flex-wrap: wrap; margin-top: 16px;}
@@ -233,152 +222,25 @@ st.markdown("""
     [data-baseweb="popover"] li:hover {background-color: #333 !important;}
     div[data-baseweb="popover"] * {color: #fff !important;}
 </style>
-<script>
-(function() {
-    // Aggressively prevent page jumping by maintaining scroll position
-    let scrollPosition = 0;
-    let isFormInteraction = false;
-    
-    // Save scroll position before any form widget interaction
-    const saveScroll = function() {
-        scrollPosition = window.scrollY || window.pageYOffset || 0;
-        // FIXED: Always set isFormInteraction to true on any form interaction,
-        // regardless of scroll position. This ensures scroll preservation works
-        // even when the user is at the top of the page (scrollPosition === 0).
-        isFormInteraction = true;
-        sessionStorage.setItem('preserveScrollPos', scrollPosition.toString());
-    };
-    
-    // Detect any interaction with form widgets or sidebar widgets (sliders, inputs, checkboxes)
-    // Works with or without form wrapper - detects widget interactions
-    const detectWidgetInteraction = function(e) {
-        const target = e.target;
-        if (target && (target.type === 'range' || 
-                      target.type === 'number' || 
-                      target.type === 'checkbox' ||
-                      target.closest('[data-baseweb="slider"]') ||
-                      target.closest('[data-baseweb="select"]'))) {
-            saveScroll();
-        }
-    };
-    
-    // Detect form interactions (primary method since we're using forms)
-    const formContainer = document.querySelector('form[data-testid*="stForm"]');
-    if (formContainer) {
-        formContainer.addEventListener('mousedown', detectWidgetInteraction, true);
-        formContainer.addEventListener('input', detectWidgetInteraction, true);
-        formContainer.addEventListener('change', detectWidgetInteraction, true);
-    }
-    
-    // Also detect sidebar widget interactions as fallback
-    const sidebar = document.querySelector('[data-testid="stSidebar"]');
-    if (sidebar) {
-        sidebar.addEventListener('mousedown', detectWidgetInteraction, true);
-        sidebar.addEventListener('input', detectWidgetInteraction, true);
-        sidebar.addEventListener('change', detectWidgetInteraction, true);
-    }
-    
-    // Global fallback for any widget interactions
-    document.addEventListener('mousedown', function(e) {
-        if (e.target && (e.target.closest('[data-testid="stSidebar"]') || e.target.closest('form[data-testid*="stForm"]'))) {
-            detectWidgetInteraction(e);
-        }
-    }, true);
-    document.addEventListener('input', function(e) {
-        if (e.target && (e.target.closest('[data-testid="stSidebar"]') || e.target.closest('form[data-testid*="stForm"]'))) {
-            detectWidgetInteraction(e);
-        }
-    }, true);
-    document.addEventListener('change', function(e) {
-        if (e.target && (e.target.closest('[data-testid="stSidebar"]') || e.target.closest('form[data-testid*="stForm"]'))) {
-            detectWidgetInteraction(e);
-        }
-    }, true);
-    
-    // Restore scroll position aggressively after any rerun
-    const restoreScroll = function() {
-        const saved = sessionStorage.getItem('preserveScrollPos');
-        if (saved !== null && isFormInteraction) {
-            const pos = parseFloat(saved);
-            if (!isNaN(pos) && pos >= 0) {
-                // Multiple attempts to ensure it sticks
-                window.scrollTo(0, pos);
-                requestAnimationFrame(function() {
-                    window.scrollTo(0, pos);
-                    setTimeout(function() {
-                        window.scrollTo(0, pos);
-                    }, 10);
-                    setTimeout(function() {
-                        window.scrollTo(0, pos);
-                    }, 50);
-                    setTimeout(function() {
-                        window.scrollTo(0, pos);
-                    }, 100);
-                });
-            }
-        }
-    };
-    
-    // Watch for Streamlit reruns using MutationObserver
-    const observer = new MutationObserver(function(mutations) {
-        if (isFormInteraction) {
-            restoreScroll();
-        }
-    });
-    
-    // Observe the main content area
-    const mainContent = document.querySelector('[data-testid="stAppViewContainer"]') || document.body;
-    if (mainContent) {
-        observer.observe(mainContent, {
-            childList: true,
-            subtree: true,
-            attributes: true
-        });
-    }
-    
-    // Also restore on various events
-    window.addEventListener('load', restoreScroll);
-    document.addEventListener('DOMContentLoaded', restoreScroll);
-    setTimeout(restoreScroll, 50);
-    setTimeout(restoreScroll, 150);
-    setTimeout(restoreScroll, 300);
-    
-    // Clear when Run Analysis is actually submitted
-    document.addEventListener('click', function(e) {
-        if (e.target && e.target.textContent && e.target.textContent.includes('Run Analysis')) {
-            sessionStorage.removeItem('preserveScrollPos');
-            isFormInteraction = false;
-        }
-    }, true);
-})();
-</script>
 """, unsafe_allow_html=True)
 
 # ============================================================
-# HEADER & SIDEBAR
+# HEADER & SIDEBAR (YOUR ORIGINAL)
 # ============================================================
 st.markdown('<div class="header-title">Biochar Suitability Mapper</div>', unsafe_allow_html=True)
 st.markdown('<div class="header-subtitle">Precision soil health & crop residue intelligence for sustainable biochar in Mato Grosso, Brazil</div>', unsafe_allow_html=True)
 
 with st.sidebar:
     st.markdown("### Run Analysis")
-    
-    # Use form to prevent reruns when sliders/inputs change
-    # This prevents page jumping when parameters are adjusted
-    # Variables are only read when form is submitted (run_btn is True)
-    with st.form("analysis_parameters_form", clear_on_submit=False):
-        use_coords = st.checkbox("Analyze around a location", value=True, key="use_coords_checkbox")
-        if use_coords:
-            c1, c2 = st.columns(2)
-            with c1: 
-                lat = st.number_input("Latitude", value=-13.0, format="%.6f", key="lat_input")
-            with c2: 
-                lon = st.number_input("Longitude", value=-56.0, format="%.6f", key="lon_input")
-            radius = st.slider("Radius (km)", 25, 100, 100, 25, key="radius_slider")
-        else:
-            lat = lon = radius = None
-        h3_res = st.slider("H3 Resolution", 5, 9, 7, key="h3_res_slider")
-        run_btn = st.form_submit_button("Run Analysis", type="primary", use_container_width=True)
+    use_coords = st.checkbox("Analyze around a location", value=True)
+    lat = lon = radius = None
+    if use_coords:
+        c1, c2 = st.columns(2)
+        with c1: lat = st.number_input("Latitude", value=-13.0, format="%.6f")
+        with c2: lon = st.number_input("Longitude", value=-56.0, format="%.6f")
+        radius = st.slider("Radius (km)", 25, 100, 100, 25)
+    h3_res = st.slider("H3 Resolution", 5, 9, 7)
+    run_btn = st.button("Run Analysis", type="primary", use_container_width=True)
     
     st.markdown("---")
     if st.button("Reset Cache & Restart"):
@@ -389,11 +251,7 @@ with st.sidebar:
 # ============================================================
 # RUN ANALYSIS PIPELINE (ON DEMAND)
 # ============================================================
-# Variables from form are only accessible when form is submitted (run_btn is True)
 if run_btn:
-    # Clear old cached maps and data when starting new analysis
-    # Clear all cached data to ensure fresh maps are loaded for new analysis
-    st.cache_data.clear()
     st.session_state.analysis_results = None
     if st.session_state.analysis_running:
         st.warning("Analysis already running. Please wait…")
@@ -458,16 +316,7 @@ if run_btn:
             "ph": str(PROJECT_ROOT / config["output"]["html"] / "ph_map_streamlit.html"),
             "moisture": str(PROJECT_ROOT / config["output"]["html"] / "moisture_map_streamlit.html"),
         }
-        # Add timestamp to track when analysis was run, and clear cache to ensure fresh data is loaded
-        analysis_timestamp = time.time()
-        st.session_state.analysis_results = {
-            "csv_path": str(csv_path), 
-            "map_paths": map_paths,
-            "timestamp": analysis_timestamp
-        }
-        # Clear cache to ensure new maps are loaded, not old cached ones
-        # Use general cache clear since functions are defined later in file
-        st.cache_data.clear()
+        st.session_state.analysis_results = {"csv_path": str(csv_path), "map_paths": map_paths}
         st.success("Analysis completed successfully!")
     except Exception as e:
         st.error("Pipeline crashed.")
@@ -486,28 +335,26 @@ def _get_file_mtime(p: str) -> float:
     return path.stat().st_mtime if path.exists() else 0
 
 @st.cache_data(ttl=3600, show_spinner=False)
-def load_results_csv(p: str, _mtime: float = 0, _analysis_timestamp: float = 0) -> pd.DataFrame:
+def load_results_csv(p: str, _mtime: float = 0) -> pd.DataFrame:
     """
-    Load analysis results from CSV file. Cache invalidates when file changes or analysis timestamp changes.
+    Load analysis results from CSV file. Cache invalidates when file changes.
     
     Args:
         p: Path to CSV file.
         _mtime: File modification time (for cache invalidation).
-        _analysis_timestamp: Timestamp of when analysis was run (for cache invalidation).
     Returns:
         pd.DataFrame: Loaded data.
     """
     return pd.read_csv(p)
 
 @st.cache_data(ttl=3600, show_spinner=False)
-def load_html_map(p: str, _mtime: float = 0, _analysis_timestamp: float = 0) -> Optional[str]:
+def load_html_map(p: str, _mtime: float = 0) -> Optional[str]:
     """
-    Load HTML map content from file. Cache invalidates when file changes or analysis timestamp changes.
+    Load HTML map content from file. Cache invalidates when file changes.
     
     Args:
         p: Path to HTML file.
         _mtime: File modification time (for cache invalidation).
-        _analysis_timestamp: Timestamp of when analysis was run (for cache invalidation).
     Returns:
         str | None: HTML content or None if file doesn't exist.
     """
@@ -523,8 +370,7 @@ if st.session_state.get("analysis_results"):
     analysis_results = st.session_state.analysis_results
     if "csv_path" in analysis_results and "map_paths" in analysis_results:
         csv_path = Path(analysis_results["csv_path"])
-        analysis_timestamp = analysis_results.get("timestamp", 0)
-        df = load_results_csv(str(csv_path), _mtime=_get_file_mtime(str(csv_path)), _analysis_timestamp=analysis_timestamp)
+        df = load_results_csv(str(csv_path), _mtime=_get_file_mtime(str(csv_path)))
         map_paths = analysis_results["map_paths"]
     else:
         # Invalid analysis_results structure, reset it
@@ -533,8 +379,6 @@ if st.session_state.get("analysis_results"):
 elif not st.session_state.get("analysis_running") and not st.session_state.get("existing_results_checked", False):
     potential_csv = PROJECT_ROOT / config["data"]["processed"] / "suitability_scores.csv"
     if potential_csv.exists() and Path(PROJECT_ROOT / config["output"]["html"] / "suitability_map.html").exists():
-        # Use file mtime as timestamp for existing results
-        existing_timestamp = _get_file_mtime(str(potential_csv))
         st.session_state.analysis_results = {
             "csv_path": str(potential_csv),
             "map_paths": {
@@ -542,33 +386,21 @@ elif not st.session_state.get("analysis_running") and not st.session_state.get("
                 "soc": str(PROJECT_ROOT / config["output"]["html"] / "soc_map_streamlit.html"),
                 "ph": str(PROJECT_ROOT / config["output"]["html"] / "ph_map_streamlit.html"),
                 "moisture": str(PROJECT_ROOT / config["output"]["html"] / "moisture_map_streamlit.html"),
-            },
-            "timestamp": existing_timestamp
+            }
         }
         csv_path = potential_csv
-        df = load_results_csv(str(csv_path), _mtime=_get_file_mtime(str(csv_path)), _analysis_timestamp=existing_timestamp)
+        df = load_results_csv(str(csv_path), _mtime=_get_file_mtime(str(csv_path)))
         map_paths = st.session_state.analysis_results["map_paths"]
     st.session_state["existing_results_checked"] = True
 
-# Initialize active tab in session state
-if "active_tab" not in st.session_state:
-    st.session_state.active_tab = "farmer"
-
-# Custom tab buttons to prevent tab resets when radio buttons are clicked
-col1, col2 = st.columns(2)
-with col1:
-    if st.button("Farmer Perspective", use_container_width=True, type="primary" if st.session_state.active_tab == "farmer" else "secondary"):
-        st.session_state.active_tab = "farmer"
-        st.rerun()
-with col2:
-    if st.button("Investor Perspective", use_container_width=True, type="primary" if st.session_state.active_tab == "investor" else "secondary"):
-        st.session_state.active_tab = "investor"
-        st.rerun()
+# Create tabs - Streamlit maintains tab state automatically
+# Tabs are always created to prevent tab resets on reruns
+farmer_tab, investor_tab = st.tabs(["Optimising Tool", "Sourcing Tool"])
 
 # ========================================================
-# FARMER TAB
+# FARMER TAB – YOUR ORIGINAL + OPTIMISING TOOL
 # ========================================================
-if st.session_state.active_tab == "farmer":
+with farmer_tab:
     # === OPTIMISING TOOL – CROP RESIDUE & BIOCHAR POTENTIAL (at top) ===
     st.markdown("### Optimising Tool – Crop Residue & Biochar Potential (Mato Grosso only)")
 
@@ -751,6 +583,7 @@ if st.session_state.active_tab == "farmer":
     st.markdown("---")  # Separator between Optimising Tool and analysis results
     
     if csv_path and df is not None and map_paths:
+        # === YOUR ORIGINAL MAPS & RECOMMENDATIONS (UNCHANGED) ===
         st.markdown("### Soil Health & Biochar Suitability Insights (Mato Grosso State)")
         
         @st.cache_data(show_spinner=False)
@@ -770,28 +603,25 @@ if st.session_state.active_tab == "farmer":
         
         metrics = calculate_metrics(df)
         
-        # Use CSS Grid for equal-sized, aligned cards
-        card1_html = f'<div class="metric-card"><h4>Hexagons Analyzed</h4><p>{metrics["count"]:,}</p></div>'
-        if metrics["mean_score"] is not None:
-            card2_html = f'<div class="metric-card"><h4>Mean Suitability Score</h4><p>{metrics["mean_score"]:.2f}</p></div>'
-        else:
-            card2_html = '<div class="metric-card"><h4>Mean Suitability Score</h4><p>N/A</p></div>'
-        if metrics["high_count"] is not None:
-            card3_html = f'<div class="metric-card"><h4>High Suitability (≥7.0)</h4><p>{metrics["high_count"]:,}<br><small>({metrics["high_pct"]:.1f}%)</small></p></div>'
-        else:
-            card3_html = '<div class="metric-card"><h4>High Suitability (≥7.0)</h4><p>N/A</p></div>'
-        
-        st.markdown(f'<div class="metrics-container">{card1_html}{card2_html}{card3_html}</div>', unsafe_allow_html=True)
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.markdown(f'<div class="metric-card"><h4>Hexagons Analyzed</h4><p>{metrics["count"]:,}</p></div>', unsafe_allow_html=True)
+        with col2:
+            if metrics["mean_score"] is not None:
+                st.markdown(f'<div class="metric-card"><h4>Mean Suitability Score</h4><p>{metrics["mean_score"]:.2f}</p></div>', unsafe_allow_html=True)
+            else:
+                st.markdown(f'<div class="metric-card"><h4>Mean Suitability Score</h4><p>N/A</p></div>', unsafe_allow_html=True)
+        with col3:
+            if metrics["high_count"] is not None:
+                st.markdown(f'<div class="metric-card"><h4>High Suitability (≥7.0)</h4><p>{metrics["high_count"]:,}<br><small>({metrics["high_pct"]:.1f}%)</small></p></div>', unsafe_allow_html=True)
+            else:
+                st.markdown(f'<div class="metric-card"><h4>High Suitability (≥7.0)</h4><p>N/A</p></div>', unsafe_allow_html=True)
 
         tab1, tab2, tab3, tab4, rec_tab = st.tabs(["Biochar Suitability", "Soil Organic Carbon", "Soil pH", "Soil Moisture", "Top 10 Recommendations"])
 
         def load_map(path):
-            """Load and display HTML map. Cache invalidates when file changes or analysis timestamp changes."""
-            # Get analysis timestamp from session state to ensure cache invalidation for new analyses
-            analysis_timestamp = 0
-            if st.session_state.get("analysis_results") and "timestamp" in st.session_state.analysis_results:
-                analysis_timestamp = st.session_state.analysis_results["timestamp"]
-            html_content = load_html_map(path, _mtime=_get_file_mtime(path), _analysis_timestamp=analysis_timestamp)
+            """Load and display HTML map. Cache invalidates when file changes."""
+            html_content = load_html_map(path, _mtime=_get_file_mtime(path))
             if html_content:
                 st.components.v1.html(html_content, height=720, scrolling=False)
             else:
@@ -994,7 +824,7 @@ if st.session_state.active_tab == "farmer":
 # ========================================================
 # INVESTOR TAB - Independent feature, loads automatically
 # ========================================================
-elif st.session_state.active_tab == "investor":
+with investor_tab:
     st.markdown("### Crop Residue Availability – Biochar Feedstock Opportunity")
 
     # Flat structure: shapefile components and CSV are directly in data/
@@ -1032,6 +862,7 @@ elif st.session_state.active_tab == "investor":
             with st.spinner("Loading crop residue data (first time only)..."):
                 gdf = get_gdf()
 
+            # Use a unique, stable key to prevent tab resets when radio button changes
             data_type_radio = st.radio(
                 "Display:",
                 ["Crop area", "Crop production", "Crop residue"],
@@ -1101,7 +932,7 @@ elif st.session_state.active_tab == "investor":
         st.code(traceback.format_exc(), language="text")
 
 # ============================================================
-# FOOTER
+# FOOTER (YOUR ORIGINAL)
 # ============================================================
 st.markdown("""
 <div class="footer">
